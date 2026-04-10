@@ -565,3 +565,358 @@ import type {
 - Mantener compatibilidad con el resto de la app (historial, dashboard, etc.)
 - El formulario debe seguir llamando a `onGuardar(compra: CompraEditable)`
 - Respetar el patron de estado con `useState` que ya usa la app
+
+---
+
+# PARTE 2: MEJORAS GENERALES DE LA APP
+
+## Crear Pagina de Inicio con Dashboard
+
+Actualmente no existe `app/(privado)/page.tsx`. Crear esta pagina como **landing principal** al entrar a la app.
+
+### Archivo a crear: `app/(privado)/page.tsx`
+
+```tsx
+"use client";
+
+import Link from "next/link";
+import { Plus, ChevronRight, Calendar, TrendingUp, TrendingDown } from "lucide-react";
+import { TarjetaResumen } from "@/components/balance/TarjetaResumen";
+import { BarraProgreso } from "@/components/ui/BarraProgreso";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { formatearFecha, formatearPeso } from "@/lib/formatear";
+import { usarBalance } from "@/hooks/usarBalance";
+import { usarCompras } from "@/hooks/usarCompras";
+
+export default function PaginaInicio() {
+  const balance = usarBalance();
+  const compras = usarCompras();
+  
+  // Obtener ultima compra
+  const ultimaCompra = compras.compras[0];
+  
+  if (balance.compras.cargando) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-24 w-full rounded-[28px]" />
+        <Skeleton className="h-40 w-full rounded-[28px]" />
+        <Skeleton className="h-32 w-full rounded-[28px]" />
+      </div>
+    );
+  }
+
+  return (
+    <section className="space-y-4">
+      {/* Header con saludo y fecha */}
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-sm text-gray-500">Hola de nuevo</p>
+          <h1 className="text-2xl font-bold text-gray-950">Resumen del mes</h1>
+        </div>
+        <Link
+          href="/nueva-compra"
+          className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-md"
+        >
+          <Plus className="h-6 w-6" />
+        </Link>
+      </div>
+
+      {/* Ultima actividad */}
+      {ultimaCompra ? (
+        <div className="rounded-2xl bg-gray-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Calendar className="h-4 w-4" />
+            <span>Ultimo registro: {formatearFecha(ultimaCompra.fecha)}</span>
+            {ultimaCompra.lugar ? <span>en {ultimaCompra.lugar}</span> : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Resumen del mes actual */}
+      <div className="grid grid-cols-2 gap-3">
+        <TarjetaResumen
+          titulo="Total mes"
+          valor={formatearPeso(balance.resumenMes.total)}
+          icono={<TrendingUp className="h-5 w-5 text-indigo-600" />}
+        />
+        <TarjetaResumen
+          titulo="Balance"
+          valor={formatearPeso(Math.abs(balance.resumenMes.balance))}
+          detalle={balance.resumenMes.deudor ? `Debe ${balance.resumenMes.deudor}` : "Sin deuda"}
+          icono={<TrendingDown className="h-5 w-5 text-emerald-600" />}
+        />
+      </div>
+
+      {/* Distribucion visual */}
+      <section className="rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+        <p className="mb-3 text-sm font-semibold text-gray-900">Quien pago este mes</p>
+        <div className="mb-2 h-3 flex rounded-full overflow-hidden">
+          <div 
+            className="bg-indigo-500" 
+            style={{ width: `${(balance.resumenMes.franco_pago / (balance.resumenMes.total || 1)) * 100}%` }}
+          />
+          <div 
+            className="bg-emerald-500" 
+            style={{ width: `${(balance.resumenMes.fabiola_pago / (balance.resumenMes.total || 1)) * 100}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-indigo-600 font-medium">{balance.nombres.franco}: {formatearPeso(balance.resumenMes.franco_pago)}</span>
+          <span className="text-emerald-600 font-medium">{balance.nombres.fabiola}: {formatearPeso(balance.resumenMes.fabiola_pago)}</span>
+        </div>
+      </section>
+
+      {/* Accesos rapidos */}
+      <div className="space-y-2">
+        <Link 
+          href="/historial" 
+          className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+        >
+          <span className="text-sm font-semibold text-gray-900">Ver historial completo</span>
+          <ChevronRight className="h-5 w-5 text-gray-400" />
+        </Link>
+        <Link 
+          href="/balance" 
+          className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+        >
+          <span className="text-sm font-semibold text-gray-900">Analisis detallado</span>
+          <ChevronRight className="h-5 w-5 text-gray-400" />
+        </Link>
+      </div>
+    </section>
+  );
+}
+```
+
+### Actualizar NavegacionInferior
+
+Modificar `components/layout/NavegacionInferior.tsx` para agregar link a Inicio:
+
+```tsx
+const enlaces = [
+  { href: "/", etiqueta: "Inicio", icono: Home },           // AGREGAR
+  { href: "/historial", etiqueta: "Historial", icono: WalletCards },
+  { href: "/nueva-compra", etiqueta: "Nueva", icono: Plus, destacada: true },
+  { href: "/balance", etiqueta: "Balance", icono: ChartColumn },
+];
+```
+
+**Notas:**
+- Quitar "Configuracion" del nav inferior (moverlo al header como icono)
+- Importar `Home` de lucide-react
+- Mantener 4 items maximo en el nav
+
+---
+
+## Mejorar Pagina de Historial con Filtros Rapidos
+
+Modificar `app/(privado)/historial/page.tsx` para agregar filtros mas accesibles.
+
+### Filtros de Persona (Chips Toggle)
+
+Agregar arriba de los filtros existentes:
+
+```tsx
+{/* Filtros rapidos de persona */}
+<div className="flex gap-2">
+  <button
+    onClick={() => setFiltroPersona(null)}
+    className={combinarClases(
+      "h-9 px-4 rounded-full text-sm font-medium transition",
+      filtroPersona === null 
+        ? "bg-gray-900 text-white" 
+        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+    )}
+  >
+    Todos
+  </button>
+  <button
+    onClick={() => setFiltroPersona("franco")}
+    className={combinarClases(
+      "h-9 px-4 rounded-full text-sm font-medium transition",
+      filtroPersona === "franco" 
+        ? "bg-indigo-600 text-white" 
+        : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+    )}
+  >
+    Solo Franco
+  </button>
+  <button
+    onClick={() => setFiltroPersona("fabiola")}
+    className={combinarClases(
+      "h-9 px-4 rounded-full text-sm font-medium transition",
+      filtroPersona === "fabiola" 
+        ? "bg-emerald-600 text-white" 
+        : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+    )}
+  >
+    Solo Fabiola
+  </button>
+</div>
+```
+
+### Selector de Mes como Pills
+
+Reemplazar el input date por pills de meses recientes:
+
+```tsx
+{/* Meses recientes como pills */}
+<div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+  {ultimosMeses.map((mesItem) => (
+    <button
+      key={mesItem.valor}
+      onClick={() => setMes(mesItem.valor)}
+      className={combinarClases(
+        "flex-shrink-0 h-9 px-4 rounded-full text-sm font-medium transition whitespace-nowrap",
+        mes === mesItem.valor 
+          ? "bg-gray-900 text-white" 
+          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+      )}
+    >
+      {mesItem.etiqueta}
+    </button>
+  ))}
+</div>
+```
+
+**Funcion helper para generar meses:**
+
+```tsx
+function generarUltimosMeses(cantidad: number) {
+  const meses = [];
+  const hoy = new Date();
+  for (let i = 0; i < cantidad; i++) {
+    const fecha = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+    meses.push({
+      valor: `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`,
+      etiqueta: fecha.toLocaleDateString("es-AR", { month: "short", year: "2-digit" }),
+    });
+  }
+  return meses;
+}
+
+const ultimosMeses = generarUltimosMeses(6);
+```
+
+### Actualizar funcion de filtrado
+
+En `lib/calculos.ts`, agregar filtro por persona:
+
+```tsx
+export function filtrarComprasHistorial(
+  compras: Compra[],
+  filtros: {
+    mes?: string;
+    categoria_id?: string;
+    etiqueta_id?: string;
+    persona?: "franco" | "fabiola" | null;  // AGREGAR
+  }
+): Compra[] {
+  return compras.filter((compra) => {
+    // ... filtros existentes ...
+    
+    // Filtro por persona
+    if (filtros.persona) {
+      const tieneItemsPersona = compra.items.some((item) => {
+        if (filtros.persona === "franco") {
+          return item.pago_franco > 0;
+        }
+        if (filtros.persona === "fabiola") {
+          return item.pago_fabiola > 0;
+        }
+        return true;
+      });
+      if (!tieneItemsPersona) return false;
+    }
+    
+    return true;
+  });
+}
+```
+
+---
+
+## Resumen Visual Compacto en Cards de Historial
+
+Modificar `components/compras/CardCompra.tsx` para mostrar distribucion visual.
+
+### Agregar mini barra de distribucion
+
+```tsx
+{/* Despues del total, agregar: */}
+<div className="mt-2 h-1.5 flex rounded-full overflow-hidden">
+  <div 
+    className="bg-indigo-400" 
+    style={{ width: `${(compra.total_franco / (compra.total || 1)) * 100}%` }}
+  />
+  <div 
+    className="bg-emerald-400" 
+    style={{ width: `${(compra.total_fabiola / (compra.total || 1)) * 100}%` }}
+  />
+</div>
+```
+
+---
+
+## Estilos de Filtros - Reglas Obligatorias
+
+### Chips/Pills Toggle
+
+```css
+/* Inactivo */
+bg-gray-100 text-gray-600 hover:bg-gray-200
+
+/* Activo */
+bg-gray-900 text-white
+
+/* Activo con color (persona) */
+bg-indigo-600 text-white     /* Franco */
+bg-emerald-600 text-white    /* Fabiola */
+```
+
+### Contenedor de filtros scroll horizontal
+
+```tsx
+<div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+```
+
+Agregar en `globals.css`:
+
+```css
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+```
+
+---
+
+## Estructura Final de Navegacion
+
+```
+NavegacionInferior (4 items):
+  - Inicio (/)           -> Dashboard con resumen del mes
+  - Historial (/historial) -> Lista con filtros rapidos  
+  - Nueva (+)            -> Formulario ticket
+  - Balance              -> Analisis detallado
+
+Header:
+  - Icono configuracion (engranaje) a la derecha
+```
+
+---
+
+## Checklist Parte 2
+
+- [ ] Crear `app/(privado)/page.tsx` con dashboard
+- [ ] Actualizar `NavegacionInferior.tsx` (agregar Home, quitar Config)
+- [ ] Mover icono Config al `Header.tsx`
+- [ ] Agregar filtros de persona en `historial/page.tsx`
+- [ ] Cambiar selector de mes a pills horizontales
+- [ ] Agregar filtro por persona en `lib/calculos.ts`
+- [ ] Agregar mini barra de distribucion en `CardCompra.tsx`
+- [ ] Agregar estilos `scrollbar-hide` en `globals.css`
+- [ ] Testear navegacion y filtros en mobile
