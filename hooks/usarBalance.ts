@@ -4,11 +4,14 @@ import { useState } from "react";
 import {
   calcularBalance,
   calcularCategoriasMes,
+  calcularSerieGastoDiario,
   calcularDiasMasGasto,
   calcularEtiquetasMes,
+  calcularVariacionPeriodo,
   construirBalanceHistorico,
   deducirNombresParticipantes,
   filtrarComprasPorMes,
+  obtenerMesAnterior,
 } from "@/lib/calculos";
 import { exportarExcel } from "@/lib/exportar";
 import { usarCategorias } from "@/hooks/usarCategorias";
@@ -27,12 +30,17 @@ export function useBalance() {
 
   const nombres = deducirNombresParticipantes(usuario.perfiles);
   const comprasMes = filtrarComprasPorMes(compras.compras, mesSeleccionado);
+  const mesAnterior = obtenerMesAnterior(mesSeleccionado);
+  const comprasMesAnterior = mesAnterior ? filtrarComprasPorMes(compras.compras, mesAnterior) : [];
   const resumenMes = calcularBalance(comprasMes, nombres);
+  const resumenMesAnterior = calcularBalance(comprasMesAnterior, nombres);
+  const variacionMensual = calcularVariacionPeriodo(resumenMes.total, resumenMesAnterior.total);
   const resumenHistorico = construirBalanceHistorico(compras.compras, nombres);
   const acumulado = calcularBalance(compras.compras, nombres);
   const categoriasMes = calcularCategoriasMes(comprasMes, categorias.categorias, categorias.subcategorias);
   const etiquetasMes = calcularEtiquetasMes(comprasMes, categorias.etiquetas);
   const diasMasGasto = calcularDiasMasGasto(comprasMes);
+  const tendenciaDiariaMes = calcularSerieGastoDiario(comprasMes);
 
   function exportar() {
     exportarExcel(comprasMes, resumenMes, resumenHistorico, categoriasMes, etiquetasMes, mesSeleccionado);
@@ -47,11 +55,14 @@ export function useBalance() {
     usuario,
     comprasMes,
     resumenMes,
+    resumenMesAnterior,
+    variacionMensual,
     resumenHistorico,
     acumulado,
     categoriasMes,
     etiquetasMes,
     diasMasGasto,
+    tendenciaDiariaMes,
     exportar,
   };
 }

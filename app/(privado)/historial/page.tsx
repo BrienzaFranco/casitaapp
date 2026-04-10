@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ListaCompras } from "@/components/compras/ListaCompras";
+import { GraficoTendenciaDiaria } from "@/components/historial/GraficoTendenciaDiaria";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
-import { deducirNombresParticipantes, filtrarComprasHistorial } from "@/lib/calculos";
+import { calcularSerieGastoDiario, deducirNombresParticipantes, filtrarComprasHistorial } from "@/lib/calculos";
 import { combinarClases } from "@/lib/utiles";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
@@ -44,6 +45,9 @@ export default function PaginaHistorial() {
     etiqueta_id: etiquetaId,
     persona: filtroPersona,
   });
+  const serieTendencia = useMemo(() => calcularSerieGastoDiario(filtradas), [filtradas]);
+  const hayFiltrosActivos = Boolean(mes || categoriaId || etiquetaId || filtroPersona);
+  const modoVacio = !compras.compras.length && !hayFiltrosActivos ? "onboarding" : "filtros";
 
   async function eliminarCompra() {
     if (!compraAEliminar) {
@@ -146,7 +150,15 @@ export default function PaginaHistorial() {
         </div>
       </section>
 
-      <ListaCompras compras={filtradas} cargando={compras.cargando} nombres={nombres} onEliminar={setCompraAEliminar} />
+      {!compras.cargando && filtradas.length ? <GraficoTendenciaDiaria registros={serieTendencia} /> : null}
+
+      <ListaCompras
+        compras={filtradas}
+        cargando={compras.cargando}
+        nombres={nombres}
+        onEliminar={setCompraAEliminar}
+        modoVacio={modoVacio}
+      />
 
       <Modal
         abierto={Boolean(compraAEliminar)}

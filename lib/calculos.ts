@@ -7,9 +7,11 @@ import type {
   DiaGasto,
   Etiqueta,
   EtiquetaBalance,
+  PuntoTendenciaDiaria,
   ResumenBalance,
   Subcategoria,
   TipoReparto,
+  VariacionPeriodo,
 } from "@/types";
 import { mesClave, normalizarTexto } from "@/lib/utiles";
 
@@ -255,6 +257,52 @@ export function filtrarComprasPorMes(compras: Compra[], mes: string) {
   }
 
   return compras.filter((compra) => mesClave(compra.fecha) === mes);
+}
+
+export function obtenerMesAnterior(mes: string) {
+  if (!/^\d{4}-\d{2}$/.test(mes)) {
+    return "";
+  }
+
+  const [anioTexto, mesTexto] = mes.split("-");
+  const anio = Number(anioTexto);
+  const numeroMes = Number(mesTexto);
+
+  if (!Number.isFinite(anio) || !Number.isFinite(numeroMes) || numeroMes < 1 || numeroMes > 12) {
+    return "";
+  }
+
+  const fecha = new Date(anio, numeroMes - 2, 1);
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function calcularVariacionPeriodo(actual: number, anterior: number): VariacionPeriodo {
+  const valorActual = asegurarNumero(actual);
+  const valorAnterior = asegurarNumero(anterior);
+  const diferencia = Number((valorActual - valorAnterior).toFixed(2));
+  const porcentaje = valorAnterior > 0 ? Number(((diferencia / valorAnterior) * 100).toFixed(2)) : null;
+
+  return {
+    actual: valorActual,
+    anterior: valorAnterior,
+    diferencia,
+    porcentaje,
+  };
+}
+
+export function calcularSerieGastoDiario(compras: Compra[]) {
+  const acumulado = new Map<string, number>();
+
+  for (const compra of compras) {
+    acumulado.set(compra.fecha, (acumulado.get(compra.fecha) ?? 0) + totalCompra(compra));
+  }
+
+  return [...acumulado.entries()]
+    .map(([fecha, total]) => ({
+      fecha,
+      total,
+    }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha)) as PuntoTendenciaDiaria[];
 }
 
 export function filtrarComprasHistorial(

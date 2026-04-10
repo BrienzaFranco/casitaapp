@@ -7,6 +7,7 @@ import type { Compra, CompraEditable } from "@/types";
 import { FormularioCompra } from "@/components/compras/FormularioCompra";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { deducirNombresParticipantes } from "@/lib/calculos";
+import { vibrarExito } from "@/lib/haptics";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarOffline } from "@/hooks/usarOffline";
@@ -69,6 +70,7 @@ export default function PaginaNuevaCompra() {
     }
 
     toast.success(compraInicial ? "Compra actualizada" : "Compra guardada");
+    vibrarExito();
     router.push("/historial");
   }
 

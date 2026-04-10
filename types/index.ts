@@ -166,6 +166,18 @@ export interface DiaGasto {
   total: number;
 }
 
+export interface PuntoTendenciaDiaria {
+  fecha: string;
+  total: number;
+}
+
+export interface VariacionPeriodo {
+  actual: number;
+  anterior: number;
+  diferencia: number;
+  porcentaje: number | null;
+}
+
 export interface FiltrosHistorial {
   mes: string;
   categoria_id: string;

@@ -314,6 +314,8 @@ export function FilaItem({
         <button
           type="button"
           onClick={() => onEliminar(item.id as string)}
+          aria-label="Eliminar item"
+          title="Eliminar item"
           className="h-8 w-6 opacity-0 transition group-hover:opacity-100 sm:w-8"
         >
           <X className="h-4 w-4 text-gray-400" />

@@ -24,6 +24,8 @@ export function NavegacionInferior() {
           <Link
             key={href}
             href={href}
+            aria-label={etiqueta}
+            title={etiqueta}
             className={combinarClases(
               "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[11px] font-semibold transition",
               activa ? "text-gray-900" : "text-gray-500",

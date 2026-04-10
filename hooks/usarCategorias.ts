@@ -14,6 +14,16 @@ interface EstadoCategorias {
   cargandoEtiquetas: boolean;
 }
 
+const categoriasBasicas = [
+  { nombre: "Alimentos", color: "#10b981", limite_mensual: null },
+  { nombre: "Transporte", color: "#f59e0b", limite_mensual: null },
+  { nombre: "Servicios", color: "#8b5cf6", limite_mensual: null },
+  { nombre: "Salud", color: "#ef4444", limite_mensual: null },
+  { nombre: "Hogar", color: "#6366f1", limite_mensual: null },
+  { nombre: "Entretenimiento", color: "#14b8a6", limite_mensual: null },
+  { nombre: "Otros", color: "#6b7280", limite_mensual: null },
+] as const;
+
 function recalcularCargando(estado: Omit<EstadoCategorias, "cargando">) {
   return estado.cargandoCategorias || estado.cargandoSubcategorias || estado.cargandoEtiquetas;
 }
@@ -225,6 +235,21 @@ export function useCategorias() {
     await recargar();
   }
 
+  async function crearCategoriasBasicas() {
+    const cliente = crearClienteSupabase();
+    const { error } = await cliente.from("categorias").upsert(categoriasBasicas, {
+      onConflict: "nombre",
+      ignoreDuplicates: true,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    await recargar();
+    return categoriasBasicas.length;
+  }
+
   return {
     ...estado,
     recargar,
@@ -237,6 +262,7 @@ export function useCategorias() {
     crearEtiqueta,
     actualizarEtiqueta,
     eliminarEtiqueta,
+    crearCategoriasBasicas,
   };
 }
 

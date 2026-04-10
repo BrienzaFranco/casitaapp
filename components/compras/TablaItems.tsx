@@ -15,6 +15,7 @@ import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { Categoria, Etiqueta, ItemEditable, Subcategoria } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
+import { vibrarTactico } from "@/lib/haptics";
 import { Badge } from "@/components/ui/Badge";
 import { FilaItem } from "@/components/compras/FilaItem";
 import { Modal } from "@/components/ui/Modal";
@@ -117,6 +118,7 @@ export function TablaItems({
     }
 
     onReordenarItems(indiceInicial, indiceFinal);
+    vibrarTactico(16);
   }
 
   async function confirmarNuevaCategoria() {

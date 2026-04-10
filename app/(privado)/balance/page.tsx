@@ -1,6 +1,7 @@
 "use client";
 
 import { ChartColumn, Download, PiggyBank, ReceiptText, TrendingUp } from "lucide-react";
+import { GraficoCategoriasDonut } from "@/components/balance/GraficoCategoriasDonut";
 import { GraficoEtiquetas } from "@/components/balance/GraficoEtiquetas";
 import { TablaBalance } from "@/components/balance/TablaBalance";
 import { TarjetaResumen } from "@/components/balance/TarjetaResumen";
@@ -31,6 +32,14 @@ export default function PaginaBalance() {
   const deudaHistorica = balance.acumulado.deudor
     ? `${balance.acumulado.deudor} le debe ${formatearPeso(Math.abs(balance.acumulado.balance))} a ${balance.acumulado.acreedor}`
     : "No hay deuda acumulada.";
+  const detalleVariacionMensual =
+    balance.variacionMensual.porcentaje === null
+      ? "Sin referencia vs mes anterior"
+      : balance.variacionMensual.porcentaje > 0
+        ? `+ ${formatearPorcentaje(Math.abs(balance.variacionMensual.porcentaje))} vs mes anterior`
+        : balance.variacionMensual.porcentaje < 0
+          ? `- ${formatearPorcentaje(Math.abs(balance.variacionMensual.porcentaje))} vs mes anterior`
+          : "= 0% vs mes anterior";
 
   return (
     <section className="space-y-4">
@@ -55,7 +64,7 @@ export default function PaginaBalance() {
         <TarjetaResumen
           titulo="Total gastado"
           valor={formatearPeso(balance.resumenMes.total)}
-          detalle={`Mes seleccionado: ${balance.mesSeleccionado}`}
+          detalle={detalleVariacionMensual}
           icono={<ReceiptText className="h-5 w-5 text-indigo-600" />}
         />
         <TarjetaResumen
@@ -73,6 +82,8 @@ export default function PaginaBalance() {
       </div>
 
       <TablaBalance filas={balance.resumenHistorico} deudaActual={deudaHistorica} />
+
+      <GraficoCategoriasDonut registros={balance.categoriasMes} />
 
       <section className="rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
         <div className="mb-4">

@@ -28,6 +28,8 @@ export function Header() {
         <div className="flex items-center gap-1">
           <Link
             href="/configuracion"
+            aria-label="Configuracion"
+            title="Configuracion"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
           >
             <Settings className="h-5 w-5" />
