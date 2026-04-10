@@ -39,7 +39,7 @@ export default function PaginaHistorial() {
   const [etiquetaId, setEtiquetaId] = useState("");
   const [etiquetaCompraId, setEtiquetaCompraId] = useState("");
   const [compraAEliminar, setCompraAEliminar] = useState<string | null>(null);
-  const [vista, setVista] = useState<"hoja" | "tarjetas">("hoja");
+  const [vista, setVista] = useState<"hoja" | "tarjetas">("tarjetas");
   const ultimosMeses = generarUltimosMeses(6);
 
   const filtradas = filtrarComprasHistorial(compras.compras, {

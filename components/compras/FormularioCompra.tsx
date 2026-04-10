@@ -507,11 +507,11 @@ export function FormularioCompraUnificado({
   const botonActivo = "bg-blue-50 text-blue-700 border-blue-300";
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 pb-24">
-      <div className="mx-auto w-full max-w-[1160px] px-3 py-3">
-        <div className="grid gap-3 lg:grid-cols-[330px_1fr]">
+    <div className="flex min-h-screen flex-col bg-gray-50 pb-4 md:pb-24">
+      <div className="mx-auto w-full max-w-[1160px] px-2 py-2 md:px-3 md:py-3">
+        <div className="grid gap-2 md:gap-3 lg:grid-cols-[330px_1fr]">
           <section className="space-y-3">
-            <div className="border border-gray-300 bg-white p-3">
+            <div className="border border-gray-300 bg-white p-2.5 md:p-3">
               <input
                 type="text"
                 value={compra.nombre_lugar}
@@ -612,7 +612,7 @@ export function FormularioCompraUnificado({
               </div>
             </div>
 
-            <div className="border border-gray-300 bg-white p-3">
+            <div className="border border-gray-300 bg-white p-2.5 md:p-3">
               <button
                 type="button"
                 onClick={() => setMostrarPegadoMasivo((actual) => !actual)}
@@ -655,7 +655,7 @@ export function FormularioCompraUnificado({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1020px] border-collapse">
+              <table className="w-full min-w-[940px] border-collapse md:min-w-[1020px]">
                 <thead>
                   <tr className="bg-gray-100 text-left text-xs font-semibold uppercase text-gray-600">
                     <th className="border-b border-gray-300 px-2 py-2">Categoria</th>
@@ -875,8 +875,8 @@ export function FormularioCompraUnificado({
         </div>
       </div>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-20 mx-auto w-full max-w-[1160px] border-t border-gray-300 bg-gray-100 px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
+      <footer className="sticky bottom-0 left-0 right-0 z-20 mx-auto w-full max-w-[1160px] border-t border-gray-300 bg-gray-100 px-2 py-2 md:fixed md:px-4 md:py-3">
+        <div className="flex flex-wrap items-center gap-2 md:justify-between md:gap-3">
           <div className="min-w-0">
             <p className="text-xs uppercase text-gray-600">Total</p>
             <p className="text-xl font-mono font-bold text-gray-900">{formatearPeso(total)}</p>
@@ -885,7 +885,7 @@ export function FormularioCompraUnificado({
           <button
             type="button"
             onClick={() => agregarFila()}
-            className="h-10 rounded border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="h-10 rounded border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             + Item
           </button>
@@ -894,7 +894,7 @@ export function FormularioCompraUnificado({
             type="button"
             onClick={() => void confirmarCompra(true)}
             disabled={guardandoCompra}
-            className="h-10 rounded border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="h-10 rounded border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             Confirmar y nueva
           </button>
@@ -903,7 +903,7 @@ export function FormularioCompraUnificado({
             type="button"
             onClick={() => void confirmarCompra(false)}
             disabled={guardandoCompra}
-            className="h-10 flex-1 rounded bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="h-10 min-w-[180px] flex-1 rounded bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {guardandoCompra ? "Guardando..." : "Confirmar Compra"}
           </button>
