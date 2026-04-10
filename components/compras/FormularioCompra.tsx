@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
 import type { Categoria, CompraEditable, Etiqueta, ItemEditable, Subcategoria, TipoReparto } from "@/types";
 import { calcularReparto, evaluarExpresion } from "@/lib/calculos";
 import { formatearPeso } from "@/lib/formatear";
 import { guardarRegistradoPor, obtenerRegistradoPor } from "@/lib/offline";
 import { normalizarTexto } from "@/lib/utiles";
+import { cargarMapaLugares, cargarMapaDetalles, predecirCategoria } from "@/lib/categorizacion";
+import { Combobox } from "@/components/ui/Combobox";
 
 interface Props {
   categorias: Categoria[];
@@ -18,6 +20,10 @@ interface Props {
   guardando?: boolean;
   onGuardar: (compra: CompraEditable) => Promise<void> | void;
   onCrearSubcategoria?: (input: Pick<Subcategoria, "categoria_id" | "nombre" | "limite_mensual">) => Promise<Subcategoria>;
+  comprasHistoria?: Array<{
+    nombre_lugar: string;
+    items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }>;
+  }>;
 }
 
 function hoy() {
@@ -263,6 +269,7 @@ export function FormularioCompraUnificado({
   guardando = false,
   onGuardar,
   onCrearSubcategoria,
+  comprasHistoria = [],
 }: Props) {
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial));
   const [mostrarNotas, setMostrarNotas] = useState(Boolean(compraInicial?.notas));
@@ -272,8 +279,19 @@ export function FormularioCompraUnificado({
   const [entradaEtiquetaItem, setEntradaEtiquetaItem] = useState<Record<string, string>>({});
   const [guardandoLocal, setGuardandoLocal] = useState(false);
   const guardandoCompra = guardando || guardandoLocal;
+  const ultimosInputsRef = useRef<Map<string, HTMLInputElement | null>>(new Map());
+  const [filaActiva, setFilaActiva] = useState<string | null>(null);
 
   const total = useMemo(() => compra.items.reduce((acumulado, item) => acumulado + item.monto_resuelto, 0), [compra.items]);
+
+  const mapaLugares = useMemo(
+    () => cargarMapaLugares(comprasHistoria),
+    [comprasHistoria],
+  );
+  const mapaDetalles = useMemo(
+    () => cargarMapaDetalles(comprasHistoria),
+    [comprasHistoria],
+  );
 
   useEffect(() => {
     if (!compraInicial && registradoPorDefecto && !compra.registrado_por) {
@@ -318,10 +336,19 @@ export function FormularioCompraUnificado({
       etiquetas_ids: base?.etiquetas_ids ?? [],
     } satisfies ItemEditable;
 
+    ultimosInputsRef.current.set(nuevo.id, null);
+
     setCompra((anterior) => ({
       ...anterior,
       items: [...anterior.items, recalcularItem(nuevo)],
     }));
+
+    queueMicrotask(() => {
+      const inputRef = ultimosInputsRef.current.get(nuevo.id);
+      if (inputRef) {
+        inputRef.focus();
+      }
+    });
   }
 
   function duplicarFila(id: string) {
@@ -710,18 +737,36 @@ export function FormularioCompraUnificado({
             </div>
 
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[940px] border-collapse md:min-w-[1020px]">
-                <thead>
-                  <tr className="bg-gray-100 text-left text-xs font-semibold uppercase text-gray-600">
-                    <th className="border-b border-gray-300 px-2 py-2">Categoria</th>
-                    <th className="border-b border-gray-300 px-2 py-2">Subcategoria</th>
-                    <th className="border-b border-gray-300 px-2 py-2">Detalle</th>
-                    <th className="border-b border-gray-300 px-2 py-2">Monto</th>
-                    <th className="border-b border-gray-300 px-2 py-2">Reparto</th>
-                    <th className="border-b border-gray-300 px-2 py-2">Franco</th>
-                    <th className="border-b border-gray-300 px-2 py-2">Fabiola</th>
-                    <th className="border-b border-gray-300 px-2 py-2">Tags</th>
-                    <th className="border-b border-gray-300 px-2 py-2">Acciones</th>
+              <table
+                className="w-full min-w-[940px] border-collapse md:min-w-[1020px]"
+                onPaste={(e) => {
+                  const texto = e.clipboardData.getData("text");
+                  e.preventDefault();
+                  const lineas = texto.split("\n").filter((l) => l.trim());
+                  for (const linea of lineas) {
+                    const columnas = linea.split("\t").map((c) => c.trim());
+                    if (columnas.length >= 2) {
+                      const expresion = columnas[columnas.length - 1] ?? "";
+                      const detalle = columnas.length >= 2 ? columnas[columnas.length - 2] : "";
+                      agregarFila({ descripcion: detalle, expresion_monto: expresion });
+                    } else if (columnas[0]) {
+                      agregarFila({ descripcion: columnas[0] });
+                    }
+                  }
+                  toast.success(`${lineas.length} filas importadas`);
+                }}
+              >
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
+                    <th className="border-b border-gray-200 px-2 py-1.5">Categoria</th>
+                    <th className="border-b border-gray-200 px-2 py-1.5">Subcategoria</th>
+                    <th className="border-b border-gray-200 px-2 py-1.5">Detalle</th>
+                    <th className="border-b border-gray-200 px-2 py-1.5">Monto</th>
+                    <th className="border-b border-gray-200 px-2 py-1.5">Reparto</th>
+                    <th className="border-b border-gray-200 px-2 py-1.5">Franco</th>
+                    <th className="border-b border-gray-200 px-2 py-1.5">Fabiola</th>
+                    <th className="border-b border-gray-200 px-2 py-1.5">Tags</th>
+                    <th className="border-b border-gray-200 px-2 py-1.5"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -731,96 +776,118 @@ export function FormularioCompraUnificado({
                       : [];
 
                     return (
-                      <tr key={item.id} className="align-top text-sm">
-                        <td className="border-b border-gray-200 px-2 py-2">
-                          <select
-                            value={item.categoria_id}
-                            onChange={(event) =>
+                      <tr
+                        key={item.id}
+                        className={`align-top text-sm transition-colors ${
+                          filaActiva === item.id ? "bg-blue-50/50" : filaActiva && filaActiva !== item.id ? "opacity-40" : ""
+                        }`}
+                        onFocus={() => setFilaActiva(item.id as string)}
+                      >
+                        <td className="border-b border-gray-100 px-1 py-1.5">
+                          <Combobox
+                            valor={item.categoria_id}
+                            onChange={(valor) =>
                               actualizarItem(item.id as string, {
-                                categoria_id: event.target.value,
+                                categoria_id: valor,
                                 subcategoria_id: "",
                               })
                             }
-                            className="h-9 w-full rounded border border-gray-300 bg-white px-2 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                          >
-                            <option value="">Sin categoria</option>
-                            {categorias.map((categoria) => (
-                              <option key={categoria.id} value={categoria.id}>
-                                {categoria.nombre}
-                              </option>
-                            ))}
-                          </select>
+                            opciones={[
+                              { valor: "", etiqueta: "-" },
+                              ...categorias.map((c) => ({
+                                valor: c.id,
+                                etiqueta: c.nombre,
+                              })),
+                            ]}
+                            placeholder="Buscar..."
+                          />
                         </td>
 
-                        <td className="border-b border-gray-200 px-2 py-2">
-                          <div className="flex items-center gap-1">
-                            <select
-                              value={item.subcategoria_id}
-                              onChange={(event) => actualizarItem(item.id as string, { subcategoria_id: event.target.value })}
-                              className="h-9 w-full rounded border border-gray-300 bg-white px-2 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                            >
-                              <option value="">Sin subcategoria</option>
-                              {subcategoriasFila.map((subcategoria) => (
-                                <option key={subcategoria.id} value={subcategoria.id}>
-                                  {subcategoria.nombre}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => void crearSubcategoriaRapida(item.id as string)}
-                              className="inline-flex h-9 shrink-0 items-center justify-center rounded border border-gray-300 px-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                              title="Crear subcategoria"
-                            >
-                              +
-                            </button>
-                          </div>
+                        <td className="border-b border-gray-100 px-1 py-1.5">
+                          <Combobox
+                            valor={item.subcategoria_id}
+                            onChange={(valor) => actualizarItem(item.id as string, { subcategoria_id: valor })}
+                            opciones={[
+                              { valor: "", etiqueta: "-" },
+                              ...subcategoriasFila.map((s) => ({
+                                valor: s.id,
+                                etiqueta: s.nombre,
+                              })),
+                            ]}
+                            placeholder="Buscar..."
+                          />
                         </td>
 
-                        <td className="border-b border-gray-200 px-2 py-2">
+                        <td className="border-b border-gray-100 px-1 py-1.5">
                           <input
                             type="text"
                             value={item.descripcion}
-                            onChange={(event) => actualizarItem(item.id as string, { descripcion: event.target.value })}
+                            onChange={(event) => {
+                              const nuevoValor = event.target.value;
+                              actualizarItem(item.id as string, { descripcion: nuevoValor });
+
+                              if (!item.categoria_id && nuevoValor.length >= 4) {
+                                const prediccion = predecirCategoria(nuevoValor, mapaLugares, mapaDetalles);
+                                if (prediccion) {
+                                  actualizarItem(item.id as string, {
+                                    categoria_id: prediccion.categoria_id,
+                                    subcategoria_id: prediccion.subcategoria_id,
+                                  });
+                                }
+                              }
+                            }}
                             onKeyDown={(event) => {
                               if (event.key === "Enter") {
                                 event.preventDefault();
                                 agregarFila();
                               }
                             }}
-                            placeholder="Yerba playadito a oferta"
-                            className="h-9 w-full rounded border border-gray-300 bg-white px-2 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                            placeholder="-"
+                            className="h-8 w-full border-none bg-transparent px-1 text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600"
                           />
                         </td>
 
-                        <td className="border-b border-gray-200 px-2 py-2">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={item.expresion_monto}
-                            onChange={(event) => actualizarItem(item.id as string, { expresion_monto: event.target.value })}
-                            onBlur={() => actualizarItem(item.id as string, {}, true)}
-                            placeholder="7600+5200-500"
-                            className="h-9 w-full rounded border border-gray-300 bg-white px-2 font-mono text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                          />
+                        <td className="border-b border-gray-100 px-1 py-1.5">
+                          <div className="relative">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={item.expresion_monto}
+                              onChange={(event) => actualizarItem(item.id as string, { expresion_monto: event.target.value })}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  agregarFila();
+                                }
+                              }}
+                              onBlur={() => actualizarItem(item.id as string, {}, true)}
+                              placeholder="-"
+                              className="h-8 w-full border-none bg-transparent px-1 font-mono text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600"
+                            />
+                            {item.expresion_monto && item.expresion_monto !== item.monto_resuelto.toString() && (
+                              <span className="absolute -bottom-3 left-0 text-[10px] font-mono text-green-600">
+                                = {formatearPeso(item.monto_resuelto)}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
-                        <td className="border-b border-gray-200 px-2 py-2">
+                        <td className="border-b border-gray-100 px-1 py-1.5">
                           <select
                             value={item.tipo_reparto}
                             onChange={(event) =>
                               actualizarItem(item.id as string, { tipo_reparto: event.target.value as TipoReparto }, true)
                             }
-                            className="h-9 w-full rounded border border-gray-300 bg-white px-2 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                            className="h-8 w-full border-none bg-transparent px-1 text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600"
                           >
                             <option value="50/50">50/50</option>
-                            <option value="solo_franco">Solo {nombres.franco}</option>
-                            <option value="solo_fabiola">Solo {nombres.fabiola}</option>
-                            <option value="personalizado">Personalizado</option>
+                            <option value="solo_franco">{nombres.franco}</option>
+                            <option value="solo_fabiola">{nombres.fabiola}</option>
+                            <option value="personalizado">Custom</option>
                           </select>
                         </td>
 
-                        <td className="border-b border-gray-200 px-2 py-2">
+                        <td className="border-b border-gray-100 px-1 py-1.5">
                           <input
                             type="number"
                             step="0.01"
@@ -833,11 +900,11 @@ export function FormularioCompraUnificado({
                               )
                             }
                             disabled={item.tipo_reparto !== "personalizado"}
-                            className="h-9 w-full rounded border border-gray-300 bg-white px-2 font-mono text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 disabled:bg-gray-100"
+                            className="h-8 w-full border-none bg-transparent px-1 font-mono text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600 disabled:bg-transparent"
                           />
                         </td>
 
-                        <td className="border-b border-gray-200 px-2 py-2">
+                        <td className="border-b border-gray-100 px-1 py-1.5">
                           <input
                             type="number"
                             step="0.01"
@@ -850,12 +917,12 @@ export function FormularioCompraUnificado({
                               )
                             }
                             disabled={item.tipo_reparto !== "personalizado"}
-                            className="h-9 w-full rounded border border-gray-300 bg-white px-2 font-mono text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 disabled:bg-gray-100"
+                            className="h-8 w-full border-none bg-transparent px-1 font-mono text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600 disabled:bg-transparent"
                           />
                         </td>
 
-                        <td className="border-b border-gray-200 px-2 py-2">
-                          <div className="min-w-[180px] space-y-2">
+                        <td className="border-b border-gray-100 px-1 py-1.5">
+                          <div className="min-w-[100px]">
                             <input
                               list={`etiquetas-sugeridas-${item.id}`}
                               value={entradaEtiquetaItem[item.id as string] ?? ""}
@@ -872,15 +939,15 @@ export function FormularioCompraUnificado({
                                   agregarEtiquetaItemPorTexto(item.id as string, entradaEtiquetaItem[item.id as string] ?? "");
                                 }
                               }}
-                              placeholder="Etiqueta"
-                              className="h-9 w-full rounded border border-gray-300 bg-white px-2 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                              placeholder="-"
+                              className="h-8 w-full border-none bg-transparent px-1 text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600"
                             />
                             <datalist id={`etiquetas-sugeridas-${item.id}`}>
                               {etiquetas.map((etiqueta) => (
                                 <option key={etiqueta.id} value={etiqueta.nombre} />
                               ))}
                             </datalist>
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-0.5">
                               {item.etiquetas_ids.map((etiquetaId) => {
                                 const etiqueta = etiquetas.find((actual) => actual.id === etiquetaId);
                                 if (!etiqueta) {
@@ -892,7 +959,7 @@ export function FormularioCompraUnificado({
                                     key={etiqueta.id}
                                     type="button"
                                     onClick={() => toggleEtiquetaItem(item.id as string, etiqueta.id)}
-                                    className="inline-flex h-7 items-center rounded border border-blue-300 bg-blue-50 px-2 text-[11px] font-medium text-blue-700"
+                                    className="inline-flex h-6 items-center rounded bg-blue-50 px-1.5 text-[10px] font-medium text-blue-700"
                                   >
                                     {etiqueta.nombre} ×
                                   </button>
@@ -902,21 +969,23 @@ export function FormularioCompraUnificado({
                           </div>
                         </td>
 
-                        <td className="border-b border-gray-200 px-2 py-2">
-                          <div className="flex gap-1">
+                        <td className="border-b border-gray-100 px-1 py-1.5">
+                          <div className="flex gap-0.5">
                             <button
                               type="button"
                               onClick={() => duplicarFila(item.id as string)}
-                              className="h-9 rounded border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                              className="h-8 rounded px-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100"
+                              title="Duplicar"
                             >
-                              Duplicar
+                              ⧉
                             </button>
                             <button
                               type="button"
                               onClick={() => eliminarFila(item.id as string)}
-                              className="h-9 rounded border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                              className="h-8 rounded px-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100"
+                              title="Borrar"
                             >
-                              Borrar
+                              ×
                             </button>
                           </div>
                         </td>

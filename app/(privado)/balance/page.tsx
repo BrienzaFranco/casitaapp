@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
@@ -51,6 +51,29 @@ export default function PaginaBalance() {
       toast.success("Corte actualizado.");
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : "No se pudo guardar el corte.";
+      toast.error(mensaje);
+    }
+  }
+
+  async function quedarAManoHoy() {
+    try {
+      const hoy = hoyIso();
+      const resumen = balance.saldoAbierto.deudor
+        ? `${balance.saldoAbierto.deudor} debia ${formatearPeso(Math.abs(balance.saldoAbierto.balance))} a ${balance.saldoAbierto.acreedor}`
+        : "sin deuda abierta";
+
+      await balance.cortes.crearCorte({
+        fecha_corte: hoy,
+        nota: `Quedar a mano hoy (${hoy}): ${resumen}.`,
+        hogar_id: balance.compras.compras[0]?.hogar_id ?? null,
+        actualizado_por: balance.usuario.perfil?.nombre ?? "Sistema",
+      });
+
+      setFechaCorte(hoy);
+      setNotaCorte("");
+      toast.success("Listo: se marco corte y quedaron a mano desde hoy.");
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : "No se pudo marcar el corte automatico.";
       toast.error(mensaje);
     }
   }
@@ -140,6 +163,14 @@ export default function PaginaBalance() {
               className="h-10 rounded bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {balance.cortes.guardando ? "Guardando..." : "Guardar corte"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void quedarAManoHoy()}
+              disabled={balance.cortes.guardando}
+              className="h-10 rounded border border-emerald-300 bg-emerald-50 px-4 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              Quedar a mano hoy
             </button>
           </div>
 

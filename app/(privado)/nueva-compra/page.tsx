@@ -45,7 +45,7 @@ export default function PaginaNuevaCompra() {
   const idEditar = useDeferredValue(searchParams.get("editar"));
   const estaEditando = Boolean(idEditar);
   const categorias = usarCategorias();
-  const compras = usarCompras({ cargarInicial: estaEditando, incluirBorradores: estaEditando });
+  const compras = usarCompras({ cargarInicial: estaEditando });
   const usuario = usarUsuario();
   const nombres = deducirNombresParticipantes(usuario.perfiles);
   const compraExistente = compras.compras.find((compra) => compra.id === idEditar);
@@ -85,6 +85,15 @@ export default function PaginaNuevaCompra() {
     );
   }
 
+  const historia = compras.compras.map((c) => ({
+    nombre_lugar: c.nombre_lugar,
+    items: c.items.map((i) => ({
+      descripcion: i.descripcion,
+      categoria_id: i.categoria_id,
+      subcategoria_id: i.subcategoria_id,
+    })),
+  }));
+
   return (
     <FormularioCompra
       key={compraInicial?.id ?? "nueva-compra"}
@@ -97,6 +106,7 @@ export default function PaginaNuevaCompra() {
       etiquetas={categorias.etiquetas}
       onCrearSubcategoria={categorias.crearSubcategoria}
       onGuardar={guardar}
+      comprasHistoria={historia}
     />
   );
 }

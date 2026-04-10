@@ -1,167 +1,274 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { formatearFecha } from "@/lib/formatear";
+import type { CompraEditable, PagadorCompra } from "@/types";
+import { formatearPeso } from "@/lib/formatear";
+import { vibrarExito } from "@/lib/haptics";
+import { cargarMapaLugares, cargarMapaDetalles, predecirCategoria } from "@/lib/categorizacion";
+import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
+import { usarOffline } from "@/hooks/usarOffline";
 import { usarUsuario } from "@/hooks/usarUsuario";
 
 function hoy() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function PaginaAnotadorRapido() {
-  const usuario = usarUsuario();
-  const compras = usarCompras({ incluirBorradores: true });
-  const [fecha, setFecha] = useState(hoy());
-  const [lugar, setLugar] = useState("");
-  const [pagador, setPagador] = useState<"franco" | "fabiola" | "compartido">("compartido");
-  const [detalle, setDetalle] = useState("");
-  const [monto, setMonto] = useState("");
-  const [guardando, setGuardando] = useState(false);
+function generarIdTemporal() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `tmp-${crypto.randomUUID()}`;
+  }
 
-  const borradores = useMemo(
-    () => compras.compras.filter((compra) => compra.estado === "borrador").slice(0, 8),
+  return `tmp-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+function evaluarMonto(expresion: string): number {
+  const limpia = expresion.trim().replace(/\s/g, "");
+  if (!limpia) {
+    return 0;
+  }
+
+  try {
+    const evaluada = Function(`"use strict"; return (${limpia})`)();
+    return typeof evaluada === "number" ? evaluada : 0;
+  } catch {
+    const parsed = parseFloat(limpia.replace(/[$.]/g, ""));
+    return isNaN(parsed) ? 0 : parsed;
+  }
+}
+
+export default function PaginaAnotadorRapido() {
+  const router = useRouter();
+  const categorias = usarCategorias();
+  const compras = usarCompras();
+  const usuario = usarUsuario();
+  const { guardarConFallback } = usarOffline(compras.guardarCompra);
+
+  const [lugar, setLugar] = useState("");
+  const [monto, setMonto] = useState("");
+  const [detalle, setDetalle] = useState("");
+  const [pagador, setPagador] = useState<PagadorCompra>("compartido");
+  const [categoriaPredicha, setCategoriaPredicha] = useState({ categoria_id: "", subcategoria_id: "" });
+  const [guardando, setGuardando] = useState(false);
+  const [guardandoDetallar, setGuardandoDetallar] = useState(false);
+
+  const montoCalculado = evaluarMonto(monto);
+
+  const mapaLugares = useMemo(
+    () => cargarMapaLugares(compras.compras),
+    [compras.compras],
+  );
+  const mapaDetalles = useMemo(
+    () => cargarMapaDetalles(compras.compras),
     [compras.compras],
   );
 
+  function manejarCambioLugar(valor: string) {
+    setLugar(valor);
+    if (valor.length >= 3) {
+      const prediccion = predecirCategoria(valor, mapaLugares, mapaDetalles);
+      if (prediccion) {
+        setCategoriaPredicha(prediccion);
+      }
+    }
+  }
+
+  function manejarCambioDetalle(valor: string) {
+    setDetalle(valor);
+    if (valor.length >= 4 && !categoriaPredicha.categoria_id) {
+      const prediccion = predecirCategoria(valor, mapaLugares, mapaDetalles);
+      if (prediccion) {
+        setCategoriaPredicha(prediccion);
+      }
+    }
+  }
+
+  function crearCompraConPrediccion(): CompraEditable {
+    return {
+      id: generarIdTemporal(),
+      fecha: hoy(),
+      nombre_lugar: lugar.trim(),
+      notas: "",
+      registrado_por: usuario.perfil?.nombre ?? "",
+      pagador_general: pagador,
+      estado: "borrador",
+      etiquetas_compra_ids: [],
+      items: [
+        {
+          id: generarIdTemporal(),
+          descripcion: detalle.trim(),
+          categoria_id: categoriaPredicha.categoria_id,
+          subcategoria_id: categoriaPredicha.subcategoria_id,
+          expresion_monto: monto.trim(),
+          monto_resuelto: montoCalculado,
+          tipo_reparto: pagador === "franco"
+            ? "solo_franco"
+            : pagador === "fabiola"
+              ? "solo_fabiola"
+              : "50/50",
+          pago_franco: pagador === "franco"
+            ? montoCalculado
+            : pagador === "fabiola"
+              ? 0
+              : montoCalculado / 2,
+          pago_fabiola: pagador === "fabiola"
+            ? montoCalculado
+            : pagador === "franco"
+              ? 0
+              : montoCalculado / 2,
+          etiquetas_ids: [],
+        },
+      ],
+    };
+  }
+
   async function guardarPendiente() {
-    if (!lugar.trim() && !detalle.trim()) {
-      toast.error("Agrega al menos lugar o detalle rapido.");
+    if (!monto.trim()) {
+      toast.error("Ingresa un monto");
       return;
     }
 
     try {
       setGuardando(true);
-      const compraId = await compras.crearBorradorRapido({
-        fecha,
-        nombre_lugar: lugar.trim(),
-        pagador_general: pagador,
-        registrado_por: usuario.perfil?.nombre ?? "Usuario",
-        detalle_rapido: detalle.trim(),
-        expresion_monto: monto.trim(),
-      });
 
-      toast.success("Anotacion guardada como pendiente.");
-      setDetalle("");
+      const compra = crearCompraConPrediccion();
+      const resultado = await guardarConFallback(compra);
+
+      if (resultado.pendiente) {
+        toast.success("Guardado offline");
+      }
+
+      vibrarExito();
+      toast.success("Guardado pendiente");
+      setLugar("");
       setMonto("");
-      if (!lugar.trim()) {
-        setLugar("");
-      }
-      await compras.recargar();
-
-      if (compraId) {
-        window.dispatchEvent(new Event("pendientes-actualizados"));
-      }
+      setDetalle("");
+      setCategoriaPredicha({ categoria_id: "", subcategoria_id: "" });
     } catch (error) {
-      const mensaje = error instanceof Error ? error.message : "No se pudo guardar la anotacion.";
+      const mensaje = error instanceof Error ? error.message : "No se pudo guardar";
       toast.error(mensaje);
     } finally {
       setGuardando(false);
     }
   }
 
-  return (
-    <section className="space-y-3">
-      <div className="border border-gray-300 bg-white p-3">
-        <h1 className="text-lg font-semibold text-gray-900">Anotador rapido</h1>
-        <p className="mt-1 text-sm text-gray-600">Guarda compras en segundos y completalas despues en casa.</p>
-      </div>
+  async function guardarYDetallar() {
+    if (!monto.trim()) {
+      toast.error("Ingresa un monto");
+      return;
+    }
 
-      <section className="space-y-2 border border-gray-300 bg-white p-3">
-        <div className="grid gap-2 sm:grid-cols-2">
+    try {
+      setGuardandoDetallar(true);
+
+      const compra = crearCompraConPrediccion();
+      const resultado = await guardarConFallback(compra);
+
+      if (resultado.pendiente) {
+        router.push("/historial");
+      } else {
+        router.push("/nueva-compra");
+      }
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : "No se pudo guardar";
+      toast.error(mensaje);
+    } finally {
+      setGuardandoDetallar(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col bg-gray-50 pb-24">
+      <div className="mx-auto w-full max-w-lg px-3 py-4">
+        <h1 className="mb-4 text-xl font-semibold text-gray-900">Anotador rápido</h1>
+
+        <div className="space-y-3">
           <input
             type="text"
+            inputMode="text"
             value={lugar}
-            onChange={(event) => setLugar(event.target.value)}
-            placeholder="Lugar (ej: kiosco, feria, coto)"
-            className="h-10 rounded border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+            onChange={(e) => manejarCambioLugar(e.target.value)}
+            placeholder="Lugar (ej: Coto, Rapipago)"
+            className="h-14 w-full rounded-lg border border-gray-300 bg-white px-4 text-lg font-medium text-gray-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600"
+            style={{ fontSize: "18px" }}
           />
+
           <input
-            type="date"
-            value={fecha}
-            onChange={(event) => setFecha(event.target.value)}
-            className="h-10 rounded border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+            type="text"
+            inputMode="decimal"
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            placeholder="Monto (ej: 4500 o 2000+500-200)"
+            className="h-14 w-full rounded-lg border border-gray-300 bg-white px-4 font-mono text-lg font-semibold text-gray-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600"
+            style={{ fontSize: "20px" }}
           />
-        </div>
 
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setPagador("franco")}
-            className={`h-9 rounded border px-3 text-xs font-semibold ${pagador === "franco" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
-          >
-            Franco
-          </button>
-          <button
-            type="button"
-            onClick={() => setPagador("fabiola")}
-            className={`h-9 rounded border px-3 text-xs font-semibold ${pagador === "fabiola" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
-          >
-            Fabiola
-          </button>
-          <button
-            type="button"
-            onClick={() => setPagador("compartido")}
-            className={`h-9 rounded border px-3 text-xs font-semibold ${pagador === "compartido" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
-          >
-            Compartido
-          </button>
-        </div>
+          <input
+            type="text"
+            inputMode="text"
+            value={detalle}
+            onChange={(e) => manejarCambioDetalle(e.target.value)}
+            placeholder="Detalle rápido (ej: Yerba oferta)"
+            className="h-14 w-full rounded-lg border border-gray-300 bg-white px-4 text-lg text-gray-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600"
+            style={{ fontSize: "18px" }}
+          />
 
-        <textarea
-          value={detalle}
-          onChange={(event) => setDetalle(event.target.value)}
-          placeholder="Detalle rapido (ej: verduleria efectivo, 2kg papa + 1kg cebolla)"
-          className="min-h-24 w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-        />
-        <input
-          type="text"
-          inputMode="decimal"
-          value={monto}
-          onChange={(event) => setMonto(event.target.value)}
-          placeholder="Monto rapido (opcional, ej: 5400 o 7600-500)"
-          className="h-10 rounded border border-gray-300 bg-white px-3 font-mono text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-        />
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void guardarPendiente()}
-            disabled={guardando}
-            className="h-10 flex-1 rounded bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {guardando ? "Guardando..." : "Guardar pendiente"}
-          </button>
-          <Link
-            href="/nueva-compra"
-            className="inline-flex h-10 items-center justify-center rounded border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Carga completa
-          </Link>
-        </div>
-      </section>
-
-      <section className="border border-gray-300 bg-white p-3">
-        <p className="text-xs font-semibold uppercase text-gray-600">Pendientes para completar</p>
-        {borradores.length ? (
-          <div className="mt-2 space-y-2">
-            {borradores.map((compra) => (
-              <Link
-                key={compra.id}
-                href={`/nueva-compra?editar=${compra.id}`}
-                className="block rounded border border-gray-200 bg-gray-50 px-3 py-2 hover:bg-gray-100"
-              >
-                <p className="text-sm font-medium text-gray-900">{compra.nombre_lugar || "Compra sin lugar"}</p>
-                <p className="text-xs text-gray-600">{formatearFecha(compra.fecha)} - {compra.notas || "Sin detalle"}</p>
-              </Link>
-            ))}
+          <div className="flex items-center gap-2 py-2">
+            <span className="text-sm font-medium text-gray-600">Pagó:</span>
+            <button
+              type="button"
+              onClick={() => setPagador("compartido")}
+              className={`h-10 rounded-full px-4 text-sm font-medium transition ${pagador === "compartido" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"}`}
+            >
+              50/50
+            </button>
+            <button
+              type="button"
+              onClick={() => setPagador("franco")}
+              className={`h-10 rounded-full px-4 text-sm font-medium transition ${pagador === "franco" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"}`}
+            >
+              Franco
+            </button>
+            <button
+              type="button"
+              onClick={() => setPagador("fabiola")}
+              className={`h-10 rounded-full px-4 text-sm font-medium transition ${pagador === "fabiola" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"}`}
+            >
+              Fabiola
+            </button>
           </div>
-        ) : (
-          <p className="mt-2 text-sm text-gray-600">No hay pendientes. Todo al dia.</p>
+        </div>
+
+        {montoCalculado > 0 && (
+          <div className="mt-4 rounded-lg bg-gray-100 px-4 py-3">
+            <p className="text-xs uppercase text-gray-600">Total</p>
+            <p className="text-2xl font-mono font-bold text-gray-900">{formatearPeso(montoCalculado)}</p>
+          </div>
         )}
-      </section>
-    </section>
+      </div>
+
+      <footer className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-300 bg-white px-3 py-3">
+        <div className="mx-auto flex max-w-lg gap-2">
+          <button
+            type="button"
+            onClick={guardarPendiente}
+            disabled={guardando || !monto.trim()}
+            className="h-14 flex-1 rounded-lg border border-gray-300 bg-gray-50 px-4 text-base font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
+          >
+            Guardar pendiente
+          </button>
+          <button
+            type="button"
+            onClick={guardarYDetallar}
+            disabled={guardandoDetallar || !monto.trim()}
+            className="h-14 flex-1 rounded-lg bg-blue-600 px-4 text-base font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            {guardandoDetallar ? "Guardando..." : "Guardar y detallar"}
+          </button>
+        </div>
+      </footer>
+    </div>
   );
 }

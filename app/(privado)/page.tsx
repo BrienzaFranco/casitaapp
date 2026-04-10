@@ -62,13 +62,13 @@ export default function PaginaInicio() {
           <h1 className="text-xl font-semibold text-gray-900">Inicio</h1>
         </div>
         <Link
-          href="/anotador-rapido"
-          aria-label="Abrir anotador rapido"
-          title="Abrir anotador rapido"
+          href="/nueva-compra"
+          aria-label="Anadir nueva compra"
+          title="Anadir nueva compra"
           className="inline-flex h-10 items-center justify-center gap-1 rounded bg-blue-600 px-3 text-sm font-medium text-white"
         >
           <Plus className="h-4 w-4" />
-          Anotar rapido
+          Nueva compra
         </Link>
       </div>
 
