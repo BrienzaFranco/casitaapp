@@ -3,8 +3,9 @@
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { Upload, Trash2 } from "lucide-react";
+import { Download, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { BotonInstalarApp } from "@/components/pwa/BotonInstalarApp";
 import type { CompraEditable, DatosImportados, TipoReparto } from "@/types";
 import { Badge } from "@/components/ui/Badge";
 import { Boton } from "@/components/ui/Boton";
@@ -15,7 +16,7 @@ import { fechaLocalISO } from "@/lib/utiles";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 
-type Tab = "categorias" | "subcategorias" | "etiquetas" | "importar";
+type Tab = "categorias" | "subcategorias" | "etiquetas" | "importar" | "instalar";
 
 function normalizarCabecera(cabecera: string) {
   return cabecera
@@ -151,12 +152,13 @@ export default function PaginaConfiguracion() {
         <p className="text-sm text-gray-500">Categorias, subcategorias, etiquetas e importacion.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-[28px] border border-gray-100 bg-white p-2 shadow-sm">
+      <div className="grid grid-cols-2 gap-2 rounded-[28px] border border-gray-100 bg-white p-2 shadow-sm md:grid-cols-5">
         {[
           ["categorias", "Categorias"],
           ["subcategorias", "Subcategorias"],
           ["etiquetas", "Etiquetas"],
           ["importar", "Importar Excel"],
+          ["instalar", "Instalar app"],
         ].map(([valor, etiqueta]) => (
           <button
             key={valor}
@@ -416,6 +418,25 @@ export default function PaginaConfiguracion() {
           ) : (
             <p className="text-sm text-gray-500">Sube un archivo para ver la preview del mapeo.</p>
           )}
+        </section>
+      ) : null}
+
+      {tab === "instalar" ? (
+        <section className="space-y-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="flex items-start gap-3 rounded-[24px] bg-slate-50 p-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
+              <Download className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold text-slate-950">Instalar CasitaApp</h3>
+              <p className="text-sm text-slate-600">
+                La instalación quedó dentro de Configuración para que no interrumpa al entrar. Desde acá podés instalarla
+                cuando quieras en celular o escritorio.
+              </p>
+            </div>
+          </div>
+
+          <BotonInstalarApp />
         </section>
       ) : null}
     </section>

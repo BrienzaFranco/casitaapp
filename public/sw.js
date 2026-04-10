@@ -8,6 +8,5 @@ self.addEventListener("activate", (event) => {
     const keys = await caches.keys();
     await Promise.all(keys.map((key) => caches.delete(key)));
     await self.clients.claim();
-    await self.registration.unregister();
   })());
 });

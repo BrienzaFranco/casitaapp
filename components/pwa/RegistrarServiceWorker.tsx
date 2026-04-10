@@ -9,12 +9,11 @@ export function RegistrarServiceWorker() {
     }
 
     void (async () => {
-      const registros = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registros.map((registro) => registro.unregister()));
-
-      if ("caches" in window) {
-        const claves = await caches.keys();
-        await Promise.all(claves.map((clave) => caches.delete(clave)));
+      try {
+        const registro = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        await registro.update();
+      } catch (error) {
+        console.error("No se pudo registrar el service worker", error);
       }
     })();
   }, []);
