@@ -3,7 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { Upload } from "lucide-react";
+import { Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { CompraEditable, DatosImportados, TipoReparto } from "@/types";
 import { Badge } from "@/components/ui/Badge";
@@ -228,14 +228,15 @@ export default function PaginaConfiguracion() {
                   />
                   <button
                     type="button"
-                    className="text-sm font-semibold text-red-500"
+                    className="rounded-full p-2 text-red-500 hover:bg-red-50"
                     onClick={() =>
                       void categorias.eliminarCategoria(categoria.id).catch(() => {
                         toast.error("No se puede eliminar si tiene items asociados");
                       })
                     }
+                    title="Eliminar"
                   >
-                    Eliminar
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -309,14 +310,15 @@ export default function PaginaConfiguracion() {
                   />
                   <button
                     type="button"
-                    className="text-sm font-semibold text-red-500"
+                    className="rounded-full p-2 text-red-500 hover:bg-red-50"
                     onClick={() =>
                       void categorias.eliminarSubcategoria(subcategoria.id).catch(() => {
                         toast.error("No se puede eliminar si tiene items asociados");
                       })
                     }
+                    title="Eliminar"
                   >
-                    Eliminar
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -367,14 +369,15 @@ export default function PaginaConfiguracion() {
                 />
                 <button
                   type="button"
-                  className="text-sm font-semibold text-red-500"
+                  className="rounded-full p-2 text-red-500 hover:bg-red-50"
                   onClick={() =>
                     void categorias.eliminarEtiqueta(etiqueta.id).catch(() => {
                       toast.error("No se puede eliminar si esta usada");
                     })
                   }
+                  title="Eliminar"
                 >
-                  Eliminar
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ))}
