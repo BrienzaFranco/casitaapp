@@ -20,6 +20,12 @@ interface Props {
 export function CardCompra({ compra, nombres, onEliminar }: Props) {
   const [expandida, setExpandida] = useState(false);
   const categorias = obtenerCategoriasUsadas(compra);
+  const total = totalCompra(compra);
+  const totalFranco = compra.items.reduce((acumulado, item) => acumulado + item.pago_franco, 0);
+  const totalFabiola = compra.items.reduce((acumulado, item) => acumulado + item.pago_fabiola, 0);
+  const divisor = totalFranco + totalFabiola || 1;
+  const porcentajeFranco = (totalFranco / divisor) * 100;
+  const porcentajeFabiola = 100 - porcentajeFranco;
 
   return (
     <article className="rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
@@ -35,8 +41,13 @@ export function CardCompra({ compra, nombres, onEliminar }: Props) {
         </div>
         <div className="text-right">
           <p className="text-sm text-gray-500">{formatearFecha(compra.fecha)}</p>
-          <p className="font-mono text-xl font-semibold text-gray-950">{formatearPeso(totalCompra(compra))}</p>
+          <p className="font-mono text-xl font-semibold text-gray-950">{formatearPeso(total)}</p>
         </div>
+      </div>
+
+      <div className="mt-2 flex h-1.5 overflow-hidden rounded-full">
+        <div className="bg-indigo-400" style={{ width: `${porcentajeFranco}%` }} />
+        <div className="bg-emerald-400" style={{ width: `${porcentajeFabiola}%` }} />
       </div>
 
       <div className="mt-4 flex items-center gap-2">

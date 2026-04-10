@@ -259,7 +259,12 @@ export function filtrarComprasPorMes(compras: Compra[], mes: string) {
 
 export function filtrarComprasHistorial(
   compras: Compra[],
-  filtros: { mes: string; categoria_id: string; etiqueta_id: string },
+  filtros: {
+    mes?: string;
+    categoria_id?: string;
+    etiqueta_id?: string;
+    persona?: "franco" | "fabiola" | null;
+  },
 ) {
   return compras.filter((compra) => {
     const coincideMes = filtros.mes ? mesClave(compra.fecha) === filtros.mes : true;
@@ -269,8 +274,13 @@ export function filtrarComprasHistorial(
     const coincideEtiqueta = filtros.etiqueta_id
       ? compra.items.some((item) => item.etiquetas.some((etiqueta) => etiqueta.id === filtros.etiqueta_id))
       : true;
+    const coincidePersona = filtros.persona
+      ? compra.items.some((item) =>
+          filtros.persona === "franco" ? item.pago_franco > 0 : item.pago_fabiola > 0,
+        )
+      : true;
 
-    return coincideMes && coincideCategoria && coincideEtiqueta;
+    return coincideMes && coincideCategoria && coincideEtiqueta && coincidePersona;
   });
 }
 

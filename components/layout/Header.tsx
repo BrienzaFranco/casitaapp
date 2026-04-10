@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { LogOut, Settings } from "lucide-react";
 import { Boton } from "@/components/ui/Boton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { usarUsuario } from "@/hooks/usarUsuario";
@@ -24,9 +25,22 @@ export function Header() {
           )}
         </div>
 
-        <Boton variante="fantasma" onClick={cerrarSesion} icono={<LogOut className="h-4 w-4" />}>
-          Cerrar sesion
-        </Boton>
+        <div className="flex items-center gap-1">
+          <Link
+            href="/configuracion"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+          >
+            <Settings className="h-5 w-5" />
+          </Link>
+          <Boton
+            variante="fantasma"
+            onClick={cerrarSesion}
+            icono={<LogOut className="h-4 w-4" />}
+            className="min-h-10 px-3 sm:px-4"
+          >
+            <span className="hidden sm:inline">Cerrar sesion</span>
+          </Boton>
+        </div>
       </div>
     </header>
   );

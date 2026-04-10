@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, Plus, Settings, WalletCards } from "lucide-react";
+import { ChartColumn, Home, Plus, WalletCards } from "lucide-react";
 import { combinarClases } from "@/lib/utiles";
 
 const enlaces = [
+  { href: "/", etiqueta: "Inicio", icono: Home },
   { href: "/historial", etiqueta: "Historial", icono: WalletCards },
-  { href: "/nueva-compra", etiqueta: "Nueva compra", icono: Plus, destacada: true },
+  { href: "/nueva-compra", etiqueta: "Nueva", icono: Plus, destacada: true },
   { href: "/balance", etiqueta: "Balance", icono: ChartColumn },
-  { href: "/configuracion", etiqueta: "Config", icono: Settings },
 ];
 
 export function NavegacionInferior() {

@@ -108,7 +108,7 @@ export function TablaItems({
 
   return (
     <section className="space-y-4">
-      <div className="rounded-lg border border-gray-100 bg-white">
+      <div className="overflow-hidden rounded-lg border border-gray-100 bg-white">
         <div className="hidden items-center gap-2 border-b border-gray-100 px-3 py-2 text-xs font-medium text-gray-500 sm:flex">
           <span className="w-6"> </span>
           <span className="w-[90px]">Cat</span>
@@ -139,8 +139,8 @@ export function TablaItems({
           </SortableContext>
         </DndContext>
 
-        <div className="flex items-center gap-2 border-b border-dashed border-gray-200 px-3 py-2">
-          <div className="w-6" />
+        <div className="flex items-center gap-2 border-b border-dashed border-gray-200 px-2 py-2 sm:px-3">
+          <div className="w-4 sm:w-6" />
           <button
             type="button"
             onClick={() => onAgregarItem()}

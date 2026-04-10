@@ -218,34 +218,34 @@ export function FormularioCompra({
   }
 
   return (
-    <div className="relative rounded-lg border border-gray-100 bg-white">
+    <div className="relative overflow-hidden rounded-lg border border-gray-100 bg-white">
       <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-4 py-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <input
             type="date"
             value={compra.fecha}
             onChange={(event) => actualizarCampo("fecha", event.target.value)}
-            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:ring-1 focus:ring-gray-200"
+            className="h-9 w-[118px] rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-900 outline-none focus:ring-1 focus:ring-gray-200 sm:w-auto sm:px-3 sm:text-sm"
           />
           <input
             type="text"
             value={compra.nombre_lugar}
             onChange={(event) => actualizarCampo("nombre_lugar", event.target.value)}
             placeholder="Lugar..."
-            className="h-9 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:ring-1 focus:ring-gray-200"
+            className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:ring-1 focus:ring-gray-200"
           />
           <button
             type="button"
             onClick={() => void guardarCompra()}
             disabled={guardandoCompra}
-            className="h-9 rounded-lg bg-gray-900 px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-9 rounded-lg bg-gray-900 px-3 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 sm:px-4 sm:text-sm"
           >
             {guardandoCompra ? "Guardando..." : "Guardar"}
           </button>
         </div>
       </header>
 
-      <div className="px-4 py-3 pb-44">
+      <div className="px-2 py-3 pb-44 sm:px-4">
         <TablaItems
           items={compra.items}
           categorias={categorias}

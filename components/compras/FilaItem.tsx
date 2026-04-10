@@ -141,13 +141,13 @@ export function FilaItem({
     <div
       ref={setNodeRef}
       style={estilo}
-      className={`group border-b border-gray-100 px-3 py-2 hover:bg-gray-50 ${isDragging ? "opacity-70" : ""}`}
+      className={`group overflow-hidden border-b border-gray-100 px-2 py-2 hover:bg-gray-50 sm:px-3 ${isDragging ? "opacity-70" : ""}`}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex min-w-0 items-start gap-1 sm:gap-2">
         <div
           {...attributes}
           {...listeners}
-          className="w-6 cursor-grab pt-2 opacity-0 transition group-hover:opacity-100 active:cursor-grabbing"
+          className="w-4 cursor-grab pt-2 opacity-0 transition group-hover:opacity-100 active:cursor-grabbing sm:w-6"
         >
           <GripVertical className="h-4 w-4 text-gray-400" />
         </div>
@@ -158,7 +158,7 @@ export function FilaItem({
           onChange={(event) =>
             onActualizar(item.id as string, { categoria_id: event.target.value, subcategoria_id: "" })
           }
-          className="h-8 w-[70px] rounded bg-transparent px-2 text-xs text-gray-900 outline-none ring-0 focus:ring-1 focus:ring-gray-200 sm:w-[90px]"
+          className="h-8 w-[58px] rounded bg-transparent px-1 text-[11px] text-gray-900 outline-none ring-0 focus:ring-1 focus:ring-gray-200 sm:w-[90px] sm:px-2 sm:text-xs"
         >
           <option value="">Cat</option>
           {categorias.map((categoria) => (
@@ -187,7 +187,7 @@ export function FilaItem({
             value={item.descripcion}
             onChange={(event) => onActualizar(item.id as string, { descripcion: event.target.value })}
             placeholder="Descripcion..."
-            className="h-8 w-full rounded border-0 bg-transparent px-2 text-sm text-gray-900 outline-none focus:ring-1 focus:ring-gray-200"
+            className="h-8 w-full rounded border-0 bg-transparent px-1 text-sm text-gray-900 outline-none focus:ring-1 focus:ring-gray-200 sm:px-2"
           />
           <div className="mt-1 flex flex-wrap items-center gap-1 sm:hidden">
             {etiquetasVisibles.map((etiqueta) => (
@@ -197,14 +197,14 @@ export function FilaItem({
           </div>
         </div>
 
-        <div className="w-[92px] sm:w-[100px]">
+        <div className="w-[74px] sm:w-[100px]">
           <input
             type="text"
             inputMode="decimal"
             value={item.expresion_monto}
             onChange={(event) => actualizarExpresionMonto(event.target.value)}
             placeholder="0"
-            className={`h-8 w-full rounded border-0 bg-transparent px-2 text-right font-mono text-sm text-gray-900 outline-none focus:ring-1 focus:ring-gray-200 ${
+            className={`h-8 w-full rounded border-0 bg-transparent px-1 text-right font-mono text-xs text-gray-900 outline-none focus:ring-1 focus:ring-gray-200 sm:px-2 sm:text-sm ${
               estadoMonto.error ? "ring-1 ring-red-400 focus:ring-red-400" : ""
             }`}
           />
@@ -213,12 +213,12 @@ export function FilaItem({
           </p>
         </div>
 
-        <div className="w-[70px]">
+        <div className="w-[56px] sm:w-[70px]">
           <select
             value={item.tipo_reparto}
             onChange={(event) => actualizarTipoReparto(event.target.value as TipoReparto)}
             onKeyDown={manejarEnterUltimoCampo}
-            className="h-7 w-full rounded bg-gray-100 px-2 text-xs text-gray-700 outline-none focus:ring-1 focus:ring-gray-200"
+            className="h-7 w-full rounded bg-gray-100 px-1 text-[11px] text-gray-700 outline-none focus:ring-1 focus:ring-gray-200 sm:px-2 sm:text-xs"
           >
             {tiposReparto.map((tipo) => (
               <option key={tipo.valor} value={tipo.valor}>
@@ -234,7 +234,7 @@ export function FilaItem({
                 inputMode="decimal"
                 value={item.pago_franco || ""}
                 onChange={(event) => onActualizar(item.id as string, { pago_franco: Number(event.target.value || 0) })}
-                className="h-7 rounded bg-gray-100 px-1 text-right font-mono text-xs text-indigo-600 outline-none focus:ring-1 focus:ring-gray-200"
+                className="h-7 rounded bg-gray-100 px-1 text-right font-mono text-[10px] text-indigo-600 outline-none focus:ring-1 focus:ring-gray-200 sm:text-xs"
                 placeholder="F"
               />
               <input
@@ -243,7 +243,7 @@ export function FilaItem({
                 value={item.pago_fabiola || ""}
                 onChange={(event) => onActualizar(item.id as string, { pago_fabiola: Number(event.target.value || 0) })}
                 onKeyDown={manejarEnterUltimoCampo}
-                className="h-7 rounded bg-gray-100 px-1 text-right font-mono text-xs text-emerald-600 outline-none focus:ring-1 focus:ring-gray-200"
+                className="h-7 rounded bg-gray-100 px-1 text-right font-mono text-[10px] text-emerald-600 outline-none focus:ring-1 focus:ring-gray-200 sm:text-xs"
                 placeholder="Fa"
               />
             </div>
@@ -291,7 +291,7 @@ export function FilaItem({
         <button
           type="button"
           onClick={() => onEliminar(item.id as string)}
-          className="h-8 w-8 opacity-0 transition group-hover:opacity-100"
+          className="h-8 w-6 opacity-0 transition group-hover:opacity-100 sm:w-8"
         >
           <X className="h-4 w-4 text-gray-400" />
         </button>
