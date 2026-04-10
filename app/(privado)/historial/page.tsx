@@ -64,21 +64,24 @@ export default function PaginaHistorial() {
   }
 
   return (
-    <section className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold text-gray-950">Historial</h2>
-        <p className="text-sm text-gray-500">Filtra por mes, categoria o etiqueta y elige vista hoja o tarjetas.</p>
+    <section className="space-y-5">
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Archivo vivo</p>
+        <h2 className="text-3xl font-semibold text-slate-950">Historial de compras</h2>
+        <p className="max-w-2xl text-sm text-[var(--muted)]">
+          Explora el gasto por periodo, persona y etiquetas. Cambia entre lectura rapida o vista hoja cuando quieras hilar fino.
+        </p>
       </div>
 
-      <section className="rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+      <section className="rounded-[32px] border border-[var(--border)] bg-[var(--surface-strong)] p-5 shadow-[var(--shadow-soft)]">
         <div className="space-y-4">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setFiltroPersona(null)}
               className={combinarClases(
-                "h-9 rounded-full px-4 text-sm font-medium transition",
-                filtroPersona === null ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                "h-10 rounded-full px-4 text-sm font-medium transition",
+                filtroPersona === null ? "bg-slate-900 text-white" : "bg-[#f3ede2] text-[var(--muted)] hover:bg-[#ebe2d1]",
               )}
             >
               Todos
@@ -87,10 +90,10 @@ export default function PaginaHistorial() {
               type="button"
               onClick={() => setFiltroPersona("franco")}
               className={combinarClases(
-                "h-9 rounded-full px-4 text-sm font-medium transition",
+                "h-10 rounded-full px-4 text-sm font-medium transition",
                 filtroPersona === "franco"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100",
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-50 text-blue-700 hover:bg-blue-100",
               )}
             >
               Solo Franco
@@ -99,7 +102,7 @@ export default function PaginaHistorial() {
               type="button"
               onClick={() => setFiltroPersona("fabiola")}
               className={combinarClases(
-                "h-9 rounded-full px-4 text-sm font-medium transition",
+                "h-10 rounded-full px-4 text-sm font-medium transition",
                 filtroPersona === "fabiola"
                   ? "bg-emerald-600 text-white"
                   : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100",
@@ -114,8 +117,8 @@ export default function PaginaHistorial() {
               type="button"
               onClick={() => setMes("")}
               className={combinarClases(
-                "h-9 flex-shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-medium transition",
-                mes === "" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                "h-10 flex-shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-medium transition",
+                mes === "" ? "bg-slate-900 text-white" : "bg-[#f3ede2] text-[var(--muted)] hover:bg-[#ebe2d1]",
               )}
             >
               Todos
@@ -126,8 +129,8 @@ export default function PaginaHistorial() {
                 type="button"
                 onClick={() => setMes(mesItem.valor)}
                 className={combinarClases(
-                  "h-9 flex-shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-medium transition",
-                  mes === mesItem.valor ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                  "h-10 flex-shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-medium transition",
+                  mes === mesItem.valor ? "bg-slate-900 text-white" : "bg-[#f3ede2] text-[var(--muted)] hover:bg-[#ebe2d1]",
                 )}
               >
                 {mesItem.etiqueta}
@@ -135,13 +138,13 @@ export default function PaginaHistorial() {
             ))}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setVista("hoja")}
               className={combinarClases(
-                "h-9 rounded-full px-4 text-sm font-medium transition",
-                vista === "hoja" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                "h-10 rounded-full px-4 text-sm font-medium transition",
+                vista === "hoja" ? "bg-slate-900 text-white" : "bg-[#f3ede2] text-[var(--muted)] hover:bg-[#ebe2d1]",
               )}
             >
               Vista hoja
@@ -150,36 +153,36 @@ export default function PaginaHistorial() {
               type="button"
               onClick={() => setVista("tarjetas")}
               className={combinarClases(
-                "h-9 rounded-full px-4 text-sm font-medium transition",
-                vista === "tarjetas" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                "h-10 rounded-full px-4 text-sm font-medium transition",
+                vista === "tarjetas" ? "bg-slate-900 text-white" : "bg-[#f3ede2] text-[var(--muted)] hover:bg-[#ebe2d1]",
               )}
             >
               Vista tarjetas
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
-          <Select
-            etiqueta="Categoria"
-            value={categoriaId}
-            onChange={(event) => setCategoriaId(event.target.value)}
-            placeholder="Todas"
-            opciones={categorias.categorias.map((categoria) => ({ etiqueta: categoria.nombre, valor: categoria.id }))}
-          />
-          <Select
-            etiqueta="Etiqueta"
-            value={etiquetaId}
-            onChange={(event) => setEtiquetaId(event.target.value)}
-            placeholder="Todas"
-            opciones={categorias.etiquetas.map((etiqueta) => ({ etiqueta: etiqueta.nombre, valor: etiqueta.id }))}
-          />
-          <Select
-            etiqueta="Tag de compra"
-            value={etiquetaCompraId}
-            onChange={(event) => setEtiquetaCompraId(event.target.value)}
-            placeholder="Todos"
-            opciones={categorias.etiquetas.map((etiqueta) => ({ etiqueta: etiqueta.nombre, valor: etiqueta.id }))}
-          />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Select
+              etiqueta="Categoria"
+              value={categoriaId}
+              onChange={(event) => setCategoriaId(event.target.value)}
+              placeholder="Todas"
+              opciones={categorias.categorias.map((categoria) => ({ etiqueta: categoria.nombre, valor: categoria.id }))}
+            />
+            <Select
+              etiqueta="Etiqueta"
+              value={etiquetaId}
+              onChange={(event) => setEtiquetaId(event.target.value)}
+              placeholder="Todas"
+              opciones={categorias.etiquetas.map((etiqueta) => ({ etiqueta: etiqueta.nombre, valor: etiqueta.id }))}
+            />
+            <Select
+              etiqueta="Tag de compra"
+              value={etiquetaCompraId}
+              onChange={(event) => setEtiquetaCompraId(event.target.value)}
+              placeholder="Todos"
+              opciones={categorias.etiquetas.map((etiqueta) => ({ etiqueta: etiqueta.nombre, valor: etiqueta.id }))}
+            />
           </div>
         </div>
       </section>
@@ -188,7 +191,7 @@ export default function PaginaHistorial() {
 
       {vista === "hoja" && !compras.cargando && filtradas.length ? (
         <div className="space-y-2">
-          <p className="text-xs text-gray-500">En celular conviene usar vista tarjetas para lectura mas comoda.</p>
+          <p className="text-xs text-[var(--muted)]">En celular conviene usar vista tarjetas para lectura mas comoda.</p>
           <HojaCompras compras={filtradas} />
         </div>
       ) : (

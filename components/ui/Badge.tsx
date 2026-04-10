@@ -11,7 +11,7 @@ export function Badge({ children, color, className }: Props) {
   return (
     <span
       className={combinarClases(
-        "inline-flex items-center gap-2 rounded-full border border-gray-100 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700",
+        "inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] backdrop-blur",
         className,
       )}
     >

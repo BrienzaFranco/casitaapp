@@ -17,11 +17,11 @@ interface Props extends SelectHTMLAttributes<HTMLSelectElement> {
 export function Select({ etiqueta, opciones, placeholder, ayuda, className, ...props }: Props) {
   return (
     <label className="flex flex-col gap-2 text-left">
-      <span className="text-sm font-semibold text-gray-800">{etiqueta}</span>
+      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{etiqueta}</span>
       <div className="relative">
         <select
           className={combinarClases(
-            "h-12 w-full appearance-none rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100",
+            "h-12 w-full appearance-none rounded-[20px] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100/80",
             className,
           )}
           {...props}
@@ -34,7 +34,7 @@ export function Select({ etiqueta, opciones, placeholder, ayuda, className, ...p
           ))}
         </select>
       </div>
-      {ayuda ? <span className="text-sm text-gray-500">{ayuda}</span> : null}
+      {ayuda ? <span className="text-sm text-[var(--muted)]">{ayuda}</span> : null}
     </label>
   );
 }

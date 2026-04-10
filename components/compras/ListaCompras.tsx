@@ -24,14 +24,15 @@ export function ListaCompras({ compras, cargando, nombres, onEliminar, modoVacio
   if (!compras.length) {
     if (modoVacio === "onboarding") {
       return (
-        <section className="border border-gray-300 bg-white p-4">
-          <p className="text-base font-semibold text-gray-900">Tu historial esta vacio</p>
-          <p className="mt-1 text-sm text-gray-600">
+        <section className="rounded-[30px] border border-[var(--border)] bg-[var(--surface-strong)] p-6 shadow-[var(--shadow-soft)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Historial</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-950">Tu historial esta vacio</p>
+          <p className="mt-2 max-w-xl text-sm text-[var(--muted)]">
             Carga tu primera compra y vas a empezar a ver analisis, tendencia y balance automaticamente.
           </p>
           <Link
             href="/nueva-compra"
-            className="mt-4 inline-flex h-10 items-center justify-center rounded bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
+            className="mt-5 inline-flex h-11 items-center justify-center rounded-[18px] bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             Anadir tu primera compra
           </Link>
@@ -40,7 +41,7 @@ export function ListaCompras({ compras, cargando, nombres, onEliminar, modoVacio
     }
 
     return (
-      <section className="border border-gray-300 bg-white p-4 text-sm text-gray-600">
+      <section className="rounded-[28px] border border-[var(--border)] bg-[var(--surface-strong)] p-4 text-sm text-[var(--muted)] shadow-[var(--shadow-soft)]">
         No hay compras para esos filtros.
       </section>
     );

@@ -2,17 +2,33 @@
 
 :root {
   color-scheme: light;
+  --bg: #f3efe7;
+  --surface: rgba(255, 252, 247, 0.9);
+  --surface-strong: #fffdf9;
+  --border: rgba(114, 92, 63, 0.16);
+  --ink: #1f2937;
+  --muted: #665f55;
+  --accent: #1258dc;
+  --accent-soft: rgba(18, 88, 220, 0.1);
+  --olive-soft: rgba(82, 113, 80, 0.12);
+  --shadow-soft: 0 24px 70px -30px rgba(40, 31, 20, 0.28);
 }
 
 html {
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
-  background: #f3f4f6;
+  font-family: "Aptos", "Segoe UI Variable", "Trebuchet MS", "Helvetica Neue", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(18, 88, 220, 0.11), transparent 28%),
+    radial-gradient(circle at top right, rgba(221, 161, 94, 0.16), transparent 24%),
+    linear-gradient(180deg, #f9f5ee 0%, #f2ede4 48%, #ece6dc 100%);
 }
 
 body {
   min-height: 100vh;
-  background: #f3f4f6;
-  color: #111827;
+  background: transparent;
+  color: var(--ink);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
 }
 
 summary {
@@ -56,4 +72,9 @@ summary::-webkit-details-marker {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+::selection {
+  background: rgba(18, 88, 220, 0.18);
+  color: #10203f;
 }

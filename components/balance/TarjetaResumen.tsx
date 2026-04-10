@@ -9,12 +9,12 @@ interface Props {
 
 export function TarjetaResumen({ titulo, valor, detalle, icono }: Props) {
   return (
-    <article className="rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+    <article className="rounded-[30px] border border-[var(--border)] bg-[var(--surface-strong)] p-5 shadow-[var(--shadow-soft)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-gray-500">{titulo}</p>
-          <p className="mt-2 font-mono text-2xl font-semibold text-gray-950">{valor}</p>
-          {detalle ? <p className="mt-2 text-sm text-gray-500">{detalle}</p> : null}
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{titulo}</p>
+          <p className="mt-3 font-mono text-3xl font-semibold text-slate-950">{valor}</p>
+          {detalle ? <p className="mt-3 text-sm text-[var(--muted)]">{detalle}</p> : null}
         </div>
         {icono}
       </div>
