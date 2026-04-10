@@ -102,7 +102,6 @@ export default function PaginaNuevaCompra() {
       compraInicial={compraInicial}
       guardando={compras.guardando}
       etiquetas={categorias.etiquetas}
-      onCrearSubcategoria={categorias.crearSubcategoria}
       onGuardar={guardar}
       comprasHistoria={historia}
     />
