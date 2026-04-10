@@ -122,7 +122,7 @@ export default function PaginaAnotadorRapido() {
 
   return (
     <div className="min-h-screen bg-surface pb-24">
-      <div className="mx-auto max-w-[480px] px-4 pt-4">
+      <div className="mx-auto max-w-xl px-4 pt-4">
         {/* Header editorial */}
         <div className="mb-4 space-y-0.5">
           <p className="font-label text-[10px] uppercase tracking-widest text-outline">Registro Rapido</p>
@@ -208,7 +208,7 @@ export default function PaginaAnotadorRapido() {
 
       {/* Footer actions */}
       <footer className="fixed bottom-0 left-0 right-0 z-20 bg-surface border-t border-outline-variant/20 px-4 py-2.5 pb-safe">
-        <div className="mx-auto flex max-w-[480px] gap-2">
+        <div className="mx-auto flex max-w-xl gap-2">
           <button
             type="button"
             onClick={guardarPendiente}

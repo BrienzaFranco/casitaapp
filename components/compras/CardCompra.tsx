@@ -69,14 +69,14 @@ export function CardCompra({ compra, nombres, onEliminar }: Props) {
 
       {/* Distribution bar */}
       <div className="px-4 py-2 bg-surface-container flex items-center gap-2 text-[10px]">
-        <span className="font-label font-bold text-secondary tabular-nums w-16 text-right truncate">
+        <span className="font-label font-bold text-secondary tabular-nums text-right truncate max-w-[80px]">
           {formatearPeso(totalFranco)}
         </span>
         <div className="flex-1 flex h-1.5 overflow-hidden rounded-full bg-surface-container-lowest">
           <div className="bg-secondary transition-all duration-200" style={{ width: `${pctFranco}%` }} />
           <div className="bg-tertiary transition-all duration-200" style={{ width: `${100 - pctFranco}%` }} />
         </div>
-        <span className="font-label font-bold text-tertiary tabular-nums w-16 truncate">
+        <span className="font-label font-bold text-tertiary tabular-nums text-right truncate max-w-[80px]">
           {formatearPeso(totalFabiola)}
         </span>
       </div>

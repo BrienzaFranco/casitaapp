@@ -24,8 +24,8 @@ export function BannerPendientes() {
   if (!cantidad) return null;
 
   return (
-    <div className="sticky top-14 z-20 mx-auto max-w-xl px-4 pt-2">
-      <div className="rounded-lg bg-secondary-fixed/60 border border-secondary/15 px-3 py-2.5 font-label text-sm font-bold text-on-secondary-container">
+    <div className="sticky top-14 z-20 px-4 pt-2">
+      <div className="mx-auto max-w-xl rounded-lg bg-secondary-fixed/60 border border-secondary/15 px-3 py-2.5 font-label text-sm font-bold text-on-secondary-container">
         {cantidad} compras pendientes de sincronizar
       </div>
     </div>

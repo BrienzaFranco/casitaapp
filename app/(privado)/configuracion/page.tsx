@@ -161,7 +161,7 @@ export default function PaginaConfiguracion() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 overflow-x-auto border-b border-outline-variant/15">
+      <div className="flex gap-4 overflow-x-auto scrollbar-hide border-b border-outline-variant/15">
         {TABS.map(({ valor, etiqueta }) => (
           <button
             key={valor}
