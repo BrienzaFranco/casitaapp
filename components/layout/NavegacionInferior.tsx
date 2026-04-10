@@ -8,6 +8,7 @@ import { combinarClases } from "@/lib/utiles";
 const enlaces = [
   { href: "/", etiqueta: "Resumen", icono: Home },
   { href: "/historial", etiqueta: "Historial", icono: WalletCards },
+  { href: "/nueva-compra", etiqueta: "Agregar", icono: Plus },
   { href: "/balance", etiqueta: "Balance", icono: ChartColumn },
   { href: "/configuracion", etiqueta: "Config", icono: Settings },
 ];
@@ -22,19 +23,38 @@ export function NavegacionInferior() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 md:hidden">
-      <div className="w-full px-3 pb-safe pt-1.5">
-        <div className="rounded-t-2xl border-t border-outline-variant/15 bg-surface/80 backdrop-blur-md shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
-          <div className="flex items-end justify-around px-1 pt-1 pb-1">
+      <div className="w-full px-2 pb-safe">
+        <div className="rounded-t-2xl border-t border-outline-variant/15 bg-surface/90 backdrop-blur-md shadow-[0_-8px_24px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-around">
             {enlaces.map(({ href, etiqueta, icono: Icono }) => {
               const activa = estaActiva(pathname, href);
+              const esAgregar = href === "/nueva-compra";
+
+              if (esAgregar) {
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    aria-label={etiqueta}
+                    className="flex flex-col items-center -mt-4"
+                  >
+                    <div className="bg-secondary text-on-secondary rounded-full shadow-lg shadow-secondary/20 flex items-center justify-center active:scale-95 transition-transform"
+                      style={{ width: "52px", height: "52px" }}>
+                      <Plus className="h-6 w-6" strokeWidth={2.5} />
+                    </div>
+                    <span className="text-[9px] font-bold uppercase tracking-tight text-secondary mt-1">{etiqueta}</span>
+                  </Link>
+                );
+              }
+
               return (
                 <Link
                   key={href}
                   href={href}
                   aria-label={etiqueta}
                   className={combinarClases(
-                    "flex flex-col items-center gap-0.5 py-2 text-[10px] font-bold uppercase tracking-tight transition-colors flex-1",
-                    activa ? "text-secondary" : "text-stone-500"
+                    "flex flex-col items-center gap-0.5 py-3 px-1 text-[9px] font-bold uppercase tracking-tight transition-colors flex-1",
+                    activa ? "text-secondary" : "text-on-surface-variant/70"
                   )}
                 >
                   <Icono className="h-5 w-5" strokeWidth={activa ? 2 : 1.5} />
@@ -42,18 +62,6 @@ export function NavegacionInferior() {
                 </Link>
               );
             })}
-          </div>
-
-          {/* FAB */}
-          <div className="flex justify-center -mt-6 mb-1.5">
-            <Link
-              href="/nueva-compra"
-              aria-label="Nueva compra"
-              className="bg-primary text-on-primary rounded-full shadow-lg shadow-primary/30 flex items-center justify-center active:scale-95 transition-transform"
-              style={{ width: "52px", height: "52px" }}
-            >
-              <Plus className="h-6 w-6" strokeWidth={2.5} />
-            </Link>
           </div>
         </div>
       </div>
