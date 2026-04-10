@@ -11,11 +11,11 @@ export function Badge({ children, color, className }: Props) {
   return (
     <span
       className={combinarClases(
-        "inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] backdrop-blur",
+        "inline-flex items-center gap-1.5 rounded-full bg-surface-variant px-2 py-0.5 text-[10px] font-medium font-label text-on-surface-variant",
         className,
       )}
     >
-      {color ? <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} /> : null}
+      {color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />}
       {children}
     </span>
   );

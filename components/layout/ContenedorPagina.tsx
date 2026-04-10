@@ -8,8 +8,8 @@ interface Props {
 
 export function ContenedorPagina({ children, className }: Props) {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[1160px] flex-col px-3 pb-8 pt-3">
-      <div className={combinarClases("flex flex-1 flex-col gap-4", className)}>{children}</div>
+    <main className="mx-auto min-h-screen w-full max-w-[480px] px-4 pb-24 pt-16">
+      <div className={combinarClases("flex flex-col gap-4", className)}>{children}</div>
     </main>
   );
 }

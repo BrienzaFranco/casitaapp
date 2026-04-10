@@ -7,62 +7,39 @@ interface Props {
 }
 
 function calcularTotales(items: ItemEditable[]) {
-  const total = items.reduce((acumulado, item) => acumulado + item.monto_resuelto, 0);
-  const pagoFranco = items.reduce((acumulado, item) => acumulado + item.pago_franco, 0);
-  const pagoFabiola = items.reduce((acumulado, item) => acumulado + item.pago_fabiola, 0);
+  const total = items.reduce((acc, item) => acc + item.monto_resuelto, 0);
+  const pagoFranco = items.reduce((acc, item) => acc + item.pago_franco, 0);
+  const pagoFabiola = items.reduce((acc, item) => acc + item.pago_fabiola, 0);
   const divisor = pagoFranco + pagoFabiola || 1;
-  const porcentajeFranco = (pagoFranco / divisor) * 100;
-  const porcentajeFabiola = 100 - porcentajeFranco;
-
-  return {
-    total,
-    pagoFranco,
-    pagoFabiola,
-    porcentajeFranco,
-    porcentajeFabiola,
-  };
+  const pctFranco = (pagoFranco / divisor) * 100;
+  const pctFabiola = 100 - pctFranco;
+  return { total, pagoFranco, pagoFabiola, pctFranco, pctFabiola };
 }
 
 export function ResumenTotal({ items, nombres }: Props) {
-  const { total, pagoFranco, pagoFabiola, porcentajeFranco, porcentajeFabiola } = calcularTotales(items);
+  const { total, pagoFranco, pagoFabiola, pctFranco, pctFabiola } = calcularTotales(items);
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white px-4 py-3 pb-safe">
-      <div className="mx-auto w-full max-w-[480px]">
-        <div className="mb-3 flex h-2 overflow-hidden rounded-full">
-          <div className="bg-indigo-500" style={{ width: `${porcentajeFranco}%` }} />
-          <div className="bg-emerald-500" style={{ width: `${porcentajeFabiola}%` }} />
+    <footer className="fixed bottom-0 left-0 right-0 z-20 bg-surface border-t border-outline-variant/20 px-4 py-2.5 pb-safe">
+      <div className="mx-auto max-w-[480px]">
+        {/* Distribution bar */}
+        <div className="mb-2 flex h-1.5 overflow-hidden rounded-full bg-surface-container-lowest">
+          <div className="bg-secondary transition-all duration-200" style={{ width: `${pctFranco}%` }} />
+          <div className="bg-tertiary transition-all duration-200" style={{ width: `${pctFabiola}%` }} />
         </div>
 
-        <div className="sm:hidden">
-          <div className="text-center">
-            <p className="text-xs text-gray-500">Total</p>
-            <p className="text-2xl font-mono font-bold text-gray-900">{formatearPeso(total)}</p>
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs text-gray-500">{nombres.franco}</p>
-              <p className="text-lg font-mono font-semibold text-indigo-600">{formatearPeso(pagoFranco)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-500">{nombres.fabiola}</p>
-              <p className="text-lg font-mono font-semibold text-emerald-600">{formatearPeso(pagoFabiola)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="hidden items-center justify-between sm:flex">
-          <div className="text-left">
-            <p className="text-xs text-gray-500">{nombres.franco}</p>
-            <p className="text-lg font-mono font-semibold text-indigo-600">{formatearPeso(pagoFranco)}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">{nombres.franco}</p>
+            <p className="font-label text-sm font-bold tabular-nums text-secondary">{formatearPeso(pagoFranco)}</p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-500">Total</p>
-            <p className="text-2xl font-mono font-bold text-gray-900">{formatearPeso(total)}</p>
+            <p className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">Total</p>
+            <p className="font-label text-xl font-bold tracking-tight tabular-nums text-primary">{formatearPeso(total)}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-gray-500">{nombres.fabiola}</p>
-            <p className="text-lg font-mono font-semibold text-emerald-600">{formatearPeso(pagoFabiola)}</p>
+            <p className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">{nombres.fabiola}</p>
+            <p className="font-label text-sm font-bold tabular-nums text-tertiary">{formatearPeso(pagoFabiola)}</p>
           </div>
         </div>
       </div>
