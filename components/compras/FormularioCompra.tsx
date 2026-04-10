@@ -9,6 +9,7 @@ import { formatearPeso } from "@/lib/formatear";
 import { guardarRegistradoPor, obtenerRegistradoPor } from "@/lib/offline";
 import { fechaLocalISO, normalizarTexto } from "@/lib/utiles";
 import { cargarMapaLugares, cargarMapaDetalles, predecirCategoria } from "@/lib/categorizacion";
+import { SelectBuscable } from "@/components/ui/SelectBuscable";
 
 interface Props {
   categorias: Categoria[];
@@ -20,6 +21,8 @@ interface Props {
   guardando?: boolean;
   onGuardar: (compra: CompraEditable) => Promise<void> | void;
   comprasHistoria?: Array<{ nombre_lugar: string; items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }> }>;
+  onCrearCategoria?: (nombre: string) => Promise<string | null>;
+  onCrearEtiqueta?: (nombre: string) => Promise<string | null>;
 }
 
 // Colores por persona (localStorage)
@@ -78,7 +81,7 @@ function nombreCorto(nombre: string) {
   return nombre.slice(0, 4);
 }
 
-export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas, nombres, registradoPorDefecto, compraInicial, guardando = false, onGuardar, comprasHistoria = [] }: Props) {
+export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas, nombres, registradoPorDefecto, compraInicial, guardando = false, onGuardar, comprasHistoria = [], onCrearCategoria, onCrearEtiqueta }: Props) {
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial));
   const [notas, setNotas] = useState(compraInicial?.notas ?? "");
   const [mostrarNotas, setMostrarNotas] = useState(!!compraInicial?.notas);
@@ -103,6 +106,37 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   useEffect(() => { if (!compraInicial && registradoPorDefecto && !compra.registrado_por) { setCompra(a => ({ ...a, registrado_por: registradoPorDefecto })); guardarRegistradoPor(registradoPorDefecto); } }, [compra.registrado_por, compraInicial, registradoPorDefecto]);
 
   const subsPorCat = useMemo(() => { const m = new Map<string, Subcategoria[]>(); for (const s of subcategorias) { const a = m.get(s.categoria_id) ?? []; a.push(s); m.set(s.categoria_id, a); } return m; }, [subcategorias]);
+
+  // Frequency tracking: count how often each category/subcategory is used in compra.items
+  const frecuenciaCategorias = useMemo(() => {
+    const freq = new Map<string, number>();
+    for (const item of compra.items) {
+      if (item.categoria_id) {
+        freq.set(item.categoria_id, (freq.get(item.categoria_id) ?? 0) + 1);
+      }
+    }
+    return freq;
+  }, [compra.items]);
+
+  const frecuenciaSubcategorias = useMemo(() => {
+    const freq = new Map<string, number>();
+    for (const item of compra.items) {
+      if (item.subcategoria_id) {
+        freq.set(item.subcategoria_id, (freq.get(item.subcategoria_id) ?? 0) + 1);
+      }
+    }
+    return freq;
+  }, [compra.items]);
+
+  // Options for SelectBuscable with frequency
+  const opcionesCategorias = useMemo(() => {
+    return categorias.map(c => ({
+      valor: c.id,
+      etiqueta: c.nombre,
+      color: c.color,
+      frecuencia: frecuenciaCategorias.get(c.id) ?? 0,
+    }));
+  }, [categorias, frecuenciaCategorias]);
 
   const set = (c: Partial<CompraEditable>) => setCompra(a => ({ ...a, ...c }));
   const setItem = (id: string, c: Partial<ItemEditable>, recalc = false) => setCompra(a => ({
@@ -171,10 +205,19 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   const debeFrancoAFabiola = totalFabiola > totalFranco ? totalFabiola - totalFranco : 0;
   const debeFabiolaAFranco = totalFranco > totalFabiola ? totalFranco - totalFabiola : 0;
 
+  // Options for tags SelectBuscable
+  const opcionesEtiquetas = useMemo(() => {
+    return etiquetas.map(e => ({
+      valor: e.id,
+      etiqueta: e.nombre,
+      color: e.color,
+    }));
+  }, [etiquetas]);
+
   return (
     <div className="min-h-screen bg-surface pb-32">
       <div className="mx-auto max-w-xl px-4 pt-4 space-y-3">
-        {/* Header: Lugar + Fecha + Pagó en linea */}
+        {/* Header: Lugar + Fecha + Pago en linea */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-3">
           <input
             type="text" value={compra.nombre_lugar}
@@ -191,7 +234,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                 className="h-7 rounded bg-surface-container-low px-2 font-label text-xs tabular-nums text-on-surface outline-none" />
             </label>
             <label className="flex items-center gap-1.5 shrink-0">
-              <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Pagó</span>
+              <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Pago</span>
               <select value={compra.pagador_general} onChange={e => set({ pagador_general: e.target.value as "franco" | "fabiola" | "compartido" })}
                 className="h-7 rounded bg-surface-container-low px-2 font-label text-xs text-on-surface outline-none">
                 <option value="compartido">50/50</option>
@@ -225,23 +268,27 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
         {/* Items */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-label text-[10px] font-bold uppercase tracking-wider text-outline">Items ({compra.items.length})</span>
-            <button type="button" onClick={add}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded bg-secondary text-on-secondary font-label text-[10px] font-bold uppercase tracking-wider active:scale-[0.97] transition-transform">
-              <Plus className="h-3 w-3" /> Item
-            </button>
-          </div>
+          <span className="font-label text-[10px] font-bold uppercase tracking-wider text-outline block">Items ({compra.items.length})</span>
 
-          {compra.items.map((item) => {
+          {compra.items.map((item, index) => {
             const etqAbierta = etiquetasAbiertas[item.id ?? ""];
             const subs = item.categoria_id ? (subsPorCat.get(item.categoria_id) ?? []) : [];
             const etqSeleccionadas = item.etiquetas_ids.map(id => etiquetas.find(e => e.id === id)).filter(Boolean);
+            const subOpciones = item.categoria_id
+              ? (subsPorCat.get(item.categoria_id) ?? []).map(s => ({
+                  valor: s.id,
+                  etiqueta: s.nombre,
+                  frecuencia: frecuenciaSubcategorias.get(s.id) ?? 0,
+                }))
+              : [];
 
             return (
               <div key={item.id} className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 overflow-hidden">
-                {/* Header: descripcion editable + monto + eliminar */}
+                {/* Header: Item badge + descripcion editable + monto + eliminar */}
                 <div className="flex items-center px-3 py-2 gap-2">
+                  <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-surface-variant font-label text-[9px] font-bold text-on-surface-variant shrink-0">
+                    Item {index + 1}
+                  </span>
                   <div className="flex-1 min-w-0">
                     <input
                       ref={el => { if (el && !item.descripcion) ref.current.set(item.id ?? "", el); }}
@@ -260,7 +307,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                     {item.categoria_id && (
                       <p className="font-label text-[8px] text-on-surface-variant truncate">
                         {categorias.find(c => c.id === item.categoria_id)?.nombre}
-                        {item.subcategoria_id ? ` › ${subs.find(s => s.id === item.subcategoria_id)?.nombre}` : ""}
+                        {item.subcategoria_id ? ` \u203A ${subs.find(s => s.id === item.subcategoria_id)?.nombre}` : ""}
                       </p>
                     )}
                   </div>
@@ -285,18 +332,23 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
                 {/* Detail compacto */}
                 <div className="px-3 pb-2.5 space-y-1.5 border-t border-outline-variant/10 pt-1.5">
-                  {/* Categoria + Subcategoria inline */}
+                  {/* Categoria + Subcategoria con SelectBuscable */}
                   <div className="flex gap-1.5">
-                    <select value={item.categoria_id} onChange={e => setItem(item.id ?? "", { categoria_id: e.target.value, subcategoria_id: "" })}
-                      className="flex-1 h-7 rounded bg-surface-container px-1.5 font-label text-[10px] text-on-surface outline-none">
-                      <option value="">Categoria</option>
-                      {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                    </select>
-                    <select value={item.subcategoria_id} onChange={e => setItem(item.id ?? "", { subcategoria_id: e.target.value })} disabled={!subs.length}
-                      className="flex-1 h-7 rounded bg-surface-container px-1.5 font-label text-[10px] text-on-surface outline-none disabled:opacity-40">
-                      <option value="">Subcat</option>
-                      {subs.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                    </select>
+                    <SelectBuscable
+                      opciones={opcionesCategorias}
+                      valor={item.categoria_id}
+                      onChange={(catId) => setItem(item.id ?? "", { categoria_id: catId, subcategoria_id: "" })}
+                      placeholder="Categoria"
+                      onCreateNuevo={onCrearCategoria}
+                      labelNuevo="+ Categoria"
+                    />
+                    <SelectBuscable
+                      opciones={subOpciones}
+                      valor={item.subcategoria_id}
+                      onChange={(subId) => setItem(item.id ?? "", { subcategoria_id: subId })}
+                      placeholder="Subcat"
+                      disabled={!item.categoria_id || !subOpciones.length}
+                    />
                   </div>
 
                   {/* Monto expresion */}
@@ -342,13 +394,36 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
                   {/* Etiquetas desplegadas */}
                   {etqAbierta && (
-                    <div className="flex flex-wrap gap-1">
-                      {etiquetas.map(etq => (
-                        <button key={etq.id} type="button" onClick={() => toggleEtqItem(item.id ?? "", etq.id)}
-                          className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${item.etiquetas_ids.includes(etq.id) ? "bg-secondary text-on-secondary" : "bg-surface-variant text-on-surface-variant"}`}>
-                          #{etq.nombre}
-                        </button>
-                      ))}
+                    <div className="space-y-1">
+                      <SelectBuscable
+                        opciones={opcionesEtiquetas}
+                        valor={item.etiquetas_ids[0] ?? ""}
+                        onChange={(etqId) => toggleEtqItem(item.id ?? "", etqId)}
+                        placeholder="Agregar etiqueta"
+                        onCreateNuevo={onCrearEtiqueta}
+                        labelNuevo="+ Etiqueta"
+                        tamano="sm"
+                      />
+                      {item.etiquetas_ids.length > 0 && (
+                        <div className="flex flex-wrap gap-0.5">
+                          {item.etiquetas_ids.map(etqId => {
+                            const etq = etiquetas.find(e => e.id === etqId);
+                            if (!etq) return null;
+                            return (
+                              <span key={etq.id} className="inline-flex items-center gap-0.5 font-label text-[8px] px-1.5 py-0.5 rounded-full bg-surface-variant text-on-surface-variant">
+                                #{etq.nombre}
+                                <button
+                                  type="button"
+                                  onClick={() => toggleEtqItem(item.id ?? "", etq.id)}
+                                  className="hover:text-on-surface transition-colors"
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                   {!etqAbierta && etqSeleccionadas.length > 0 && (
@@ -364,6 +439,12 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
               </div>
             );
           })}
+
+          {/* "+ Item" button at the BOTTOM of the items list */}
+          <button type="button" onClick={add}
+            className="w-full h-10 rounded-lg border-2 border-dashed border-outline-variant/30 flex items-center justify-center gap-1.5 font-label text-[11px] font-bold uppercase tracking-wider text-on-surface-variant hover:border-secondary hover:text-secondary hover:bg-secondary/5 transition-all active:scale-[0.98]">
+            <Plus className="h-4 w-4" /> Item
+          </button>
         </div>
 
         {/* Opciones avanzadas */}
@@ -411,9 +492,9 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
           </div>
 
           {/* Quien pago cuanto */}
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="font-label tabular-nums" style={{ color: colorFran }}>{nombres.franco} pagó {formatearPeso(totalFranco)}</span>
-            <span className="font-label tabular-nums" style={{ color: colorFabi }}>{nombres.fabiola} pagó {formatearPeso(totalFabiola)}</span>
+          <div className="flex items-center justify-between">
+            <span className="font-label tabular-nums" style={{ color: colorFran }}>{nombres.franco} pago {formatearPeso(totalFranco)}</span>
+            <span className="font-label tabular-nums" style={{ color: colorFabi }}>{nombres.fabiola} pago {formatearPeso(totalFabiola)}</span>
           </div>
 
           {/* Deuda clara */}
@@ -437,7 +518,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
               Confirmar y nueva
             </button>
             <button type="button" onClick={() => guardar(false)} disabled={guardandoLocal}
-              className="h-10 flex-[2] rounded bg-primary font-label text-sm font-semibold uppercase tracking-wider text-on-primary disabled:opacity-50 hover:bg-primary/90 active:scale-[0.98] transition-all">
+              className="h-10 flex-[2] rounded bg-secondary font-label text-sm font-semibold uppercase tracking-wider text-on-secondary disabled:opacity-50 hover:bg-secondary/90 active:scale-[0.98] transition-all">
               {guardandoLocal ? "Guardando..." : "Confirmar Compra"}
             </button>
           </div>
