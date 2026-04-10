@@ -51,13 +51,6 @@ export default function PaginaNuevaCompra() {
   const compraInicial = compraExistente ? compraAEditable(compraExistente) : null;
   const { guardarConFallback } = usarOffline(compras.guardarCompra);
 
-  async function crearBorrador(
-    compra: Pick<CompraEditable, "fecha" | "nombre_lugar" | "notas" | "registrado_por" | "hogar_id" | "pagador_general">,
-  ) {
-    const id = await compras.crearCompraBorrador(compra);
-    return id;
-  }
-
   async function guardar(compra: CompraEditable) {
     const resultado = await guardarConFallback({
       ...compra,
@@ -72,26 +65,6 @@ export default function PaginaNuevaCompra() {
     toast.success(compraInicial ? "Compra actualizada" : "Compra guardada");
     vibrarExito();
     router.push("/historial");
-  }
-
-  async function crearCategoriaRapida(nombre: string) {
-    try {
-      return await categorias.crearCategoria({
-        nombre: nombre.trim(),
-        color: "#6366f1",
-        limite_mensual: null,
-      });
-    } catch (error) {
-      if (typeof error === "object" && error && "code" in error && (error as { code?: string }).code === "23505") {
-        throw new Error("Ya existe una categoria con ese nombre.");
-      }
-
-      const mensaje = error instanceof Error ? error.message.toLowerCase() : "";
-      if (mensaje.includes("duplicate") || mensaje.includes("unique")) {
-        throw new Error("Ya existe una categoria con ese nombre.");
-      }
-      throw error;
-    }
   }
 
   if (estaEditando && compras.cargando) {
@@ -116,17 +89,11 @@ export default function PaginaNuevaCompra() {
       key={compraInicial?.id ?? "nueva-compra"}
       categorias={categorias.categorias}
       subcategorias={categorias.subcategorias}
-      etiquetas={categorias.etiquetas}
-      cargandoCategorias={categorias.cargandoCategorias}
-      cargandoSubcategorias={categorias.cargandoSubcategorias}
-      cargandoEtiquetas={categorias.cargandoEtiquetas}
       nombres={nombres}
       registradoPorDefecto={usuario.perfil?.nombre ?? ""}
       compraInicial={compraInicial}
       guardando={compras.guardando}
-      onCrearBorrador={crearBorrador}
       onGuardar={guardar}
-      onCrearCategoriaRapida={crearCategoriaRapida}
     />
   );
 }
