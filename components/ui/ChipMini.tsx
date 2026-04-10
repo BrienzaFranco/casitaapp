@@ -9,20 +9,12 @@ interface Props {
 }
 
 function normalizarColor(color: string) {
-  if (/^#[0-9a-fA-F]{6}$/.test(color)) {
-    return `${color}20`;
-  }
-
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) return `${color}20`;
   if (/^#[0-9a-fA-F]{3}$/.test(color)) {
-    const expandido = color
-      .slice(1)
-      .split("")
-      .map((caracter) => `${caracter}${caracter}`)
-      .join("");
-    return `#${expandido}20`;
+    const exp = color.slice(1).split("").map((c) => `${c}${c}`).join("");
+    return `#${exp}20`;
   }
-
-  return "rgb(243 244 246)";
+  return "var(--surface-container)";
 }
 
 export function ChipMini({ label, color, onRemove }: Props) {
@@ -30,18 +22,15 @@ export function ChipMini({ label, color, onRemove }: Props) {
 
   return (
     <span
-      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium"
-      style={{
-        backgroundColor: normalizarColor(color),
-        color,
-      }}
+      className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-label text-[10px] font-medium"
+      style={{ backgroundColor: normalizarColor(color), color }}
     >
       {abreviado}
-      {onRemove ? (
+      {onRemove && (
         <button type="button" onClick={onRemove} className="ml-0.5 hover:opacity-70">
           <X className="h-2.5 w-2.5" />
         </button>
-      ) : null}
+      )}
     </span>
   );
 }

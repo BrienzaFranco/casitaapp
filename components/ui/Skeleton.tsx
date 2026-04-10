@@ -5,5 +5,5 @@ interface Props {
 }
 
 export function Skeleton({ className }: Props) {
-  return <div className={combinarClases("animate-pulse rounded-2xl bg-gray-200", className)} />;
+  return <div className={combinarClases("animate-pulse rounded-lg bg-surface-container-high", className)} />;
 }

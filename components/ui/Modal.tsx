@@ -16,33 +16,25 @@ interface Props {
 }
 
 export function Modal({
-  abierto,
-  titulo,
-  descripcion,
-  confirmacion,
-  cancelacion = "Cancelar",
-  cargando = false,
-  onConfirmar,
-  onCancelar,
-  children,
+  abierto, titulo, descripcion, confirmacion,
+  cancelacion = "Cancelar", cargando = false,
+  onConfirmar, onCancelar, children,
 }: Props) {
-  if (!abierto) {
-    return null;
-  }
+  if (!abierto) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/35 p-4 sm:items-center">
-      <div className="w-full max-w-sm rounded-3xl border border-gray-100 bg-white p-5 shadow-xl">
-        <div className="space-y-2">
-          <h3 className="text-xl font-bold text-gray-900">{titulo}</h3>
-          <p className="text-sm text-gray-500">{descripcion}</p>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-on-surface/30 p-4 sm:items-center">
+      <div className="w-full max-w-sm rounded-lg border border-outline-variant/15 bg-surface-container-lowest p-4 shadow-xl">
+        <div className="space-y-1">
+          <h3 className="font-headline text-lg font-semibold tracking-tight text-on-surface">{titulo}</h3>
+          <p className="font-body text-sm text-on-surface-variant">{descripcion}</p>
           {children}
         </div>
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <Boton variante="secundario" onClick={onCancelar}>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Boton variante="secundario" onClick={onCancelar} className="h-9 text-xs rounded font-headline font-semibold">
             {cancelacion}
           </Boton>
-          <Boton variante="peligro" onClick={onConfirmar} disabled={cargando}>
+          <Boton variante="peligro" onClick={onConfirmar} disabled={cargando} className="h-9 text-xs rounded font-headline font-semibold">
             {cargando ? "Procesando..." : confirmacion}
           </Boton>
         </div>

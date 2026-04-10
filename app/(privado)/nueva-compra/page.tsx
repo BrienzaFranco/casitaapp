@@ -23,7 +23,7 @@ function compraAEditable(compra: Compra): CompraEditable {
     pagador_general: compra.pagador_general,
     estado: compra.estado,
     hogar_id: compra.hogar_id,
-    etiquetas_compra_ids: compra.etiquetas_compra.map((etiqueta) => etiqueta.id),
+    etiquetas_compra_ids: compra.etiquetas_compra.map((e) => e.id),
     items: compra.items.map((item) => ({
       id: item.id,
       descripcion: item.descripcion,
@@ -34,7 +34,7 @@ function compraAEditable(compra: Compra): CompraEditable {
       tipo_reparto: item.tipo_reparto,
       pago_franco: item.pago_franco,
       pago_fabiola: item.pago_fabiola,
-      etiquetas_ids: item.etiquetas.map((etiqueta) => etiqueta.id),
+      etiquetas_ids: item.etiquetas.map((e) => e.id),
     })),
   };
 }
@@ -48,7 +48,7 @@ export default function PaginaNuevaCompra() {
   const compras = usarCompras({ cargarInicial: true, incluirBorradores: estaEditando });
   const usuario = usarUsuario();
   const nombres = deducirNombresParticipantes(usuario.perfiles);
-  const compraExistente = compras.compras.find((compra) => compra.id === idEditar);
+  const compraExistente = compras.compras.find((c) => c.id === idEditar);
   const compraInicial = compraExistente ? compraAEditable(compraExistente) : null;
   const { guardarConFallback } = usarOffline(compras.guardarCompra);
 
@@ -57,12 +57,10 @@ export default function PaginaNuevaCompra() {
       ...compra,
       id: compraInicial?.id ?? compra.id,
     });
-
     if (resultado.pendiente) {
       router.push("/historial");
       return;
     }
-
     toast.success(compraInicial ? "Compra actualizada" : "Compra guardada");
     vibrarExito();
     router.push("/historial");
@@ -70,16 +68,16 @@ export default function PaginaNuevaCompra() {
 
   if (estaEditando && compras.cargando) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-64 w-full rounded-md" />
-        <Skeleton className="h-72 w-full rounded-md" />
+      <div className="space-y-3">
+        <Skeleton className="h-64 w-full rounded-lg" />
+        <Skeleton className="h-72 w-full rounded-lg" />
       </div>
     );
   }
 
   if (estaEditando && !compraInicial) {
     return (
-      <section className="border border-gray-300 bg-white p-4 text-sm text-gray-600">
+      <section className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 text-sm text-on-surface-variant">
         No se encontro la compra para editar.
       </section>
     );

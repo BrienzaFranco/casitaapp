@@ -17,10 +17,8 @@ interface Props {
 }
 
 export function Combobox({
-  valor,
-  onChange,
-  opciones,
-  placeholder = "Buscar y seleccionar...",
+  valor, onChange, opciones,
+  placeholder = "Buscar...",
   listSize = 8,
 }: Props) {
   const id = useId();
@@ -30,26 +28,15 @@ export function Combobox({
   });
 
   const opcionesFiltradas = input
-    ? opciones.filter((o) =>
-        normalizarTexto(o.etiqueta).includes(normalizarTexto(input)),
-      )
+    ? opciones.filter((o) => normalizarTexto(o.etiqueta).includes(normalizarTexto(input)))
     : opciones.slice(0, listSize);
 
   const manejarCambio = useCallback(
     (nuevoInput: string) => {
       setInput(nuevoInput);
-
-      const exacta = opciones.find(
-        (o) => normalizarTexto(o.etiqueta) === normalizarTexto(nuevoInput),
-      );
-      if (exacta) {
-        onChange(exacta.valor);
-        return;
-      }
-
-      if (!nuevoInput.trim()) {
-        onChange("");
-      }
+      const exacta = opciones.find((o) => normalizarTexto(o.etiqueta) === normalizarTexto(nuevoInput));
+      if (exacta) { onChange(exacta.valor); return; }
+      if (!nuevoInput.trim()) onChange("");
     },
     [opciones, onChange],
   );
@@ -57,10 +44,7 @@ export function Combobox({
   const manejarSeleccion = useCallback(
     (valorSeleccionado: string) => {
       const opcion = opciones.find((o) => o.valor === valorSeleccionado);
-      if (opcion) {
-        setInput(opcion.etiqueta);
-        onChange(valorSeleccionado);
-      }
+      if (opcion) { setInput(opcion.etiqueta); onChange(valorSeleccionado); }
     },
     [opciones, onChange],
   );
@@ -75,15 +59,11 @@ export function Combobox({
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            if (opcionesFiltradas.length === 1) {
-              manejarSeleccion(opcionesFiltradas[0].valor);
-            } else if (opcionesFiltradas.length > 0) {
-              manejarSeleccion(opcionesFiltradas[0].valor);
-            }
+            if (opcionesFiltradas.length > 0) manejarSeleccion(opcionesFiltradas[0].valor);
           }
         }}
         placeholder={placeholder}
-        className="h-8 w-full border-none bg-transparent px-1 text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600"
+        className="w-full border-none bg-transparent px-0 py-1.5 font-headline text-sm text-on-surface outline-none focus:bg-surface-container-high focus:ring-1 focus:ring-primary/30"
       />
       <datalist id={`${id}-list`}>
         {opciones.map((opcion) => (

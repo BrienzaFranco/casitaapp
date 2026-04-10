@@ -10,12 +10,10 @@ export function BannerPendientes() {
     function actualizar() {
       setCantidad(obtenerComprasPendientes().length);
     }
-
     actualizar();
     window.addEventListener("storage", actualizar);
     window.addEventListener("online", actualizar);
     window.addEventListener("pendientes-actualizados", actualizar);
-
     return () => {
       window.removeEventListener("storage", actualizar);
       window.removeEventListener("online", actualizar);
@@ -23,13 +21,13 @@ export function BannerPendientes() {
     };
   }, []);
 
-  if (!cantidad) {
-    return null;
-  }
+  if (!cantidad) return null;
 
   return (
-    <div className="sticky top-3 z-20 rounded-2xl border border-amber-200 bg-amber-100 px-4 py-3 text-sm font-medium text-amber-900">
-      {cantidad} compras pendientes de sincronizar
+    <div className="sticky top-14 z-20 mx-auto max-w-[480px] px-4 pt-2">
+      <div className="rounded-lg bg-secondary-fixed/60 border border-secondary/15 px-3 py-2 font-label text-xs font-bold text-on-secondary-container">
+        {cantidad} compras pendientes de sincronizar
+      </div>
     </div>
   );
 }
