@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Compra, CompraBaseDatos, CompraEditable, Item } from "@/types";
 import { crearClienteSupabase } from "@/lib/supabase";
 
@@ -11,6 +11,8 @@ const seleccionCompras = `
   nombre_lugar,
   notas,
   registrado_por,
+  pagador_general,
+  estado,
   creado_en,
   items (
     id,
@@ -51,6 +53,11 @@ const seleccionCompras = `
   )
 `;
 
+interface OpcionesCompras {
+  cargarInicial?: boolean;
+  incluirBorradores?: boolean;
+}
+
 function normalizarItem(item: CompraBaseDatos["items"][number]): Item {
   return {
     id: item.id,
@@ -81,23 +88,32 @@ function normalizarCompra(compra: CompraBaseDatos): Compra {
     nombre_lugar: compra.nombre_lugar ?? "",
     notas: compra.notas ?? "",
     registrado_por: compra.registrado_por,
+    pagador_general: compra.pagador_general ?? "compartido",
+    estado: compra.estado ?? "confirmada",
     creado_en: compra.creado_en,
     items: (compra.items ?? []).map(normalizarItem),
   };
 }
 
-export function useCompras() {
+export function useCompras(opciones: OpcionesCompras = {}) {
+  const { cargarInicial = true, incluirBorradores = false } = opciones;
   const [compras, setCompras] = useState<Compra[]>([]);
-  const [cargando, setCargando] = useState(true);
+  const [cargando, setCargando] = useState(cargarInicial);
   const [guardando, setGuardando] = useState(false);
 
-  async function recargar() {
+  const recargar = useCallback(async () => {
     const cliente = crearClienteSupabase();
     setCargando(true);
 
-    const { data, error } = await cliente.from("compras").select(seleccionCompras).order("fecha", {
+    let consulta = cliente.from("compras").select(seleccionCompras).order("fecha", {
       ascending: false,
     });
+
+    if (!incluirBorradores) {
+      consulta = consulta.neq("estado", "borrador");
+    }
+
+    const { data, error } = await consulta;
 
     if (error) {
       setCargando(false);
@@ -107,12 +123,46 @@ export function useCompras() {
     const registros = (data ?? []) as CompraBaseDatos[];
     setCompras(registros.map(normalizarCompra));
     setCargando(false);
-  }
+  }, [incluirBorradores]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!cargarInicial) {
+      setCargando(false);
+      return;
+    }
+
     void recargar();
-  }, []);
+  }, [cargarInicial, recargar]);
+
+  async function crearCompraBorrador(
+    compra: Pick<CompraEditable, "fecha" | "nombre_lugar" | "notas" | "registrado_por" | "hogar_id" | "pagador_general">,
+  ) {
+    const cliente = crearClienteSupabase();
+    setGuardando(true);
+
+    try {
+      const respuesta = await cliente.rpc("crear_compra_borrador", {
+        p_fecha: compra.fecha,
+        p_nombre_lugar: compra.nombre_lugar || null,
+        p_notas: compra.notas || null,
+        p_registrado_por: compra.registrado_por,
+        p_hogar_id: compra.hogar_id ?? null,
+        p_pagador_general: compra.pagador_general ?? "compartido",
+      });
+
+      if (respuesta.error) {
+        throw respuesta.error;
+      }
+
+      if (cargarInicial) {
+        await recargar();
+      }
+
+      return respuesta.data as string;
+    } finally {
+      setGuardando(false);
+    }
+  }
 
   async function guardarCompra(compra: CompraEditable) {
     const cliente = crearClienteSupabase();
@@ -124,6 +174,7 @@ export function useCompras() {
       p_notas: compra.notas || null,
       p_registrado_por: compra.registrado_por,
       p_hogar_id: compra.hogar_id ?? null,
+      p_pagador_general: compra.pagador_general ?? "compartido",
       p_items: compra.items.map((item) => ({
         categoria_id: item.categoria_id || null,
         subcategoria_id: item.subcategoria_id || null,
@@ -137,18 +188,23 @@ export function useCompras() {
       })),
     };
 
-    const respuesta = compra.id
-      ? await cliente.rpc("actualizar_compra_completa", { ...payload, p_compra_id: compra.id })
-      : await cliente.rpc("crear_compra_completa", payload);
+    try {
+      const respuesta = compra.id
+        ? await cliente.rpc("actualizar_compra_completa", { ...payload, p_compra_id: compra.id })
+        : await cliente.rpc("crear_compra_completa", payload);
 
-    setGuardando(false);
+      if (respuesta.error) {
+        throw respuesta.error;
+      }
 
-    if (respuesta.error) {
-      throw respuesta.error;
+      if (cargarInicial) {
+        await recargar();
+      }
+
+      return respuesta.data as string;
+    } finally {
+      setGuardando(false);
     }
-
-    await recargar();
-    return respuesta.data as string;
   }
 
   async function eliminarCompra(id: string) {
@@ -167,6 +223,7 @@ export function useCompras() {
     cargando,
     guardando,
     recargar,
+    crearCompraBorrador,
     guardarCompra,
     eliminarCompra,
   };

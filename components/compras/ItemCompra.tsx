@@ -20,7 +20,7 @@ function textoReparto(item: Item, nombres: { franco: string; fabiola: string }) 
     return `${nombres.franco}: ${formatearPeso(item.pago_franco)} · ${nombres.fabiola}: ${formatearPeso(item.pago_fabiola)}`;
   }
 
-  return "50/50";
+  return "Compartido";
 }
 
 export function ItemCompra({ item, nombres }: Props) {
@@ -35,6 +35,7 @@ export function ItemCompra({ item, nombres }: Props) {
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         {item.categoria ? <Badge color={item.categoria.color}>{item.categoria.nombre}</Badge> : null}
+        {item.subcategoria ? <Badge>{item.subcategoria.nombre}</Badge> : null}
         {item.etiquetas.map((etiqueta) => (
           <Badge key={etiqueta.id} color={etiqueta.color}>
             {etiqueta.nombre}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 import { GripVertical, Plus, X } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -15,18 +16,15 @@ interface Props {
   categorias: Categoria[];
   subcategorias: Subcategoria[];
   etiquetas: Etiqueta[];
+  nombres: { franco: string; fabiola: string };
   autoFocusCategoria?: boolean;
+  cargandoCategorias?: boolean;
+  cargandoSubcategorias?: boolean;
   onActualizar: (id: string, cambios: Partial<ItemEditable>) => void;
   onEliminar: (id: string) => void;
   onAgregarDespues: (indice: number) => void;
+  onSolicitarCrearCategoria: (idItem: string) => void;
 }
-
-const tiposReparto: Array<{ valor: TipoReparto; etiqueta: string }> = [
-  { valor: "50/50", etiqueta: "50/50" },
-  { valor: "solo_franco", etiqueta: "F" },
-  { valor: "solo_fabiola", etiqueta: "Fa" },
-  { valor: "personalizado", etiqueta: "Pers" },
-];
 
 function resolverMonto(item: ItemEditable, expresionMonto: string) {
   if (!expresionMonto.trim()) {
@@ -64,10 +62,14 @@ export function FilaItem({
   categorias,
   subcategorias,
   etiquetas,
+  nombres,
   autoFocusCategoria = false,
+  cargandoCategorias = false,
+  cargandoSubcategorias = false,
   onActualizar,
   onEliminar,
   onAgregarDespues,
+  onSolicitarCrearCategoria,
 }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id as string,
@@ -79,6 +81,15 @@ export function FilaItem({
   const inputCategoriaRef = useRef<HTMLSelectElement | null>(null);
   const [selectorTagsAbierto, setSelectorTagsAbierto] = useState(false);
 
+  const tiposReparto = useMemo<Array<{ valor: TipoReparto; etiqueta: string }>>(
+    () => [
+      { valor: "solo_franco", etiqueta: nombres.franco },
+      { valor: "solo_fabiola", etiqueta: nombres.fabiola },
+      { valor: "50/50", etiqueta: "Compartido" },
+      { valor: "personalizado", etiqueta: "Personalizado" },
+    ],
+    [nombres],
+  );
   const subcategoriasFiltradas = useMemo(
     () => subcategorias.filter((subcategoria) => subcategoria.categoria_id === item.categoria_id),
     [subcategorias, item.categoria_id],
@@ -130,11 +141,20 @@ export function FilaItem({
     onActualizar(item.id as string, { etiquetas_ids: siguiente });
   }
 
-  function manejarEnterUltimoCampo(event: React.KeyboardEvent<HTMLElement>) {
+  function manejarEnterUltimoCampo(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Enter") {
       event.preventDefault();
       onAgregarDespues(indice);
     }
+  }
+
+  function manejarCambioCategoria(categoriaId: string) {
+    if (categoriaId === "__crear_categoria__") {
+      onSolicitarCrearCategoria(item.id as string);
+      return;
+    }
+
+    onActualizar(item.id as string, { categoria_id: categoriaId, subcategoria_id: "" });
   }
 
   return (
@@ -155,25 +175,28 @@ export function FilaItem({
         <select
           ref={inputCategoriaRef}
           value={item.categoria_id}
-          onChange={(event) =>
-            onActualizar(item.id as string, { categoria_id: event.target.value, subcategoria_id: "" })
-          }
-          className="h-8 w-[58px] rounded bg-transparent px-1 text-[11px] text-gray-900 outline-none ring-0 focus:ring-1 focus:ring-gray-200 sm:w-[90px] sm:px-2 sm:text-xs"
+          onChange={(event) => manejarCambioCategoria(event.target.value)}
+          disabled={cargandoCategorias}
+          className="h-8 w-[76px] rounded bg-transparent px-1 text-[11px] text-gray-900 outline-none ring-0 focus:ring-1 focus:ring-gray-200 disabled:text-gray-400 sm:w-[104px] sm:px-2 sm:text-xs"
         >
-          <option value="">Cat</option>
+          <option value="">{cargandoCategorias ? "Cargando..." : "Cat"}</option>
           {categorias.map((categoria) => (
             <option key={categoria.id} value={categoria.id}>
               {categoria.nombre}
             </option>
           ))}
+          <option value="__crear_categoria__">+ Crear</option>
         </select>
 
         <select
           value={item.subcategoria_id}
           onChange={(event) => onActualizar(item.id as string, { subcategoria_id: event.target.value })}
-          className="hidden h-8 w-[80px] rounded bg-transparent px-2 text-xs text-gray-700 outline-none ring-0 focus:ring-1 focus:ring-gray-200 sm:block"
+          disabled={cargandoSubcategorias || !item.categoria_id}
+          className="h-8 w-[84px] rounded bg-transparent px-1 text-[11px] text-gray-700 outline-none ring-0 focus:ring-1 focus:ring-gray-200 disabled:text-gray-400 sm:w-[104px] sm:px-2 sm:text-xs"
         >
-          <option value="">Sub</option>
+          <option value="">
+            {cargandoSubcategorias ? "Cargando..." : !item.categoria_id ? "Sub" : "Sin sub"}
+          </option>
           {subcategoriasFiltradas.map((subcategoria) => (
             <option key={subcategoria.id} value={subcategoria.id}>
               {subcategoria.nombre}
@@ -213,7 +236,7 @@ export function FilaItem({
           </p>
         </div>
 
-        <div className="w-[56px] sm:w-[70px]">
+        <div className="w-[82px] sm:w-[120px]">
           <select
             value={item.tipo_reparto}
             onChange={(event) => actualizarTipoReparto(event.target.value as TipoReparto)}

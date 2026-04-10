@@ -105,6 +105,8 @@ export default function PaginaConfiguracion() {
         nombre_lugar: fila.nombre_lugar,
         notas: "Importado desde Excel",
         registrado_por: "Importacion",
+        pagador_general: "compartido",
+        estado: "confirmada",
         items: [],
       };
 

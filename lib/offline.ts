@@ -21,7 +21,12 @@ export function obtenerComprasPendientes() {
   }
 
   try {
-    return JSON.parse(contenido) as CompraEditable[];
+    const compras = JSON.parse(contenido) as CompraEditable[];
+    return compras.map((compra) => ({
+      ...compra,
+      pagador_general: compra.pagador_general ?? "compartido",
+      estado: compra.estado ?? "confirmada",
+    }));
   } catch {
     return [] as CompraEditable[];
   }

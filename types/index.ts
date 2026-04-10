@@ -1,4 +1,6 @@
 export type TipoReparto = "50/50" | "solo_franco" | "solo_fabiola" | "personalizado";
+export type PagadorCompra = "franco" | "fabiola" | "compartido";
+export type EstadoCompra = "borrador" | "confirmada";
 
 export interface Perfil {
   id: string;
@@ -77,6 +79,8 @@ export interface CompraBaseDatos {
   nombre_lugar: string | null;
   notas: string | null;
   registrado_por: string;
+  pagador_general: PagadorCompra;
+  estado: EstadoCompra;
   creado_en: string;
   items: ItemBaseDatos[];
 }
@@ -88,6 +92,8 @@ export interface Compra {
   nombre_lugar: string;
   notas: string;
   registrado_por: string;
+  pagador_general: PagadorCompra;
+  estado: EstadoCompra;
   creado_en: string;
   items: Item[];
 }
@@ -111,6 +117,8 @@ export interface CompraEditable {
   nombre_lugar: string;
   notas: string;
   registrado_por: string;
+  pagador_general: PagadorCompra;
+  estado: EstadoCompra;
   hogar_id?: string | null;
   items: ItemEditable[];
 }

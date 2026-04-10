@@ -19,6 +19,8 @@ function compraAEditable(compra: Compra): CompraEditable {
     nombre_lugar: compra.nombre_lugar,
     notas: compra.notas,
     registrado_por: compra.registrado_por,
+    pagador_general: compra.pagador_general,
+    estado: compra.estado,
     hogar_id: compra.hogar_id,
     items: compra.items.map((item) => ({
       id: item.id,
@@ -39,13 +41,21 @@ export default function PaginaNuevaCompra() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const idEditar = useDeferredValue(searchParams.get("editar"));
+  const estaEditando = Boolean(idEditar);
   const categorias = usarCategorias();
-  const compras = usarCompras();
+  const compras = usarCompras({ cargarInicial: estaEditando });
   const usuario = usarUsuario();
   const nombres = deducirNombresParticipantes(usuario.perfiles);
   const compraExistente = compras.compras.find((compra) => compra.id === idEditar);
   const compraInicial = compraExistente ? compraAEditable(compraExistente) : null;
   const { guardarConFallback } = usarOffline(compras.guardarCompra);
+
+  async function crearBorrador(
+    compra: Pick<CompraEditable, "fecha" | "nombre_lugar" | "notas" | "registrado_por" | "hogar_id" | "pagador_general">,
+  ) {
+    const id = await compras.crearCompraBorrador(compra);
+    return id;
+  }
 
   async function guardar(compra: CompraEditable) {
     const resultado = await guardarConFallback({
@@ -62,12 +72,40 @@ export default function PaginaNuevaCompra() {
     router.push("/historial");
   }
 
-  if (categorias.cargando || compras.cargando || usuario.cargando) {
+  async function crearCategoriaRapida(nombre: string) {
+    try {
+      return await categorias.crearCategoria({
+        nombre: nombre.trim(),
+        color: "#6366f1",
+        limite_mensual: null,
+      });
+    } catch (error) {
+      if (typeof error === "object" && error && "code" in error && (error as { code?: string }).code === "23505") {
+        throw new Error("Ya existe una categoria con ese nombre.");
+      }
+
+      const mensaje = error instanceof Error ? error.message.toLowerCase() : "";
+      if (mensaje.includes("duplicate") || mensaje.includes("unique")) {
+        throw new Error("Ya existe una categoria con ese nombre.");
+      }
+      throw error;
+    }
+  }
+
+  if (estaEditando && compras.cargando) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-64 w-full rounded-[28px]" />
         <Skeleton className="h-72 w-full rounded-[28px]" />
       </div>
+    );
+  }
+
+  if (estaEditando && !compraInicial) {
+    return (
+      <section className="rounded-[28px] border border-dashed border-gray-200 bg-white p-5 text-sm text-gray-500 shadow-sm">
+        No se encontro la compra para editar.
+      </section>
     );
   }
 
@@ -77,11 +115,16 @@ export default function PaginaNuevaCompra() {
       categorias={categorias.categorias}
       subcategorias={categorias.subcategorias}
       etiquetas={categorias.etiquetas}
+      cargandoCategorias={categorias.cargandoCategorias}
+      cargandoSubcategorias={categorias.cargandoSubcategorias}
+      cargandoEtiquetas={categorias.cargandoEtiquetas}
       nombres={nombres}
       registradoPorDefecto={usuario.perfil?.nombre ?? ""}
       compraInicial={compraInicial}
       guardando={compras.guardando}
+      onCrearBorrador={crearBorrador}
       onGuardar={guardar}
+      onCrearCategoriaRapida={crearCategoriaRapida}
     />
   );
 }

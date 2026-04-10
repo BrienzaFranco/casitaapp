@@ -31,8 +31,24 @@ create table if not exists compras (
   nombre_lugar text,
   notas text,
   registrado_por text not null,
+  pagador_general text not null default 'compartido' check (pagador_general in ('franco', 'fabiola', 'compartido')),
+  estado text not null default 'confirmada' check (estado in ('borrador', 'confirmada')),
   creado_en timestamptz not null default now()
 );
+
+alter table compras
+add column if not exists pagador_general text not null default 'compartido';
+
+alter table compras
+add column if not exists estado text not null default 'confirmada';
+
+update compras
+set pagador_general = 'compartido'
+where pagador_general is null;
+
+update compras
+set estado = 'confirmada'
+where estado is null;
 
 create table if not exists items (
   id uuid primary key default gen_random_uuid(),
@@ -93,13 +109,54 @@ after insert or update on auth.users
 for each row
 execute function public.sincronizar_perfil_desde_auth();
 
+create or replace function public.crear_compra_borrador(
+  p_fecha date,
+  p_nombre_lugar text,
+  p_notas text,
+  p_registrado_por text,
+  p_hogar_id uuid,
+  p_pagador_general text default 'compartido'
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_compra_id uuid;
+begin
+  insert into compras (
+    fecha,
+    nombre_lugar,
+    notas,
+    registrado_por,
+    hogar_id,
+    pagador_general,
+    estado
+  )
+  values (
+    p_fecha,
+    p_nombre_lugar,
+    p_notas,
+    p_registrado_por,
+    p_hogar_id,
+    coalesce(nullif(p_pagador_general, ''), 'compartido'),
+    'borrador'
+  )
+  returning id into v_compra_id;
+
+  return v_compra_id;
+end;
+$$;
+
 create or replace function public.crear_compra_completa(
   p_fecha date,
   p_nombre_lugar text,
   p_notas text,
   p_registrado_por text,
   p_hogar_id uuid,
-  p_items jsonb
+  p_items jsonb,
+  p_pagador_general text default 'compartido'
 )
 returns uuid
 language plpgsql
@@ -112,8 +169,16 @@ declare
   v_item_id uuid;
   v_etiqueta_id uuid;
 begin
-  insert into compras (fecha, nombre_lugar, notas, registrado_por, hogar_id)
-  values (p_fecha, p_nombre_lugar, p_notas, p_registrado_por, p_hogar_id)
+  insert into compras (fecha, nombre_lugar, notas, registrado_por, hogar_id, pagador_general, estado)
+  values (
+    p_fecha,
+    p_nombre_lugar,
+    p_notas,
+    p_registrado_por,
+    p_hogar_id,
+    coalesce(nullif(p_pagador_general, ''), 'compartido'),
+    'confirmada'
+  )
   returning id into v_compra_id;
 
   for v_item in select * from jsonb_array_elements(p_items)
@@ -164,7 +229,8 @@ create or replace function public.actualizar_compra_completa(
   p_notas text,
   p_registrado_por text,
   p_hogar_id uuid,
-  p_items jsonb
+  p_items jsonb,
+  p_pagador_general text default 'compartido'
 )
 returns uuid
 language plpgsql
@@ -182,7 +248,9 @@ begin
     nombre_lugar = p_nombre_lugar,
     notas = p_notas,
     registrado_por = p_registrado_por,
-    hogar_id = p_hogar_id
+    hogar_id = p_hogar_id,
+    pagador_general = coalesce(nullif(p_pagador_general, ''), 'compartido'),
+    estado = 'confirmada'
   where id = p_compra_id;
 
   delete from items where compra_id = p_compra_id;

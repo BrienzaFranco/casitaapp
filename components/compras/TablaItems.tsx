@@ -12,21 +12,27 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { ChevronDown, Plus } from "lucide-react";
+import { toast } from "sonner";
 import type { Categoria, Etiqueta, ItemEditable, Subcategoria } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
 import { Badge } from "@/components/ui/Badge";
 import { FilaItem } from "@/components/compras/FilaItem";
+import { Modal } from "@/components/ui/Modal";
 
 interface Props {
   items: ItemEditable[];
   categorias: Categoria[];
   subcategorias: Subcategoria[];
   etiquetas: Etiqueta[];
+  nombres: { franco: string; fabiola: string };
+  cargandoCategorias?: boolean;
+  cargandoSubcategorias?: boolean;
   idItemConFoco?: string | null;
   onActualizarItem: (id: string, cambios: Partial<ItemEditable>) => void;
   onEliminarItem: (id: string) => void;
   onAgregarItem: (indice?: number) => void;
   onReordenarItems: (indiceInicial: number, indiceFinal: number) => void;
+  onCrearCategoriaRapida: (idItem: string, nombre: string) => Promise<void>;
 }
 
 interface GrupoCategoria {
@@ -59,11 +65,15 @@ export function TablaItems({
   categorias,
   subcategorias,
   etiquetas,
+  nombres,
+  cargandoCategorias = false,
+  cargandoSubcategorias = false,
   idItemConFoco,
   onActualizarItem,
   onEliminarItem,
   onAgregarItem,
   onReordenarItems,
+  onCrearCategoriaRapida,
 }: Props) {
   const sensores = useSensors(useSensor(PointerSensor), useSensor(TouchSensor));
   const idsSortables = items.map((item) => item.id as string);
@@ -88,6 +98,9 @@ export function TablaItems({
     return [...agrupados.values()];
   }, [items, categorias]);
   const [gruposColapsados, setGruposColapsados] = useState<Record<string, boolean>>({});
+  const [idItemNuevaCategoria, setIdItemNuevaCategoria] = useState<string | null>(null);
+  const [nombreNuevaCategoria, setNombreNuevaCategoria] = useState("");
+  const [creandoCategoria, setCreandoCategoria] = useState(false);
 
   function manejarDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -104,6 +117,31 @@ export function TablaItems({
     }
 
     onReordenarItems(indiceInicial, indiceFinal);
+  }
+
+  async function confirmarNuevaCategoria() {
+    if (!idItemNuevaCategoria) {
+      return;
+    }
+
+    const nombre = nombreNuevaCategoria.trim();
+    if (!nombre) {
+      toast.error("Ingresa un nombre de categoria.");
+      return;
+    }
+
+    try {
+      setCreandoCategoria(true);
+      await onCrearCategoriaRapida(idItemNuevaCategoria, nombre);
+      setIdItemNuevaCategoria(null);
+      setNombreNuevaCategoria("");
+      toast.success("Categoria creada");
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : "No se pudo crear la categoria.";
+      toast.error(mensaje);
+    } finally {
+      setCreandoCategoria(false);
+    }
   }
 
   return (
@@ -130,10 +168,17 @@ export function TablaItems({
                 categorias={categorias}
                 subcategorias={subcategorias}
                 etiquetas={etiquetas}
+                nombres={nombres}
                 autoFocusCategoria={item.id === idItemConFoco}
+                cargandoCategorias={cargandoCategorias}
+                cargandoSubcategorias={cargandoSubcategorias}
                 onActualizar={onActualizarItem}
                 onEliminar={onEliminarItem}
                 onAgregarDespues={(indiceActual) => onAgregarItem(indiceActual + 1)}
+                onSolicitarCrearCategoria={(idItem) => {
+                  setIdItemNuevaCategoria(idItem);
+                  setNombreNuevaCategoria("");
+                }}
               />
             ))}
           </SortableContext>
@@ -151,6 +196,28 @@ export function TablaItems({
           </button>
         </div>
       </div>
+
+      <Modal
+        abierto={Boolean(idItemNuevaCategoria)}
+        titulo="Nueva categoria"
+        descripcion="Se crea rapido con nombre y color por defecto."
+        confirmacion="Crear"
+        cancelacion="Cancelar"
+        cargando={creandoCategoria}
+        onCancelar={() => {
+          setIdItemNuevaCategoria(null);
+          setNombreNuevaCategoria("");
+        }}
+        onConfirmar={() => void confirmarNuevaCategoria()}
+      >
+        <input
+          type="text"
+          value={nombreNuevaCategoria}
+          onChange={(event) => setNombreNuevaCategoria(event.target.value)}
+          placeholder="Ej: Alimentos frescos"
+          className="mt-2 h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+        />
+      </Modal>
 
       {grupos.length ? (
         <div className="space-y-2">

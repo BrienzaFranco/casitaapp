@@ -94,6 +94,11 @@ export default function PaginaBalance() {
                       <>
                         <BarraProgreso porcentaje={registro.porcentaje} />
                         <p className="text-right text-xs text-gray-500">{formatearPorcentaje(registro.porcentaje)}</p>
+                        {registro.porcentaje > 100 && registro.categoria.limite_mensual ? (
+                          <p className="text-right text-[11px] text-red-600">
+                            +{formatearPeso(registro.total - Number(registro.categoria.limite_mensual))}
+                          </p>
+                        ) : null}
                       </>
                     ) : (
                       <p className="text-right text-xs text-gray-500">Sin limite</p>
@@ -112,6 +117,14 @@ export default function PaginaBalance() {
                         {subcategoria.porcentaje !== null ? (
                           <div className="mt-2">
                             <BarraProgreso porcentaje={subcategoria.porcentaje} />
+                            <div className="mt-1 flex items-center justify-between text-[11px] text-gray-500">
+                              <span>{formatearPorcentaje(subcategoria.porcentaje)}</span>
+                              {subcategoria.porcentaje > 100 && subcategoria.subcategoria.limite_mensual ? (
+                                <span className="text-red-600">
+                                  +{formatearPeso(subcategoria.total - Number(subcategoria.subcategoria.limite_mensual))}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         ) : null}
                       </div>
