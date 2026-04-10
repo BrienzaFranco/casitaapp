@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ChevronLeft, LogOut, Settings } from "lucide-react";
 import { Boton } from "@/components/ui/Boton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { combinarClases } from "@/lib/utiles";
@@ -24,6 +24,10 @@ function estaActiva(pathname: string, href: string) {
 }
 
 function descripcionRuta(pathname: string) {
+  if (pathname === "/nueva-compra") {
+    return "Carga una compra completa con detalle, categorias y reparto.";
+  }
+
   if (pathname === "/historial") {
     return "Filtra, revisa y edita compras cargadas.";
   }
@@ -43,15 +47,50 @@ function descripcionRuta(pathname: string) {
   return "Vista general del hogar y accesos rapidos.";
 }
 
+function rutaVolver(pathname: string) {
+  if (pathname === "/nueva-compra" || pathname === "/anotador-rapido") {
+    return "/";
+  }
+
+  if (pathname === "/configuracion") {
+    return "/";
+  }
+
+  if (pathname === "/balance" || pathname === "/historial") {
+    return "/";
+  }
+
+  return "/";
+}
+
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { perfil, correo, cargando, cerrarSesion } = usarUsuario();
+  const mostrarVolver = pathname !== "/";
 
   return (
     <header className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_55%,#f8fafc_100%)] px-4 py-4 md:px-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-1">
+            {mostrarVolver ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    router.back();
+                    return;
+                  }
+
+                  router.push(rutaVolver(pathname));
+                }}
+                className="mb-2 inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:bg-white"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Volver
+              </button>
+            ) : null}
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-700">CasitaApp</p>
             <h1 className="text-2xl font-bold text-slate-950">Gastos domesticos</h1>
             <p className="text-sm text-slate-600">{descripcionRuta(pathname)}</p>

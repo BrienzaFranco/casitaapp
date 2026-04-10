@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, FileText, Home, Settings, Zap, WalletCards } from "lucide-react";
+import { ChartColumn, Home, Settings, Zap, WalletCards } from "lucide-react";
 import { combinarClases } from "@/lib/utiles";
 
 const enlaces = [
@@ -22,13 +22,7 @@ function estaActiva(pathname: string, href: string) {
 
 export function NavegacionInferior() {
   const pathname = usePathname();
-  const enNuevaCompra = pathname === "/nueva-compra" || pathname === "/anotador-rapido";
-  const enlaceAccion = pathname === "/anotador-rapido"
-    ? { href: "/nueva-compra", etiqueta: "Completo", icono: FileText }
-    : pathname === "/nueva-compra"
-      ? { href: "/anotador-rapido", etiqueta: "Rapido", icono: Zap }
-      : { href: "/anotador-rapido", etiqueta: "Anotar", icono: Zap };
-  const IconoAccion = enlaceAccion.icono;
+  const enRegistroRapido = pathname === "/anotador-rapido";
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 md:hidden">
@@ -58,20 +52,20 @@ export function NavegacionInferior() {
             })}
 
             <Link
-              href={enlaceAccion.href}
-              aria-label={enlaceAccion.etiqueta}
-              title={enlaceAccion.etiqueta}
+              href="/anotador-rapido"
+              aria-label="Registro rapido"
+              title="Registro rapido"
               className={combinarClases(
                 "inline-flex h-14 w-14 items-center justify-center rounded-[20px] bg-blue-600 text-white shadow-lg shadow-blue-600/30 transition hover:bg-blue-700",
-                enNuevaCompra && "bg-slate-900 shadow-slate-900/25 hover:bg-slate-800",
+                enRegistroRapido && "bg-slate-900 shadow-slate-900/25 hover:bg-slate-800",
               )}
             >
-              <IconoAccion className="h-5 w-5" />
+              <Zap className="h-5 w-5" />
             </Link>
           </div>
 
           <div className="mt-2 px-1 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            {enNuevaCompra ? `Modo ${enlaceAccion.etiqueta}` : "Menu principal"}
+            {enRegistroRapido ? "Registro rapido" : "Menu principal"}
           </div>
         </div>
       </div>
