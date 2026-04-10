@@ -33,17 +33,14 @@ Pasos sugeridos:
 
 1. Crear el proyecto en Supabase.
 2. Ejecutar `supabase/esquema.sql` en el SQL Editor.
-3. Crear los usuarios desde Supabase Auth.
+3. Crear los usuarios desde Supabase Auth con email y contrasena.
 4. Completar o corregir los nombres de los perfiles en la tabla `perfiles`.
-5. Para magic link, agregar como redirect URL:
-   - `http://localhost:3000/autenticacion/callback`
-   - `https://casitaapp.vercel.app/autenticacion/callback` o tu dominio final
 
 ## Flujo de autenticacion
 
-- Login por magic link, sin password.
+- Login por email y contrasena.
 - La sesion se guarda con cookies via `@supabase/ssr`.
-- El callback de autenticacion es `/autenticacion/callback`.
+- Los usuarios se crean desde el panel de Supabase Auth.
 
 ## Deploy en Vercel
 

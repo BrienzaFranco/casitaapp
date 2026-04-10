@@ -1,40 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { Mail } from "lucide-react";
+import { Lock, Mail } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Boton } from "@/components/ui/Boton";
 import { Input } from "@/components/ui/Input";
 import { crearClienteSupabase } from "@/lib/supabase";
 
 export function FormularioIngreso() {
+  const router = useRouter();
   const [correo, setCorreo] = useState("");
-  const [enviando, setEnviando] = useState(false);
+  const [contrasena, setContrasena] = useState("");
+  const [ingresando, setIngresando] = useState(false);
 
-  async function enviarMagicLink() {
+  async function ingresarConContrasena() {
     try {
-      setEnviando(true);
+      setIngresando(true);
       const cliente = crearClienteSupabase();
-      const urlRedireccion = new URL("/autenticacion/callback", window.location.origin).toString();
-
-      const { error } = await cliente.auth.signInWithOtp({
+      const { error } = await cliente.auth.signInWithPassword({
         email: correo,
-        options: {
-          emailRedirectTo: urlRedireccion,
-        },
+        password: contrasena,
       });
 
       if (error) {
         throw error;
       }
 
-      toast.success("Revisa tu mail. Te enviamos el link de acceso.");
-      setCorreo("");
+      toast.success("Sesion iniciada");
+      router.push("/nueva-compra");
+      router.refresh();
     } catch (error) {
-      const mensaje = error instanceof Error ? error.message : "No se pudo enviar el magic link.";
+      const mensaje = error instanceof Error ? error.message : "No se pudo iniciar sesion.";
       toast.error(mensaje);
     } finally {
-      setEnviando(false);
+      setIngresando(false);
     }
   }
 
@@ -42,9 +42,9 @@ export function FormularioIngreso() {
     <section className="rounded-[32px] border border-gray-100 bg-white p-6 shadow-sm">
       <div className="mb-6 space-y-2">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-600">Ingreso</p>
-        <h1 className="text-2xl font-bold text-gray-950">Entrar con magic link</h1>
+        <h1 className="text-2xl font-bold text-gray-950">Entrar con email y contrasena</h1>
         <p className="text-sm text-gray-500">
-          Los usuarios se administran desde Supabase. Solo necesitas tu mail para recibir el link.
+          Los usuarios se administran desde Supabase. Ingresa con el mail y la contrasena cargados por admin.
         </p>
       </div>
 
@@ -57,8 +57,21 @@ export function FormularioIngreso() {
           onChange={(event) => setCorreo(event.target.value)}
         />
 
-        <Boton anchoCompleto onClick={enviarMagicLink} disabled={enviando || !correo} icono={<Mail className="h-4 w-4" />}>
-          {enviando ? "Enviando..." : "Enviarme el link"}
+        <Input
+          etiqueta="Contrasena"
+          type="password"
+          placeholder="Tu contrasena"
+          value={contrasena}
+          onChange={(event) => setContrasena(event.target.value)}
+        />
+
+        <Boton
+          anchoCompleto
+          onClick={ingresarConContrasena}
+          disabled={ingresando || !correo || !contrasena}
+          icono={ingresando ? <Lock className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+        >
+          {ingresando ? "Ingresando..." : "Ingresar"}
         </Boton>
       </div>
     </section>
