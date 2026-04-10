@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Categoria, CompraEditable, Etiqueta, ItemEditable, Subcategoria, TipoReparto } from "@/types";
 import { calcularReparto, evaluarExpresion } from "@/lib/calculos";
 import { formatearPeso } from "@/lib/formatear";
 import { guardarRegistradoPor, obtenerRegistradoPor } from "@/lib/offline";
-import { normalizarTexto } from "@/lib/utiles";
+import { fechaLocalISO, normalizarTexto } from "@/lib/utiles";
 import { cargarMapaLugares, cargarMapaDetalles, predecirCategoria } from "@/lib/categorizacion";
 import { Combobox } from "@/components/ui/Combobox";
 
@@ -27,7 +27,7 @@ interface Props {
 }
 
 function hoy() {
-  return new Date().toISOString().slice(0, 10);
+  return fechaLocalISO();
 }
 
 function generarIdTemporal() {
@@ -83,7 +83,7 @@ function crearCompraInicial(registradoPorDefecto: string, compraInicial?: Compra
     guardarRegistradoPor(compraInicial.registrado_por);
     return {
       ...compraInicial,
-      estado: "confirmada",
+      estado: compraInicial.estado ?? "confirmada",
       pagador_general: compraInicial.pagador_general ?? "compartido",
       etiquetas_compra_ids: compraInicial.etiquetas_compra_ids ?? [],
       items: normalizarItemsIniciales(compraInicial.items, compraInicial.pagador_general ?? "compartido"),
@@ -268,7 +268,6 @@ export function FormularioCompraUnificado({
   compraInicial,
   guardando = false,
   onGuardar,
-  onCrearSubcategoria,
   comprasHistoria = [],
 }: Props) {
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial));
@@ -423,37 +422,6 @@ export function FormularioCompraUnificado({
     }
     toggleEtiquetaItem(itemId, etiquetaId);
     setEntradaEtiquetaItem((anterior) => ({ ...anterior, [itemId]: "" }));
-  }
-
-  async function crearSubcategoriaRapida(itemId: string) {
-    if (!onCrearSubcategoria) {
-      return;
-    }
-
-    const item = compra.items.find((fila) => fila.id === itemId);
-    if (!item?.categoria_id) {
-      toast.error("Selecciona categoria antes de crear una subcategoria.");
-      return;
-    }
-
-    const nombre = window.prompt("Nombre de la nueva subcategoria");
-    if (!nombre?.trim()) {
-      return;
-    }
-
-    try {
-      const subcategoria = await onCrearSubcategoria({
-        categoria_id: item.categoria_id,
-        nombre: nombre.trim(),
-        limite_mensual: null,
-      });
-
-      actualizarItem(itemId, { subcategoria_id: subcategoria.id });
-      toast.success("Subcategoria creada.");
-    } catch (error) {
-      const mensaje = error instanceof Error ? error.message : "No se pudo crear la subcategoria.";
-      toast.error(mensaje);
-    }
   }
 
   function importarLineasPegadas() {

@@ -28,7 +28,6 @@ export function Combobox({
     const opcion = opciones.find((o) => o.valor === valor);
     return opcion?.etiqueta ?? "";
   });
-  const [activo, setActivo] = useState(false);
 
   const opcionesFiltradas = input
     ? opciones.filter((o) =>
@@ -39,14 +38,12 @@ export function Combobox({
   const manejarCambio = useCallback(
     (nuevoInput: string) => {
       setInput(nuevoInput);
-      setActivo(true);
 
       const exacta = opciones.find(
         (o) => normalizarTexto(o.etiqueta) === normalizarTexto(nuevoInput),
       );
       if (exacta) {
         onChange(exacta.valor);
-        setActivo(false);
         return;
       }
 
@@ -64,7 +61,6 @@ export function Combobox({
         setInput(opcion.etiqueta);
         onChange(valorSeleccionado);
       }
-      setActivo(false);
     },
     [opciones, onChange],
   );
@@ -76,8 +72,6 @@ export function Combobox({
         list={`${id}-list`}
         value={input}
         onChange={(e) => manejarCambio(e.target.value)}
-        onFocus={() => setActivo(true)}
-        onBlur={() => setTimeout(() => setActivo(false), 150)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
@@ -86,8 +80,6 @@ export function Combobox({
             } else if (opcionesFiltradas.length > 0) {
               manejarSeleccion(opcionesFiltradas[0].valor);
             }
-          } else if (e.key === "Escape") {
-            setActivo(false);
           }
         }}
         placeholder={placeholder}

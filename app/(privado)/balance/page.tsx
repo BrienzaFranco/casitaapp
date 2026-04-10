@@ -9,10 +9,11 @@ import { TablaBalance } from "@/components/balance/TablaBalance";
 import { Boton } from "@/components/ui/Boton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearFecha, formatearPeso, formatearPorcentaje } from "@/lib/formatear";
+import { fechaLocalISO } from "@/lib/utiles";
 import { usarBalance } from "@/hooks/usarBalance";
 
 function hoyIso() {
-  return new Date().toISOString().slice(0, 10);
+  return fechaLocalISO();
 }
 
 export default function PaginaBalance() {

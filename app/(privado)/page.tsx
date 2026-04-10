@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Plus, Zap, FileText, Settings, LogOut, ChevronRight, Calendar } from "lucide-react";
+import { Zap, FileText, LogOut, ChevronRight, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearFecha, formatearPeso } from "@/lib/formatear";
 import { crearClienteSupabase } from "@/lib/supabase";
@@ -10,7 +9,6 @@ import { usarBalance } from "@/hooks/usarBalance";
 import { usarCompras } from "@/hooks/usarCompras";
 
 export default function PaginaInicio() {
-  const pathname = usePathname();
   const balance = usarBalance();
   const compras = usarCompras();
 

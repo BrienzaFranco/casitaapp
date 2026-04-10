@@ -7,13 +7,13 @@ import type { CompraEditable, PagadorCompra } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
 import { vibrarExito } from "@/lib/haptics";
 import { cargarMapaLugares, cargarMapaDetalles, predecirCategoria } from "@/lib/categorizacion";
-import { usarCategorias } from "@/hooks/usarCategorias";
+import { fechaLocalISO } from "@/lib/utiles";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarOffline } from "@/hooks/usarOffline";
 import { usarUsuario } from "@/hooks/usarUsuario";
 
 function hoy() {
-  return new Date().toISOString().slice(0, 10);
+  return fechaLocalISO();
 }
 
 function generarIdTemporal() {
@@ -41,7 +41,6 @@ function evaluarMonto(expresion: string): number {
 
 export default function PaginaAnotadorRapido() {
   const router = useRouter();
-  const categorias = usarCategorias();
   const compras = usarCompras();
   const usuario = usarUsuario();
   const { guardarConFallback } = usarOffline(compras.guardarCompra);
@@ -137,11 +136,12 @@ export default function PaginaAnotadorRapido() {
       const resultado = await guardarConFallback(compra);
 
       if (resultado.pendiente) {
-        toast.success("Guardado offline");
+        toast.success("Borrador guardado offline");
+      } else {
+        toast.success("Borrador guardado");
       }
 
       vibrarExito();
-      toast.success("Guardado pendiente");
       setLugar("");
       setMonto("");
       setDetalle("");
@@ -166,10 +166,10 @@ export default function PaginaAnotadorRapido() {
       const compra = crearCompraConPrediccion();
       const resultado = await guardarConFallback(compra);
 
-      if (resultado.pendiente) {
+      if (resultado.pendiente || !resultado.id) {
         router.push("/historial");
       } else {
-        router.push("/nueva-compra");
+        router.push(`/nueva-compra?editar=${resultado.id}`);
       }
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : "No se pudo guardar";

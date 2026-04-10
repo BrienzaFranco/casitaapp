@@ -15,13 +15,14 @@ import {
   obtenerMesAnterior,
 } from "@/lib/calculos";
 import { exportarExcel } from "@/lib/exportar";
+import { mesLocalISO } from "@/lib/utiles";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarSettlementCuts } from "@/hooks/usarSettlementCuts";
 import { usarUsuario } from "@/hooks/usarUsuario";
 
 function mesActual() {
-  return new Date().toISOString().slice(0, 7);
+  return mesLocalISO();
 }
 
 export function useBalance() {

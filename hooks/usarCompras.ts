@@ -148,6 +148,7 @@ export function useCompras(opciones: OpcionesCompras = {}) {
   async function guardarCompra(compra: CompraEditable) {
     const cliente = crearClienteSupabase();
     setGuardando(true);
+    const compraIdValido = compra.id && !compra.id.startsWith("tmp-") ? compra.id : null;
 
     const payload = {
       p_fecha: compra.fecha,
@@ -171,9 +172,11 @@ export function useCompras(opciones: OpcionesCompras = {}) {
     };
 
     try {
-      const respuesta = compra.id
-        ? await cliente.rpc("actualizar_compra_completa", { ...payload, p_compra_id: compra.id })
-        : await cliente.rpc("crear_compra_completa", payload);
+      const respuesta = compra.estado === "borrador"
+        ? await cliente.rpc("guardar_compra_borrador", { ...payload, p_compra_id: compraIdValido })
+        : compraIdValido
+          ? await cliente.rpc("actualizar_compra_completa", { ...payload, p_compra_id: compraIdValido })
+          : await cliente.rpc("crear_compra_completa", payload);
 
       if (respuesta.error) {
         throw respuesta.error;

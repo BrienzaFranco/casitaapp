@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { LogOut, Settings } from "lucide-react";
-import { BotonInstalarApp } from "@/components/pwa/BotonInstalarApp";
 import { usarUsuario } from "@/hooks/usarUsuario";
 
 export function AccionesRapidas() {
@@ -10,7 +9,6 @@ export function AccionesRapidas() {
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <BotonInstalarApp />
       <Link
         href="/configuracion"
         aria-label="Configuracion"

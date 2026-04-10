@@ -2,9 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { AccionesRapidas } from "@/components/layout/AccionesRapidas";
 import { BannerPendientes } from "@/components/layout/BannerPendientes";
 import { ContenedorPagina } from "@/components/layout/ContenedorPagina";
+import { Header } from "@/components/layout/Header";
 import { NavegacionInferior } from "@/components/layout/NavegacionInferior";
 
 interface Props {
@@ -20,11 +20,13 @@ export function MarcoPrivado({ children }: Props) {
   }
 
   return (
-    <ContenedorPagina>
-      <BannerPendientes />
-      <AccionesRapidas />
+    <>
+      <ContenedorPagina className="pb-24 md:pb-8">
+        <Header />
+        <BannerPendientes />
+        {children}
+      </ContenedorPagina>
       <NavegacionInferior />
-      {children}
-    </ContenedorPagina>
+    </>
   );
 }

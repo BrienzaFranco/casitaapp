@@ -11,9 +11,10 @@ import {
 
 interface ResultadoGuardado {
   pendiente: boolean;
+  id: string | null;
 }
 
-export function useOffline(guardarRemoto: (compra: CompraEditable) => Promise<unknown>) {
+export function useOffline(guardarRemoto: (compra: CompraEditable) => Promise<string>) {
   const [cantidadPendientes, setCantidadPendientes] = useState(() =>
     typeof window === "undefined" ? 0 : obtenerComprasPendientes().length,
   );
@@ -65,12 +66,12 @@ export function useOffline(guardarRemoto: (compra: CompraEditable) => Promise<un
       const cantidad = obtenerComprasPendientes().length;
       setCantidadPendientes(cantidad);
       toast.warning("Sin conexion. La compra quedo pendiente para sincronizar.");
-      return { pendiente: true };
+      return { pendiente: true, id: compra.id ?? null };
     }
 
     try {
-      await guardarRemoto(compra);
-      return { pendiente: false };
+      const id = await guardarRemoto(compra);
+      return { pendiente: false, id };
     } catch (error) {
       const mensaje = error instanceof Error ? error.message.toLowerCase() : "";
 
@@ -79,7 +80,7 @@ export function useOffline(guardarRemoto: (compra: CompraEditable) => Promise<un
         const cantidad = obtenerComprasPendientes().length;
         setCantidadPendientes(cantidad);
         toast.warning("No se pudo conectar. La compra quedo pendiente para sincronizar.");
-        return { pendiente: true };
+        return { pendiente: true, id: compra.id ?? null };
       }
 
       throw error;

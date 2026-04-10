@@ -11,6 +11,7 @@ import { Boton } from "@/components/ui/Boton";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { fechaLocalISO } from "@/lib/utiles";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 
@@ -40,7 +41,7 @@ function parsearImportacion(datos: Array<Record<string, unknown>>) {
         : "50/50";
 
     return {
-      fecha: String(detectarColumna(fila, ["fecha"]) ?? new Date().toISOString().slice(0, 10)),
+      fecha: String(detectarColumna(fila, ["fecha"]) ?? fechaLocalISO()),
       nombre_lugar: String(detectarColumna(fila, ["lugar", "nombre_lugar", "comercio"]) ?? ""),
       categoria: String(detectarColumna(fila, ["categoria"]) ?? ""),
       subcategoria: String(detectarColumna(fila, ["subcategoria"]) ?? ""),

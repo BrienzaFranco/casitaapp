@@ -168,6 +168,121 @@ begin
 end;
 $$;
 
+create or replace function public.guardar_compra_borrador(
+  p_compra_id uuid default null,
+  p_fecha date default current_date,
+  p_nombre_lugar text default null,
+  p_notas text default null,
+  p_registrado_por text default '',
+  p_hogar_id uuid default null,
+  p_items jsonb default '[]'::jsonb,
+  p_pagador_general text default 'compartido',
+  p_etiquetas_compra_ids uuid[] default array[]::uuid[]
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_compra_id uuid;
+  v_item jsonb;
+  v_item_id uuid;
+  v_etiqueta_id uuid;
+  v_compra_etiqueta_id uuid;
+begin
+  if p_compra_id is null then
+    insert into compras (
+      fecha,
+      nombre_lugar,
+      notas,
+      registrado_por,
+      hogar_id,
+      pagador_general,
+      estado
+    )
+    values (
+      p_fecha,
+      p_nombre_lugar,
+      p_notas,
+      p_registrado_por,
+      p_hogar_id,
+      coalesce(nullif(p_pagador_general, ''), 'compartido'),
+      'borrador'
+    )
+    returning id into v_compra_id;
+  else
+    update compras
+    set
+      fecha = p_fecha,
+      nombre_lugar = p_nombre_lugar,
+      notas = p_notas,
+      registrado_por = p_registrado_por,
+      hogar_id = p_hogar_id,
+      pagador_general = coalesce(nullif(p_pagador_general, ''), 'compartido'),
+      estado = 'borrador'
+    where id = p_compra_id
+    returning id into v_compra_id;
+
+    if v_compra_id is null then
+      raise exception 'Compra no encontrada';
+    end if;
+  end if;
+
+  delete from compra_etiquetas where compra_id = v_compra_id;
+
+  if p_etiquetas_compra_ids is not null then
+    foreach v_compra_etiqueta_id in array p_etiquetas_compra_ids
+    loop
+      insert into compra_etiquetas (compra_id, etiqueta_id)
+      values (v_compra_id, v_compra_etiqueta_id)
+      on conflict do nothing;
+    end loop;
+  end if;
+
+  delete from items where compra_id = v_compra_id;
+
+  for v_item in select * from jsonb_array_elements(coalesce(p_items, '[]'::jsonb))
+  loop
+    insert into items (
+      compra_id,
+      hogar_id,
+      categoria_id,
+      subcategoria_id,
+      descripcion,
+      expresion_monto,
+      monto_resuelto,
+      tipo_reparto,
+      pago_franco,
+      pago_fabiola
+    )
+    values (
+      v_compra_id,
+      p_hogar_id,
+      nullif(v_item ->> 'categoria_id', '')::uuid,
+      nullif(v_item ->> 'subcategoria_id', '')::uuid,
+      nullif(v_item ->> 'descripcion', ''),
+      coalesce(nullif(v_item ->> 'expresion_monto', ''), '0'),
+      coalesce((v_item ->> 'monto_resuelto')::numeric, 0),
+      coalesce(nullif(v_item ->> 'tipo_reparto', ''), '50/50'),
+      coalesce((v_item ->> 'pago_franco')::numeric, 0),
+      coalesce((v_item ->> 'pago_fabiola')::numeric, 0)
+    )
+    returning id into v_item_id;
+
+    for v_etiqueta_id in
+      select jsonb_array_elements_text(coalesce(v_item -> 'etiquetas_ids', '[]'::jsonb))::uuid
+    loop
+      insert into item_etiquetas (item_id, etiqueta_id)
+      values (v_item_id, v_etiqueta_id)
+      on conflict do nothing;
+    end loop;
+  end loop;
+
+  return v_compra_id;
+end;
+$$;
+
 create or replace function public.crear_compra_completa(
   p_fecha date,
   p_nombre_lugar text,

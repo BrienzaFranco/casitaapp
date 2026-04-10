@@ -7,9 +7,6 @@ interface ResultadoPredictivo {
 
 type MapaLugares = Map<string, ResultadoPredictivo>;
 
-let cacheLugares: MapaLugares | null = null;
-let cacheDetalles: MapaLugares | null = null;
-
 export function inferirCategoria(
   texto: string,
   opciones: {
@@ -20,8 +17,6 @@ export function inferirCategoria(
   if (!texto.trim()) {
     return null;
   }
-
-  const normalizado = normalizarTexto(texto);
 
   for (const opcion of opciones) {
     if (!opcion.categoria_id) continue;
