@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ListaCompras } from "@/components/compras/ListaCompras";
 import { GraficoTendenciaDiaria } from "@/components/historial/GraficoTendenciaDiaria";
+import { HojaCompras } from "@/components/historial/HojaCompras";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { calcularSerieGastoDiario, deducirNombresParticipantes, filtrarComprasHistorial } from "@/lib/calculos";
@@ -38,6 +39,7 @@ export default function PaginaHistorial() {
   const [etiquetaId, setEtiquetaId] = useState("");
   const [etiquetaCompraId, setEtiquetaCompraId] = useState("");
   const [compraAEliminar, setCompraAEliminar] = useState<string | null>(null);
+  const [vista, setVista] = useState<"hoja" | "tarjetas">("hoja");
   const ultimosMeses = generarUltimosMeses(6);
 
   const filtradas = filtrarComprasHistorial(compras.compras, {
@@ -65,7 +67,7 @@ export default function PaginaHistorial() {
     <section className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-2xl font-bold text-gray-950">Historial</h2>
-        <p className="text-sm text-gray-500">Filtra por mes, categoria o etiqueta y expandi cada compra.</p>
+        <p className="text-sm text-gray-500">Filtra por mes, categoria o etiqueta y elige vista hoja o tarjetas.</p>
       </div>
 
       <section className="rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
@@ -133,6 +135,29 @@ export default function PaginaHistorial() {
             ))}
           </div>
 
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setVista("hoja")}
+              className={combinarClases(
+                "h-9 rounded-full px-4 text-sm font-medium transition",
+                vista === "hoja" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+              )}
+            >
+              Vista hoja
+            </button>
+            <button
+              type="button"
+              onClick={() => setVista("tarjetas")}
+              className={combinarClases(
+                "h-9 rounded-full px-4 text-sm font-medium transition",
+                vista === "tarjetas" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+              )}
+            >
+              Vista tarjetas
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 gap-4">
           <Select
             etiqueta="Categoria"
@@ -161,13 +186,20 @@ export default function PaginaHistorial() {
 
       {!compras.cargando && filtradas.length ? <GraficoTendenciaDiaria registros={serieTendencia} /> : null}
 
-      <ListaCompras
-        compras={filtradas}
-        cargando={compras.cargando}
-        nombres={nombres}
-        onEliminar={setCompraAEliminar}
-        modoVacio={modoVacio}
-      />
+      {vista === "hoja" && !compras.cargando && filtradas.length ? (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-500">En celular conviene usar vista tarjetas para lectura mas comoda.</p>
+          <HojaCompras compras={filtradas} />
+        </div>
+      ) : (
+        <ListaCompras
+          compras={filtradas}
+          cargando={compras.cargando}
+          nombres={nombres}
+          onEliminar={setCompraAEliminar}
+          modoVacio={modoVacio}
+        />
+      )}
 
       <Modal
         abierto={Boolean(compraAEliminar)}

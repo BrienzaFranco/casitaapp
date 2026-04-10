@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -243,6 +243,16 @@ function encontrarSubcategoriaId(
   return aproximada?.id ?? "";
 }
 
+function encontrarEtiquetaIdPorNombre(etiquetas: Etiqueta[], nombre: string) {
+  const base = normalizarTexto(nombre);
+  if (!base) {
+    return "";
+  }
+
+  const exacta = etiquetas.find((etiqueta) => normalizarTexto(etiqueta.nombre) === base);
+  return exacta?.id ?? "";
+}
+
 export function FormularioCompraUnificado({
   categorias,
   subcategorias,
@@ -257,6 +267,9 @@ export function FormularioCompraUnificado({
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial));
   const [mostrarNotas, setMostrarNotas] = useState(Boolean(compraInicial?.notas));
   const [entradaPegado, setEntradaPegado] = useState("");
+  const [mostrarPegadoMasivo, setMostrarPegadoMasivo] = useState(false);
+  const [entradaEtiquetaCompra, setEntradaEtiquetaCompra] = useState("");
+  const [entradaEtiquetaItem, setEntradaEtiquetaItem] = useState<Record<string, string>>({});
   const [guardandoLocal, setGuardandoLocal] = useState(false);
   const guardandoCompra = guardando || guardandoLocal;
 
@@ -363,6 +376,26 @@ export function FormularioCompraUnificado({
         };
       }),
     }));
+  }
+
+  function agregarEtiquetaCompraPorTexto(texto: string) {
+    const etiquetaId = encontrarEtiquetaIdPorNombre(etiquetas, texto);
+    if (!etiquetaId) {
+      toast.error("Etiqueta no encontrada. Elige una sugerencia existente.");
+      return;
+    }
+    toggleEtiquetaCompra(etiquetaId);
+    setEntradaEtiquetaCompra("");
+  }
+
+  function agregarEtiquetaItemPorTexto(itemId: string, texto: string) {
+    const etiquetaId = encontrarEtiquetaIdPorNombre(etiquetas, texto);
+    if (!etiquetaId) {
+      toast.error("Etiqueta no encontrada. Elige una sugerencia existente.");
+      return;
+    }
+    toggleEtiquetaItem(itemId, etiquetaId);
+    setEntradaEtiquetaItem((anterior) => ({ ...anterior, [itemId]: "" }));
   }
 
   async function crearSubcategoriaRapida(itemId: string) {
@@ -537,20 +570,41 @@ export function FormularioCompraUnificado({
               ) : null}
 
               <div className="mt-3 border-t border-gray-200 pt-3">
-                <p className="mb-2 text-xs font-semibold uppercase text-gray-600">Tags de compra</p>
-                <div className="flex flex-wrap gap-1">
-                  {etiquetas.map((etiqueta) => {
-                    const activa = compra.etiquetas_compra_ids.includes(etiqueta.id);
+                <p className="mb-2 text-xs font-semibold uppercase text-gray-600">Etiquetas de compra</p>
+                <input
+                  list="etiquetas-sugeridas-compra"
+                  value={entradaEtiquetaCompra}
+                  onChange={(event) => setEntradaEtiquetaCompra(event.target.value)}
+                  onFocus={(event) => event.currentTarget.click()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      agregarEtiquetaCompraPorTexto(entradaEtiquetaCompra);
+                    }
+                  }}
+                  placeholder="Escribe y elige etiqueta"
+                  className="h-9 w-full rounded border border-gray-300 bg-white px-2 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                />
+                <datalist id="etiquetas-sugeridas-compra">
+                  {etiquetas.map((etiqueta) => (
+                    <option key={etiqueta.id} value={etiqueta.nombre} />
+                  ))}
+                </datalist>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {compra.etiquetas_compra_ids.map((etiquetaId) => {
+                    const etiqueta = etiquetas.find((actual) => actual.id === etiquetaId);
+                    if (!etiqueta) {
+                      return null;
+                    }
                     return (
                       <button
                         key={etiqueta.id}
                         type="button"
                         onClick={() => toggleEtiquetaCompra(etiqueta.id)}
-                        className={`inline-flex h-7 items-center rounded border px-2 text-xs font-medium transition ${
-                          activa ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-200 bg-gray-50 text-gray-700"
-                        }`}
+                        className="inline-flex h-7 items-center rounded border border-blue-300 bg-blue-50 px-2 text-xs font-medium text-blue-700"
+                        title="Quitar etiqueta"
                       >
-                        {etiqueta.nombre}
+                        {etiqueta.nombre} ×
                       </button>
                     );
                   })}
@@ -559,20 +613,32 @@ export function FormularioCompraUnificado({
             </div>
 
             <div className="border border-gray-300 bg-white p-3">
-              <p className="mb-2 text-xs font-semibold uppercase text-gray-600">Pegado masivo</p>
-              <textarea
-                value={entradaPegado}
-                onChange={(event) => setEntradaPegado(event.target.value)}
-                placeholder={`Pega lineas: categoria - subcategoria - detalle - 7600+5200-500\nO columnas desde Sheets (TAB)`}
-                className="min-h-28 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-              />
               <button
                 type="button"
-                onClick={importarLineasPegadas}
-                className="mt-2 h-9 w-full rounded border border-gray-300 bg-white text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                onClick={() => setMostrarPegadoMasivo((actual) => !actual)}
+                className="flex h-9 w-full items-center justify-between rounded border border-gray-300 bg-gray-50 px-3 text-left text-xs font-semibold uppercase text-gray-600 transition hover:bg-gray-100"
               >
-                Cargar lineas en tabla
+                Opciones avanzadas
+                <span>{mostrarPegadoMasivo ? "Ocultar" : "Mostrar"}</span>
               </button>
+              {mostrarPegadoMasivo ? (
+                <div className="mt-3">
+                  <p className="mb-2 text-xs font-semibold uppercase text-gray-600">Pegado masivo</p>
+                  <textarea
+                    value={entradaPegado}
+                    onChange={(event) => setEntradaPegado(event.target.value)}
+                    placeholder={`Pega lineas: categoria - subcategoria - detalle - 7600+5200-500\nO columnas desde Sheets (TAB)`}
+                    className="min-h-28 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={importarLineasPegadas}
+                    className="mt-2 h-9 w-full rounded border border-gray-300 bg-white text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  >
+                    Cargar lineas en tabla
+                  </button>
+                </div>
+              ) : null}
             </div>
           </section>
 
@@ -734,24 +800,50 @@ export function FormularioCompraUnificado({
                         </td>
 
                         <td className="border-b border-gray-200 px-2 py-2">
-                          <div className="flex max-w-[180px] flex-wrap gap-1">
-                            {etiquetas.map((etiqueta) => {
-                              const activa = item.etiquetas_ids.includes(etiqueta.id);
-                              return (
-                                <button
-                                  key={etiqueta.id}
-                                  type="button"
-                                  onClick={() => toggleEtiquetaItem(item.id as string, etiqueta.id)}
-                                  className={`inline-flex h-7 items-center rounded border px-2 text-[11px] font-medium ${
-                                    activa
-                                      ? "border-blue-300 bg-blue-50 text-blue-700"
-                                      : "border-gray-200 bg-gray-50 text-gray-700"
-                                  }`}
-                                >
-                                  {etiqueta.nombre}
-                                </button>
-                              );
-                            })}
+                          <div className="min-w-[180px] space-y-2">
+                            <input
+                              list={`etiquetas-sugeridas-${item.id}`}
+                              value={entradaEtiquetaItem[item.id as string] ?? ""}
+                              onChange={(event) =>
+                                setEntradaEtiquetaItem((anterior) => ({
+                                  ...anterior,
+                                  [item.id as string]: event.target.value,
+                                }))
+                              }
+                              onFocus={(event) => event.currentTarget.click()}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  agregarEtiquetaItemPorTexto(item.id as string, entradaEtiquetaItem[item.id as string] ?? "");
+                                }
+                              }}
+                              placeholder="Etiqueta"
+                              className="h-9 w-full rounded border border-gray-300 bg-white px-2 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                            />
+                            <datalist id={`etiquetas-sugeridas-${item.id}`}>
+                              {etiquetas.map((etiqueta) => (
+                                <option key={etiqueta.id} value={etiqueta.nombre} />
+                              ))}
+                            </datalist>
+                            <div className="flex flex-wrap gap-1">
+                              {item.etiquetas_ids.map((etiquetaId) => {
+                                const etiqueta = etiquetas.find((actual) => actual.id === etiquetaId);
+                                if (!etiqueta) {
+                                  return null;
+                                }
+
+                                return (
+                                  <button
+                                    key={etiqueta.id}
+                                    type="button"
+                                    onClick={() => toggleEtiquetaItem(item.id as string, etiqueta.id)}
+                                    className="inline-flex h-7 items-center rounded border border-blue-300 bg-blue-50 px-2 text-[11px] font-medium text-blue-700"
+                                  >
+                                    {etiqueta.nombre} ×
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         </td>
 
