@@ -198,8 +198,8 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
     finally { setGuardandoLocal(false); }
   }
 
-  const franCorto = nombreCorto(nombres.franco);
-  const fabiCorto = nombreCorto(nombres.fabiola);
+  const franCorto = nombres.franco.slice(0, 6);
+  const fabiCorto = nombres.fabiola.slice(0, 6);
 
   // Quien pago mas del otro
   const debeFrancoAFabiola = totalFabiola > totalFranco ? totalFabiola - totalFranco : 0;

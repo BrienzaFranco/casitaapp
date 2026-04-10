@@ -1,4 +1,5 @@
 import { evaluate } from "mathjs";
+import { mesClave, normalizarTexto, nombreLegible } from "@/lib/utiles";
 import type {
   BalanceMensualFila,
   Categoria,
@@ -13,7 +14,6 @@ import type {
   TipoReparto,
   VariacionPeriodo,
 } from "@/types";
-import { mesClave, normalizarTexto } from "@/lib/utiles";
 
 function asegurarNumero(valor: number) {
   return Number.isFinite(valor) ? Number(valor) : 0;
@@ -377,8 +377,11 @@ export function deducirNombresParticipantes(perfiles: Array<{ nombre: string | n
     .map((perfil) => perfil.nombre?.trim())
     .filter(Boolean) as string[];
 
-  const franco = nombres.find((nombre) => normalizarTexto(nombre).includes("franco")) ?? nombres[0] ?? "Franco";
-  const fabiola = nombres.find((nombre) => normalizarTexto(nombre).includes("fabiola")) ?? nombres[1] ?? "Fabiola";
+  const francoRaw = nombres.find((nombre) => normalizarTexto(nombre).includes("franco")) ?? nombres[0] ?? "Franco";
+  const fabiolaRaw = nombres.find((nombre) => normalizarTexto(nombre).includes("fabiola")) ?? nombres[1] ?? "Fabiola";
+
+  const franco = nombreLegible(francoRaw);
+  const fabiola = nombreLegible(fabiolaRaw);
 
   return { franco, fabiola };
 }

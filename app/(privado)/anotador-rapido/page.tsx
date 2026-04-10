@@ -55,13 +55,6 @@ export default function PaginaAnotadorRapido() {
   }, [compras.compras]);
 
   const nombrePagador = usuario.perfil?.nombre ?? "";
-  // Normalizar nombre para mostrar corto
-  const nombreCorto = useMemo(() => {
-    const n = (nombrePagador || "").toLowerCase();
-    if (n.includes("franco")) return "Franco";
-    if (n.includes("fabiola")) return "Fabiola";
-    return nombrePagador || "Franco";
-  }, [nombrePagador]);
 
   function crearBorrador(): CompraEditable {
     const lugarFinal = mostrarNuevo ? lugarNuevo.trim() : lugar.trim();
@@ -154,7 +147,7 @@ export default function PaginaAnotadorRapido() {
           <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Quien pago</label>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { val: "franco" as const, label: nombreCorto },
+              { val: "franco" as const, label: nombrePagador || "Franco" },
               { val: "fabiola" as const, label: "Fabiola" },
               { val: "compartido" as const, label: "Compartido" },
             ].map(({ val, label }) => (

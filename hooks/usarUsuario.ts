@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Perfil } from "@/types";
 import { crearClienteSupabase } from "@/lib/supabase";
+import { nombreLegible } from "@/lib/utiles";
 
 interface EstadoUsuario {
   usuarioId: string | null;
@@ -40,7 +41,12 @@ export function useUsuario() {
       }
 
       const usuario = datosUsuario.user;
-      const perfilesNormalizados = (perfiles ?? []) as Perfil[];
+      const perfilesRaw = (perfiles ?? []) as Perfil[];
+      // Normalizar nombres en TODOS los perfiles
+      const perfilesNormalizados = perfilesRaw.map(p => ({
+        ...p,
+        nombre: nombreLegible(p.nombre),
+      }));
       const perfil = perfilesNormalizados.find((item) => item.id === usuario?.id) ?? null;
       const otroPerfil = perfilesNormalizados.find((item) => item.id !== usuario?.id) ?? null;
 
