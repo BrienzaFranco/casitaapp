@@ -70,10 +70,10 @@ export function Header() {
   const mostrarVolver = pathname !== "/";
 
   return (
-    <header className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_55%,#f8fafc_100%)] px-4 py-4 md:px-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 space-y-1">
+    <header className="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-outline-variant/15">
+      <div className="max-w-[480px] mx-auto px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 space-y-0.5">
             {mostrarVolver ? (
               <button
                 type="button"
@@ -85,23 +85,27 @@ export function Header() {
 
                   router.push(rutaVolver(pathname));
                 }}
-                className="mb-2 inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white/90 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:bg-white"
+                className="inline-flex items-center gap-1 text-xs font-label font-bold uppercase tracking-wider text-on-surface-variant hover:text-primary transition-colors duration-200"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Volver
               </button>
-            ) : null}
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-700">CasitaApp</p>
-            <h1 className="text-2xl font-bold text-slate-950">Gastos domesticos</h1>
-            <p className="text-sm text-slate-600">{descripcionRuta(pathname)}</p>
+            ) : (
+              <p className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-outline">
+                CasitaApp
+              </p>
+            )}
+            <h1 className="font-headline text-2xl font-bold tracking-tight text-on-surface">
+              Gastos domesticos
+            </h1>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-2">
             <Link
               href="/configuracion"
               aria-label="Configuracion"
               title="Configuracion"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-surface-container text-on-surface-variant transition-all duration-200 hover:bg-surface-container-high hover:text-on-surface"
             >
               <Settings className="h-5 w-5" />
             </Link>
@@ -109,43 +113,41 @@ export function Header() {
               variante="fantasma"
               onClick={cerrarSesion}
               icono={<LogOut className="h-4 w-4" />}
-              className="min-h-10 rounded-2xl border border-slate-200 bg-white px-3 text-slate-700 hover:bg-slate-50 sm:px-4"
+              className="h-10 rounded-xl px-3"
             >
-              <span className="hidden sm:inline">Cerrar sesion</span>
+              <span className="hidden sm:inline font-label text-xs uppercase tracking-wider">Cerrar sesion</span>
             </Boton>
           </div>
         </div>
 
         {cargando ? (
-          <Skeleton className="mt-3 h-11 w-full rounded-2xl" />
+          <Skeleton className="mt-3 h-11 w-full rounded-xl" />
         ) : (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-700">Activo</p>
-              <p className="text-sm font-semibold text-slate-900">{perfil?.nombre ?? "Sin nombre"}</p>
-              <p className="text-xs text-slate-500">{correo}</p>
+            <div className="rounded-xl bg-surface-container-low px-3 py-2">
+              <p className="font-label text-[10px] font-bold uppercase tracking-[0.16em] text-tertiary">Activo</p>
+              <p className="font-headline text-sm font-semibold text-on-surface">{perfil?.nombre ?? "Sin nombre"}</p>
+              <p className="font-label text-xs text-on-surface-variant">{correo}</p>
             </div>
 
             <div className="flex flex-1 flex-wrap gap-2">
               <Link
                 href="/anotador-rapido"
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
+                className="inline-flex items-center justify-center rounded-md bg-secondary px-4 py-2.5 text-sm font-semibold font-headline text-on-secondary transition-all duration-200 hover:bg-secondary/90 active:scale-[0.98]"
               >
                 Anotar rapido
               </Link>
               <Link
                 href="/nueva-compra"
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex items-center justify-center rounded-md border border-outline-variant/30 bg-surface-container-high px-4 py-2.5 text-sm font-semibold font-headline text-on-surface transition-all duration-200 hover:bg-surface-container-highest active:scale-[0.98]"
               >
                 Carga completa
               </Link>
             </div>
           </div>
         )}
-      </div>
 
-      <div className="hidden px-3 py-3 md:block">
-        <nav className="flex flex-wrap items-center gap-2">
+        <nav className="hidden md:flex flex-wrap items-center gap-2 mt-3">
           {enlaces.map(({ href, etiqueta }) => {
             const activa = estaActiva(pathname, href);
 
@@ -154,10 +156,10 @@ export function Header() {
                 key={href}
                 href={href}
                 className={combinarClases(
-                  "inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold transition",
+                  "inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold font-headline transition-all duration-200",
                   activa
-                    ? "bg-slate-900 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800",
+                    ? "bg-primary text-on-primary"
+                    : "bg-surface-variant text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface",
                 )}
               >
                 {etiqueta}

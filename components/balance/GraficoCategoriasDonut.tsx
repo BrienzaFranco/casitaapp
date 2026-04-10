@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { CategoriaBalance } from "@/types";
 import { formatearPeso, formatearPorcentaje } from "@/lib/formatear";
-import { Badge } from "@/components/ui/Badge";
 
 interface Props {
   registros: CategoriaBalance[];
@@ -44,10 +43,14 @@ export function GraficoCategoriasDonut({ registros }: Props) {
   const datoActivo = datos[indiceActivo] ?? null;
 
   return (
-    <section className="rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="mb-4">
-        <h2 className="text-base font-semibold text-gray-900">Distribucion por categoria</h2>
-        <p className="text-sm text-gray-500">Selecciona una porcion para ver detalle.</p>
+    <section className="rounded-xl bg-surface-container-lowest p-4 shadow-[var(--shadow-card)]">
+      <div className="mb-4 space-y-1">
+        <h2 className="font-headline text-lg font-semibold tracking-tight text-on-surface">
+          Distribucion por categoria
+        </h2>
+        <p className="font-body text-sm text-on-surface-variant">
+          Selecciona una porcion para ver detalle.
+        </p>
       </div>
 
       {datos.length ? (
@@ -69,54 +72,76 @@ export function GraficoCategoriasDonut({ registros }: Props) {
                       key={dato.id}
                       fill={dato.color}
                       fillOpacity={dato.id === datoActivo?.id ? 1 : 0.45}
-                      stroke={dato.id === datoActivo?.id ? "rgba(17,24,39,0.2)" : "transparent"}
+                      stroke={dato.id === datoActivo?.id ? "var(--outline-variant)" : "transparent"}
                       strokeWidth={dato.id === datoActivo?.id ? 1.5 : 0}
                     />
                   ))}
                 </Pie>
                 <Tooltip
                   formatter={(valor) => formatearPeso(Number(valor ?? 0))}
-                  contentStyle={{ borderRadius: 16, borderColor: "#e5e7eb" }}
+                  contentStyle={{
+                    borderRadius: "0.75rem",
+                    borderColor: "var(--outline-variant)",
+                    backgroundColor: "var(--surface-container-lowest)",
+                    color: "var(--on-surface)",
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
 
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Categoria</p>
-              <p className="mt-1 text-sm font-semibold text-gray-900">{datoActivo?.nombre ?? "Sin datos"}</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-gray-950">
+              <p className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                Categoria
+              </p>
+              <p className="mt-1 font-headline text-sm font-semibold text-on-surface">
+                {datoActivo?.nombre ?? "Sin datos"}
+              </p>
+              <p className="mt-1 font-label text-lg font-bold tabular-nums text-primary">
                 {datoActivo ? formatearPeso(datoActivo.total) : formatearPeso(0)}
               </p>
-              <p className="text-xs text-gray-500">{datoActivo ? formatearPorcentaje(datoActivo.porcentaje) : "0%"}</p>
+              <p className="font-label text-xs text-on-surface-variant">
+                {datoActivo ? formatearPorcentaje(datoActivo.porcentaje) : "0%"}
+              </p>
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {datos.map((dato) => (
               <button
                 key={dato.id}
                 type="button"
                 onClick={() => setIdActivo(dato.id)}
-                className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2 text-left transition ${
+                className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all duration-150 ${
                   dato.id === datoActivo?.id
-                    ? "border-gray-300 bg-gray-50"
-                    : "border-transparent bg-white hover:border-gray-200 hover:bg-gray-50"
+                    ? "bg-surface-container-high"
+                    : "bg-surface-container-low hover:bg-surface-container"
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dato.color }} />
-                  <Badge color={dato.color}>{dato.nombre}</Badge>
+                  <span
+                    className="h-2.5 w-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: dato.color }}
+                  />
+                  <span className="font-label text-sm font-medium text-on-surface">
+                    {dato.nombre}
+                  </span>
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-sm font-semibold text-gray-900">{formatearPeso(dato.total)}</p>
-                  <p className="text-xs text-gray-500">{formatearPorcentaje(dato.porcentaje)}</p>
+                  <p className="font-label text-sm font-bold tabular-nums text-on-surface">
+                    {formatearPeso(dato.total)}
+                  </p>
+                  <p className="font-label text-[10px] text-on-surface-variant">
+                    {formatearPorcentaje(dato.porcentaje)}
+                  </p>
                 </div>
               </button>
             ))}
           </div>
         </div>
       ) : (
-        <p className="text-sm text-gray-500">No hay categorias con gasto para graficar.</p>
+        <p className="font-body text-sm text-on-surface-variant">
+          No hay categorias con gasto para graficar.
+        </p>
       )}
     </section>
   );

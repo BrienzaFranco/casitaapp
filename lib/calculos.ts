@@ -336,8 +336,8 @@ export function filtrarComprasHistorial(
       : true;
     const coincidePersona = filtros.persona
       ? compra.items.some((item) =>
-          filtros.persona === "franco" ? item.pago_franco > 0 : item.pago_fabiola > 0,
-        )
+        filtros.persona === "franco" ? item.pago_franco > 0 : item.pago_fabiola > 0,
+      )
       : true;
 
     return coincideMes && coincideCategoria && coincideEtiqueta && coincideEtiquetaCompra && coincidePersona;

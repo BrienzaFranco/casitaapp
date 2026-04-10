@@ -1,35 +1,141 @@
 @import "tailwindcss";
 
+@theme {
+  /* ═══════════════════════════════════════════════════════════
+     PALETA DE COLORES — "LIBRO DE CUENTAS"
+     ═══════════════════════════════════════════════════════════ */
+  
+  /* Superficies (Papel Virtual) */
+  --color-surface: #fcf9f4;
+  --color-surface-bright: #fcf9f4;
+  --color-surface-dim: #dcdad5;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f6f3ee;
+  --color-surface-container: #f0ede8;
+  --color-surface-container-high: #ebe8e3;
+  --color-surface-container-highest: #e5e2dd;
+
+  /* Primario (Marrón Profundo) */
+  --color-primary: #442a22;
+  --color-primary-container: #5d4037;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #d4ada1;
+  --color-primary-fixed: #ffdbd0;
+  --color-primary-fixed-dim: #e7bdb1;
+  --color-on-primary-fixed: #2c160e;
+  --color-on-primary-fixed-variant: #5d4037;
+
+  /* Secundario (Naranja - Gastos/Deuda) */
+  --color-secondary: #a83900;
+  --color-secondary-container: #fc6018;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #531800;
+  --color-secondary-fixed: #ffdbcf;
+  --color-secondary-fixed-dim: #ffb59a;
+  --color-on-secondary-fixed: #380d00;
+  --color-on-secondary-fixed-variant: #802a00;
+
+  /* Terciario (Verde - Balances/Ahorros) */
+  --color-tertiary: #003909;
+  --color-tertiary-container: #005312;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #77c772;
+  --color-tertiary-fixed: #a3f69c;
+  --color-tertiary-fixed-dim: #88d982;
+  --color-on-tertiary-fixed: #002204;
+  --color-on-tertiary-fixed-variant: #005312;
+
+  /* Neutros y Texto */
+  --color-on-surface: #1c1c19;
+  --color-on-surface-variant: #504441;
+  --color-inverse-surface: #31302d;
+  --color-inverse-on-surface: #f3f0eb;
+  --color-outline: #827470;
+  --color-outline-variant: #d4c3be;
+  --color-background: #fcf9f4;
+  --color-on-background: #1c1c19;
+
+  /* Error (Rojo - Alertas Críticas) */
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  /* ═══════════════════════════════════════════════════════════
+     TIPOGRAFÍA EDITORIAL
+     ═══════════════════════════════════════════════════════════ */
+  --font-headline: var(--font-inter);
+  --font-label: var(--font-space-grotesk);
+  --font-body: var(--font-inter);
+}
+
 :root {
   color-scheme: light;
-  --bg: #f3efe7;
-  --surface: rgba(255, 252, 247, 0.9);
-  --surface-strong: #fffdf9;
-  --border: rgba(114, 92, 63, 0.16);
-  --ink: #1f2937;
-  --muted: #665f55;
-  --accent: #1258dc;
-  --accent-soft: rgba(18, 88, 220, 0.1);
-  --olive-soft: rgba(82, 113, 80, 0.12);
-  --shadow-soft: 0 24px 70px -30px rgba(40, 31, 20, 0.28);
+
+  /* Sombras Ambientales */
+  --shadow-ambient: 0px 12px 32px rgba(44, 22, 14, 0.08);
+  --shadow-fab: 0px 16px 40px rgba(168, 57, 0, 0.25);
+  --shadow-card: 0px 8px 24px rgba(44, 22, 14, 0.06);
+
+  /* Bordes Fantasma */
+  --ghost-border: rgba(212, 195, 190, 0.15);
 }
 
 html {
-  font-family: "Aptos", "Segoe UI Variable", "Trebuchet MS", "Helvetica Neue", sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(18, 88, 220, 0.11), transparent 28%),
-    radial-gradient(circle at top right, rgba(221, 161, 94, 0.16), transparent 24%),
-    linear-gradient(180deg, #f9f5ee 0%, #f2ede4 48%, #ece6dc 100%);
+  background: var(--surface);
 }
 
 body {
   min-height: 100vh;
   background: transparent;
-  color: var(--ink);
+  color: var(--on-surface);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   TIPOGRAFÍA EDITORIAL
+   ═══════════════════════════════════════════════════════════ */
+
+/* Números tabulares obligatorios para alineación perfecta */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ANIMACIONES
+   ═══════════════════════════════════════════════════════════ */
+
+.animar-sacudida {
+  animation: sacudida 0.35s ease-in-out;
+}
+
+@keyframes sacudida {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
+}
+
+@keyframes aparecer-arriba {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animar-aparecer {
+  animation: aparecer-arriba 0.2s ease-out;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UTILIDADES
+   ═══════════════════════════════════════════════════════════ */
 
 summary {
   list-style: none;
@@ -37,28 +143,6 @@ summary {
 
 summary::-webkit-details-marker {
   display: none;
-}
-
-.animar-sacudida {
-  animation: sacudida 0.35s ease-in-out;
-}
-
-@keyframes sacudida {
-  0%, 100% {
-    transform: translateX(0);
-  }
-
-  25% {
-    transform: translateX(-6px);
-  }
-
-  50% {
-    transform: translateX(6px);
-  }
-
-  75% {
-    transform: translateX(-4px);
-  }
 }
 
 .pb-safe {
@@ -74,7 +158,19 @@ summary::-webkit-details-marker {
   scrollbar-width: none;
 }
 
+/* Selección de texto con acento secundario */
 ::selection {
-  background: rgba(18, 88, 220, 0.18);
-  color: #10203f;
+  background: var(--secondary-fixed);
+  color: var(--on-secondary-container);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EFECTO TICKET (Borde Dentado Opcional)
+   ═══════════════════════════════════════════════════════════ */
+
+.borde-dentado {
+  clip-path: polygon(
+    0% 0%, 100% 0%, 100% 95%,
+    98% 97%, 96% 95%, 94% 97%, 92% 95%, 90% 97%, 88% 95%, 86% 97%, 84% 95%, 82% 97%, 80% 95%, 78% 97%, 76% 95%, 74% 97%, 72% 95%, 70% 97%, 68% 95%, 66% 97%, 64% 95%, 62% 97%, 60% 95%, 58% 97%, 56% 95%, 54% 97%, 52% 95%, 50% 97%, 48% 95%, 46% 97%, 44% 95%, 42% 97%, 40% 95%, 38% 97%, 36% 95%, 34% 97%, 32% 95%, 30% 97%, 28% 95%, 26% 97%, 24% 95%, 22% 97%, 20% 95%, 18% 97%, 16% 95%, 14% 97%, 12% 95%, 10% 97%, 8% 95%, 6% 97%, 4% 95%, 2% 97%, 0% 95%
+  );
 }

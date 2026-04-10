@@ -12,10 +12,10 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantes: Record<Variante, string> = {
-  primario: "border border-blue-700 bg-blue-600 text-white shadow-[0_16px_34px_-18px_rgba(18,88,220,0.6)] hover:bg-blue-700",
-  secundario: "border border-[var(--border)] bg-[var(--surface-strong)] text-slate-800 hover:bg-white",
-  fantasma: "border border-transparent bg-transparent text-[var(--muted)] hover:bg-black/5 hover:text-slate-800",
-  peligro: "border border-red-600 bg-red-500 text-white hover:bg-red-600",
+  primario: "bg-gradient-to-b from-primary to-primary-container text-on-primary hover:from-primary/90 hover:to-primary-container/90 active:scale-[0.98]",
+  secundario: "bg-surface-container-high text-on-surface hover:bg-surface-container-highest active:scale-[0.98]",
+  fantasma: "bg-transparent text-on-surface-variant hover:bg-surface-container active:scale-[0.98]",
+  peligro: "bg-error text-on-error hover:bg-error/90 active:scale-[0.98]",
 };
 
 export function Boton({
@@ -29,7 +29,7 @@ export function Boton({
   return (
     <button
       className={combinarClases(
-        "inline-flex min-h-12 items-center justify-center gap-2 rounded-[20px] px-4 py-3 text-sm font-semibold transition duration-200 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-semibold font-headline transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50",
         variantes[variante],
         anchoCompleto && "w-full",
         className,

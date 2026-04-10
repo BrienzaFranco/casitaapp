@@ -1,5 +1,4 @@
 import type { Item } from "@/types";
-import { Badge } from "@/components/ui/Badge";
 import { formatearPeso } from "@/lib/formatear";
 
 interface Props {
@@ -17,7 +16,7 @@ function textoReparto(item: Item, nombres: { franco: string; fabiola: string }) 
   }
 
   if (item.tipo_reparto === "personalizado") {
-    return `${nombres.franco}: ${formatearPeso(item.pago_franco)} · ${nombres.fabiola}: ${formatearPeso(item.pago_fabiola)}`;
+    return `${nombres.franco}: ${formatearPeso(item.pago_franco)} \u00b7 ${nombres.fabiola}: ${formatearPeso(item.pago_fabiola)}`;
   }
 
   return "Compartido";
@@ -25,25 +24,49 @@ function textoReparto(item: Item, nombres: { franco: string; fabiola: string }) 
 
 export function ItemCompra({ item, nombres }: Props) {
   return (
-    <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-soft)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-slate-900">{item.descripcion || "Sin descripcion"}</p>
-          <p className="text-sm text-[var(--muted)]">{textoReparto(item, nombres)}</p>
-        </div>
-        <p className="rounded-full bg-[var(--accent-soft)] px-3 py-1 font-mono text-sm font-semibold text-blue-800">
+    <div className="group flex flex-col gap-2 py-3">
+      {/* Description + Amount row */}
+      <div className="flex items-baseline justify-between gap-4">
+        <p className="min-w-0 flex-1 font-['var(--font-headline)'] text-sm font-semibold leading-snug text-[var(--on-surface)]">
+          {item.descripcion || "Sin descripcion"}
+        </p>
+        <p className="shrink-0 font-['var(--font-label)'] text-base font-medium leading-none tracking-tight text-[var(--on-surface)] tabular-nums">
           {formatearPeso(item.monto_resuelto)}
         </p>
       </div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {item.categoria ? <Badge color={item.categoria.color}>{item.categoria.nombre}</Badge> : null}
-        {item.subcategoria ? <Badge>{item.subcategoria.nombre}</Badge> : null}
-        {item.etiquetas.map((etiqueta) => (
-          <Badge key={etiqueta.id} color={etiqueta.color}>
-            {etiqueta.nombre}
-          </Badge>
-        ))}
-      </div>
+
+      {/* Reparto info */}
+      <p className="font-['var(--font-label)'] text-[11px] leading-tight text-[var(--on-surface-variant)]">
+        {textoReparto(item, nombres)}
+      </p>
+
+      {/* Chips row */}
+      {(item.categoria || item.subcategoria || item.etiquetas.length > 0) && (
+        <div className="flex flex-wrap gap-1.5">
+          {item.categoria && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-container-high)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--on-surface-variant)]"
+            >
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.categoria.color }} />
+              {item.categoria.nombre}
+            </span>
+          )}
+          {item.subcategoria && (
+            <span className="inline-flex items-center rounded-full bg-[var(--surface-container-high)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--on-surface-variant)]">
+              {item.subcategoria.nombre}
+            </span>
+          )}
+          {item.etiquetas.map((etiqueta) => (
+            <span
+              key={etiqueta.id}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-container-high)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--on-surface-variant)]"
+            >
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: etiqueta.color }} />
+              {etiqueta.nombre}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

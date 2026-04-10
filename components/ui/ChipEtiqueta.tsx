@@ -15,11 +15,16 @@ export function ChipEtiqueta({ nombre, color, activa = false, onClick }: Props) 
       type="button"
       onClick={onClick}
       className={combinarClases(
-        "inline-flex min-h-10 items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition",
-        activa ? "border-transparent bg-gray-900 text-white" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium font-label transition-all duration-200",
+        activa
+          ? "bg-primary text-on-primary"
+          : "bg-surface-variant text-on-surface-variant hover:bg-surface-container-high",
       )}
     >
-      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+      <span
+        className="h-2.5 w-2.5 rounded-full shrink-0"
+        style={{ backgroundColor: color }}
+      />
       {nombre}
     </button>
   );

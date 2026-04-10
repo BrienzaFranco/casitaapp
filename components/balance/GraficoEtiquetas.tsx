@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { EtiquetaBalance } from "@/types";
-import { Badge } from "@/components/ui/Badge";
 import { formatearPeso } from "@/lib/formatear";
 
 interface Props {
@@ -24,10 +23,14 @@ export function GraficoEtiquetas({ registros }: Props) {
   );
 
   return (
-    <section className="rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="mb-4">
-        <h2 className="text-base font-semibold text-gray-900">Gastos por etiqueta</h2>
-        <p className="text-sm text-gray-500">Vista comparativa de montos y frecuencia.</p>
+    <section className="rounded-xl bg-surface-container-lowest p-4 shadow-[var(--shadow-card)]">
+      <div className="mb-4 space-y-1">
+        <h2 className="font-headline text-lg font-semibold tracking-tight text-on-surface">
+          Gastos por etiqueta
+        </h2>
+        <p className="font-body text-sm text-on-surface-variant">
+          Vista comparativa de montos y frecuencia.
+        </p>
       </div>
 
       {datos.length ? (
@@ -35,9 +38,9 @@ export function GraficoEtiquetas({ registros }: Props) {
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={datos} margin={{ top: 4, right: 8, left: -8, bottom: 4 }}>
-                <XAxis dataKey="nombre" tick={{ fontSize: 11, fill: "#6b7280" }} tickLine={false} axisLine={false} />
+                <XAxis dataKey="nombre" tick={{ fontSize: 11, fill: "var(--on-surface-variant)" }} tickLine={false} axisLine={false} />
                 <YAxis
-                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  tick={{ fontSize: 11, fill: "var(--on-surface-variant)" }}
                   tickLine={false}
                   axisLine={false}
                   width={72}
@@ -45,7 +48,12 @@ export function GraficoEtiquetas({ registros }: Props) {
                 />
                 <Tooltip
                   formatter={(valor) => formatearPeso(Number(valor ?? 0))}
-                  contentStyle={{ borderRadius: 14, borderColor: "#e5e7eb" }}
+                  contentStyle={{
+                    borderRadius: "0.75rem",
+                    borderColor: "var(--outline-variant)",
+                    backgroundColor: "var(--surface-container-lowest)",
+                    color: "var(--on-surface)",
+                  }}
                 />
                 <Bar dataKey="total" radius={[8, 8, 0, 0]}>
                   {datos.map((dato) => (
@@ -56,20 +64,37 @@ export function GraficoEtiquetas({ registros }: Props) {
             </ResponsiveContainer>
           </div>
 
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 space-y-1.5">
             {datos.map((dato) => (
-              <div key={dato.id} className="flex items-center justify-between gap-4 rounded-2xl bg-gray-50 px-3 py-2">
+              <div
+                key={dato.id}
+                className="flex items-center justify-between gap-4 rounded-lg bg-surface-container-low px-3 py-2.5 transition-colors duration-150 hover:bg-surface-container"
+              >
                 <div className="space-y-1">
-                  <Badge color={dato.color}>{dato.nombre}</Badge>
-                  <p className="text-xs text-gray-500">{dato.cantidad_items} items</p>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: dato.color }}
+                    />
+                    <span className="font-label text-sm font-medium text-on-surface">
+                      {dato.nombre}
+                    </span>
+                  </div>
+                  <p className="font-label text-[10px] text-on-surface-variant">
+                    {dato.cantidad_items} items
+                  </p>
                 </div>
-                <p className="font-mono text-sm font-semibold text-gray-950">{formatearPeso(dato.total)}</p>
+                <p className="font-label text-sm font-bold tabular-nums text-on-surface">
+                  {formatearPeso(dato.total)}
+                </p>
               </div>
             ))}
           </div>
         </>
       ) : (
-        <p className="text-sm text-gray-500">No hubo etiquetas usadas este mes.</p>
+        <p className="font-body text-sm text-on-surface-variant">
+          No hubo etiquetas usadas este mes.
+        </p>
       )}
     </section>
   );

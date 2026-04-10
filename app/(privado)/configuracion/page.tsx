@@ -60,6 +60,14 @@ function parsearImportacion(datos: Array<Record<string, unknown>>) {
   });
 }
 
+const TABS: { valor: Tab; etiqueta: string }[] = [
+  { valor: "categorias", etiqueta: "Categorias" },
+  { valor: "subcategorias", etiqueta: "Subcategorias" },
+  { valor: "etiquetas", etiqueta: "Etiquetas" },
+  { valor: "importar", etiqueta: "Importar Excel" },
+  { valor: "instalar", etiqueta: "Instalar app" },
+];
+
 export default function PaginaConfiguracion() {
   const categorias = usarCategorias();
   const compras = usarCompras();
@@ -83,7 +91,8 @@ export default function PaginaConfiguracion() {
 
     const buffer = await archivo.arrayBuffer();
     const libro = XLSX.read(buffer);
-    const primeraHoja = libro.Sheets[libro.SheetNames[0]];
+    const primeraHoja = libro.SheetNames[0] ? libro.Sheets[libro.SheetNames[0]] : null;
+    if (!primeraHoja) return;
     const filas = XLSX.utils.sheet_to_json<Record<string, unknown>>(primeraHoja);
     setDatosImportados(parsearImportacion(filas));
   }
@@ -146,26 +155,24 @@ export default function PaginaConfiguracion() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
+      {/* Header */}
       <div className="space-y-1">
-        <h2 className="text-2xl font-bold text-gray-950">Configuracion</h2>
-        <p className="text-sm text-gray-500">Categorias, subcategorias, etiquetas e importacion.</p>
+        <h2 className="font-headline text-2xl font-bold text-on-surface">Configuracion</h2>
+        <p className="font-body text-sm text-on-surface-variant">Categorias, subcategorias, etiquetas e importacion.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-[28px] border border-gray-100 bg-white p-2 shadow-sm md:grid-cols-5">
-        {[
-          ["categorias", "Categorias"],
-          ["subcategorias", "Subcategorias"],
-          ["etiquetas", "Etiquetas"],
-          ["importar", "Importar Excel"],
-          ["instalar", "Instalar app"],
-        ].map(([valor, etiqueta]) => (
+      {/* Tabs */}
+      <div className="flex gap-1.5 overflow-x-auto rounded-full bg-surface-container-high p-1 scrollbar-hide">
+        {TABS.map(({ valor, etiqueta }) => (
           <button
             key={valor}
             type="button"
-            onClick={() => setTab(valor as Tab)}
-            className={`rounded-2xl px-3 py-3 text-sm font-semibold transition ${
-              tab === valor ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"
+            onClick={() => setTab(valor)}
+            className={`rounded-full px-4 py-2 text-xs font-semibold font-headline transition-all duration-150 whitespace-nowrap ${
+              tab === valor
+                ? "bg-primary text-on-primary shadow-sm"
+                : "text-on-surface-variant hover:bg-surface-container-highest"
             }`}
           >
             {etiqueta}
@@ -173,54 +180,72 @@ export default function PaginaConfiguracion() {
         ))}
       </div>
 
-      {tab === "categorias" ? (
-        <section className="space-y-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="grid grid-cols-1 gap-3">
-            <Input
-              etiqueta="Nombre"
-              value={nuevaCategoria.nombre}
-              onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, nombre: event.target.value }))}
-            />
-            <Input
-              etiqueta="Color"
-              type="color"
-              value={nuevaCategoria.color}
-              onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, color: event.target.value }))}
-            />
-            <Input
-              etiqueta="Limite mensual"
-              type="number"
-              value={nuevaCategoria.limite_mensual}
-              onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))}
-            />
-            <Boton
-              anchoCompleto
-              onClick={async () => {
-                await categorias.crearCategoria({
-                  nombre: nuevaCategoria.nombre,
-                  color: nuevaCategoria.color,
-                  limite_mensual: nuevaCategoria.limite_mensual ? Number(nuevaCategoria.limite_mensual) : null,
-                });
-                setNuevaCategoria({ nombre: "", color: "#6366f1", limite_mensual: "" });
-                toast.success("Categoria creada");
-              }}
-            >
-              Agregar nueva categoria
-            </Boton>
-          </div>
+      {/* Content */}
+      <div className="rounded-[28px] bg-surface-container-lowest p-4 shadow-card">
+        {tab === "categorias" && (
+          <section className="space-y-6">
+            {/* Form */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Input
+                  etiqueta="Nombre"
+                  value={nuevaCategoria.nombre}
+                  onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, nombre: event.target.value }))}
+                />
+                <Input
+                  etiqueta="Color"
+                  type="color"
+                  value={nuevaCategoria.color}
+                  onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, color: event.target.value }))}
+                />
+                <Input
+                  etiqueta="Limite mensual"
+                  type="number"
+                  value={nuevaCategoria.limite_mensual}
+                  onChange={(event) =>
+                    setNuevaCategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))
+                  }
+                />
+              </div>
+              <Boton
+                anchoCompleto
+                onClick={async () => {
+                  await categorias.crearCategoria({
+                    nombre: nuevaCategoria.nombre,
+                    color: nuevaCategoria.color,
+                    limite_mensual: nuevaCategoria.limite_mensual ? Number(nuevaCategoria.limite_mensual) : null,
+                  });
+                  setNuevaCategoria({ nombre: "", color: "#6366f1", limite_mensual: "" });
+                  toast.success("Categoria creada");
+                }}
+              >
+                Agregar nueva categoria
+              </Boton>
+            </div>
 
-          <div className="space-y-3">
-            {categorias.categorias.map((categoria) => (
-              <div key={categoria.id} className="rounded-2xl bg-gray-50 p-3">
-                <div className="flex items-center gap-3">
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: categoria.color }} />
-                  <input
-                    className="flex-1 bg-transparent text-sm font-semibold text-gray-900 outline-none"
-                    defaultValue={categoria.nombre}
-                    onBlur={(event) => void categorias.actualizarCategoria(categoria.id, { nombre: event.target.value })}
+            {/* List */}
+            <div className="space-y-2">
+              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                Categorias existentes
+              </p>
+              {categorias.categorias.map((categoria) => (
+                <div
+                  key={categoria.id}
+                  className="group flex items-center gap-3 rounded-2xl bg-surface-container-low p-3 transition-all duration-150"
+                >
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-full"
+                    style={{ backgroundColor: categoria.color }}
                   />
                   <input
-                    className="w-24 bg-transparent text-right text-sm text-gray-500 outline-none"
+                    className="flex-1 bg-transparent font-body text-sm font-semibold text-on-surface outline-none transition-colors duration-150 focus:text-primary"
+                    defaultValue={categoria.nombre}
+                    onBlur={(event) =>
+                      void categorias.actualizarCategoria(categoria.id, { nombre: event.target.value })
+                    }
+                  />
+                  <input
+                    className="tabular-nums w-24 bg-transparent text-right font-body text-sm text-on-surface-variant outline-none transition-colors duration-150 focus:text-primary"
                     defaultValue={String(categoria.limite_mensual ?? "")}
                     onBlur={(event) =>
                       void categorias.actualizarCategoria(categoria.id, {
@@ -231,7 +256,7 @@ export default function PaginaConfiguracion() {
                   />
                   <button
                     type="button"
-                    className="rounded-full p-2 text-red-500 hover:bg-red-50"
+                    className="shrink-0 rounded-full p-2 text-error transition-colors duration-150 hover:bg-error-container"
                     onClick={() =>
                       void categorias.eliminarCategoria(categoria.id).catch(() => {
                         toast.error("No se puede eliminar si tiene items asociados");
@@ -242,67 +267,91 @@ export default function PaginaConfiguracion() {
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+              ))}
+            </div>
+          </section>
+        )}
 
-      {tab === "subcategorias" ? (
-        <section className="space-y-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-          <Select
-            etiqueta="Filtrar por categoria"
-            value={filtroCategoria}
-            onChange={(event) => setFiltroCategoria(event.target.value)}
-            placeholder="Todas"
-            opciones={categorias.categorias.map((categoria) => ({ etiqueta: categoria.nombre, valor: categoria.id }))}
-          />
-
-          <div className="grid grid-cols-1 gap-3">
+        {tab === "subcategorias" && (
+          <section className="space-y-6">
             <Select
-              etiqueta="Categoria"
-              value={nuevaSubcategoria.categoria_id}
-              onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, categoria_id: event.target.value }))}
-              opciones={categorias.categorias.map((categoria) => ({ etiqueta: categoria.nombre, valor: categoria.id }))}
+              etiqueta="Filtrar por categoria"
+              value={filtroCategoria}
+              onChange={(event) => setFiltroCategoria(event.target.value)}
+              placeholder="Todas"
+              opciones={categorias.categorias.map((categoria) => ({
+                etiqueta: categoria.nombre,
+                valor: categoria.id,
+              }))}
             />
-            <Input
-              etiqueta="Nombre"
-              value={nuevaSubcategoria.nombre}
-              onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, nombre: event.target.value }))}
-            />
-            <Input
-              etiqueta="Limite mensual"
-              type="number"
-              value={nuevaSubcategoria.limite_mensual}
-              onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))}
-            />
-            <Boton
-              anchoCompleto
-              onClick={async () => {
-                await categorias.crearSubcategoria({
-                  categoria_id: nuevaSubcategoria.categoria_id,
-                  nombre: nuevaSubcategoria.nombre,
-                  limite_mensual: nuevaSubcategoria.limite_mensual ? Number(nuevaSubcategoria.limite_mensual) : null,
-                });
-                setNuevaSubcategoria({ categoria_id: "", nombre: "", limite_mensual: "" });
-                toast.success("Subcategoria creada");
-              }}
-            >
-              Agregar subcategoria
-            </Boton>
-          </div>
 
-          <div className="space-y-3">
-            {subcategoriasFiltradas.map((subcategoria) => (
-              <div key={subcategoria.id} className="rounded-2xl bg-gray-50 p-3">
-                <div className="flex items-center gap-3">
+            {/* Form */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Select
+                  etiqueta="Categoria"
+                  value={nuevaSubcategoria.categoria_id}
+                  onChange={(event) =>
+                    setNuevaSubcategoria((anterior) => ({ ...anterior, categoria_id: event.target.value }))
+                  }
+                  opciones={categorias.categorias.map((categoria) => ({
+                    etiqueta: categoria.nombre,
+                    valor: categoria.id,
+                  }))}
+                />
+                <Input
+                  etiqueta="Nombre"
+                  value={nuevaSubcategoria.nombre}
+                  onChange={(event) =>
+                    setNuevaSubcategoria((anterior) => ({ ...anterior, nombre: event.target.value }))
+                  }
+                />
+                <Input
+                  etiqueta="Limite mensual"
+                  type="number"
+                  value={nuevaSubcategoria.limite_mensual}
+                  onChange={(event) =>
+                    setNuevaSubcategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))
+                  }
+                />
+              </div>
+              <Boton
+                anchoCompleto
+                onClick={async () => {
+                  await categorias.crearSubcategoria({
+                    categoria_id: nuevaSubcategoria.categoria_id,
+                    nombre: nuevaSubcategoria.nombre,
+                    limite_mensual: nuevaSubcategoria.limite_mensual
+                      ? Number(nuevaSubcategoria.limite_mensual)
+                      : null,
+                  });
+                  setNuevaSubcategoria({ categoria_id: "", nombre: "", limite_mensual: "" });
+                  toast.success("Subcategoria creada");
+                }}
+              >
+                Agregar subcategoria
+              </Boton>
+            </div>
+
+            {/* List */}
+            <div className="space-y-2">
+              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                Subcategorias existentes
+              </p>
+              {subcategoriasFiltradas.map((subcategoria) => (
+                <div
+                  key={subcategoria.id}
+                  className="group flex items-center gap-3 rounded-2xl bg-surface-container-low p-3 transition-all duration-150"
+                >
                   <input
-                    className="flex-1 bg-transparent text-sm font-semibold text-gray-900 outline-none"
+                    className="flex-1 bg-transparent font-body text-sm font-semibold text-on-surface outline-none transition-colors duration-150 focus:text-primary"
                     defaultValue={subcategoria.nombre}
-                    onBlur={(event) => void categorias.actualizarSubcategoria(subcategoria.id, { nombre: event.target.value })}
+                    onBlur={(event) =>
+                      void categorias.actualizarSubcategoria(subcategoria.id, { nombre: event.target.value })
+                    }
                   />
                   <input
-                    className="w-24 bg-transparent text-right text-sm text-gray-500 outline-none"
+                    className="tabular-nums w-24 bg-transparent text-right font-body text-sm text-on-surface-variant outline-none transition-colors duration-150 focus:text-primary"
                     defaultValue={String(subcategoria.limite_mensual ?? "")}
                     onBlur={(event) =>
                       void categorias.actualizarSubcategoria(subcategoria.id, {
@@ -313,7 +362,7 @@ export default function PaginaConfiguracion() {
                   />
                   <button
                     type="button"
-                    className="rounded-full p-2 text-red-500 hover:bg-red-50"
+                    className="shrink-0 rounded-full p-2 text-error transition-colors duration-150 hover:bg-error-container"
                     onClick={() =>
                       void categorias.eliminarSubcategoria(subcategoria.id).catch(() => {
                         toast.error("No se puede eliminar si tiene items asociados");
@@ -324,121 +373,158 @@ export default function PaginaConfiguracion() {
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+              ))}
+            </div>
+          </section>
+        )}
 
-      {tab === "etiquetas" ? (
-        <section className="space-y-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="grid grid-cols-1 gap-3">
-            <Input
-              etiqueta="Nombre"
-              value={nuevaEtiqueta.nombre}
-              onChange={(event) => setNuevaEtiqueta((anterior) => ({ ...anterior, nombre: event.target.value }))}
-            />
-            <Input
-              etiqueta="Color"
-              type="color"
-              value={nuevaEtiqueta.color}
-              onChange={(event) => setNuevaEtiqueta((anterior) => ({ ...anterior, color: event.target.value }))}
-            />
-            <Boton
-              anchoCompleto
-              onClick={async () => {
-                await categorias.crearEtiqueta(nuevaEtiqueta);
-                setNuevaEtiqueta({ nombre: "", color: "#f59e0b" });
-                toast.success("Etiqueta creada");
-              }}
-            >
-              Agregar etiqueta
-            </Boton>
-          </div>
-
-          <div className="space-y-3">
-            {categorias.etiquetas.map((etiqueta) => (
-              <div key={etiqueta.id} className="flex items-center gap-3 rounded-2xl bg-gray-50 p-3">
-                <Badge color={etiqueta.color}>{etiqueta.nombre}</Badge>
-                <input
-                  className="flex-1 bg-transparent text-sm font-semibold text-gray-900 outline-none"
-                  defaultValue={etiqueta.nombre}
-                  onBlur={(event) => void categorias.actualizarEtiqueta(etiqueta.id, { nombre: event.target.value })}
-                />
-                <input
-                  type="color"
-                  defaultValue={etiqueta.color}
-                  onBlur={(event) => void categorias.actualizarEtiqueta(etiqueta.id, { color: event.target.value })}
-                />
-                <button
-                  type="button"
-                  className="rounded-full p-2 text-red-500 hover:bg-red-50"
-                  onClick={() =>
-                    void categorias.eliminarEtiqueta(etiqueta.id).catch(() => {
-                      toast.error("No se puede eliminar si esta usada");
-                    })
+        {tab === "etiquetas" && (
+          <section className="space-y-6">
+            {/* Form */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Input
+                  etiqueta="Nombre"
+                  value={nuevaEtiqueta.nombre}
+                  onChange={(event) =>
+                    setNuevaEtiqueta((anterior) => ({ ...anterior, nombre: event.target.value }))
                   }
-                  title="Eliminar"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                />
+                <Input
+                  etiqueta="Color"
+                  type="color"
+                  value={nuevaEtiqueta.color}
+                  onChange={(event) =>
+                    setNuevaEtiqueta((anterior) => ({ ...anterior, color: event.target.value }))
+                  }
+                />
               </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {tab === "importar" ? (
-        <section className="space-y-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-          <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50 text-center">
-            <Upload className="h-5 w-5 text-indigo-600" />
-            <span className="text-sm font-semibold text-gray-900">Seleccionar .xlsx</span>
-            <span className="px-6 text-sm text-gray-500">Se parsea en cliente y muestra preview antes de confirmar.</span>
-            <input type="file" accept=".xlsx" onChange={(event) => void importarExcel(event)} className="hidden" />
-          </label>
-
-          {previewImportacion.length ? (
-            <>
-              <div className="space-y-3">
-                {previewImportacion.map((fila, indice) => (
-                  <div key={`${fila.fecha}-${indice}`} className="rounded-2xl bg-gray-50 p-3">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {fila.fecha} · {fila.nombre_lugar || "Sin lugar"}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {fila.categoria} / {fila.subcategoria} · {fila.descripcion} · {fila.expresion_monto}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <Boton anchoCompleto onClick={() => void confirmarImportacion()}>
-                Confirmar importacion
+              <Boton
+                anchoCompleto
+                onClick={async () => {
+                  await categorias.crearEtiqueta(nuevaEtiqueta);
+                  setNuevaEtiqueta({ nombre: "", color: "#f59e0b" });
+                  toast.success("Etiqueta creada");
+                }}
+              >
+                Agregar etiqueta
               </Boton>
-            </>
-          ) : (
-            <p className="text-sm text-gray-500">Sube un archivo para ver la preview del mapeo.</p>
-          )}
-        </section>
-      ) : null}
-
-      {tab === "instalar" ? (
-        <section className="space-y-4 rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-          <div className="flex items-start gap-3 rounded-[24px] bg-slate-50 p-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
-              <Download className="h-5 w-5" />
             </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold text-slate-950">Instalar CasitaApp</h3>
-              <p className="text-sm text-slate-600">
-                La instalación quedó dentro de Configuración para que no interrumpa al entrar. Desde acá podés instalarla
-                cuando quieras en celular o escritorio.
+
+            {/* List */}
+            <div className="space-y-2">
+              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                Etiquetas existentes
               </p>
+              {categorias.etiquetas.map((etiqueta) => (
+                <div
+                  key={etiqueta.id}
+                  className="group flex items-center gap-3 rounded-2xl bg-surface-container-low p-3 transition-all duration-150"
+                >
+                  <Badge color={etiqueta.color}>{etiqueta.nombre}</Badge>
+                  <input
+                    className="flex-1 bg-transparent font-body text-sm font-semibold text-on-surface outline-none transition-colors duration-150 focus:text-primary"
+                    defaultValue={etiqueta.nombre}
+                    onBlur={(event) =>
+                      void categorias.actualizarEtiqueta(etiqueta.id, { nombre: event.target.value })
+                    }
+                  />
+                  <input
+                    type="color"
+                    className="h-8 w-8 cursor-pointer rounded-full bg-transparent outline-none"
+                    defaultValue={etiqueta.color}
+                    onBlur={(event) =>
+                      void categorias.actualizarEtiqueta(etiqueta.id, { color: event.target.value })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-full p-2 text-error transition-colors duration-150 hover:bg-error-container"
+                    onClick={() =>
+                      void categorias.eliminarEtiqueta(etiqueta.id).catch(() => {
+                        toast.error("No se puede eliminar si esta usada");
+                      })
+                    }
+                    title="Eliminar"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
             </div>
-          </div>
+          </section>
+        )}
 
-          <BotonInstalarApp />
-        </section>
-      ) : null}
+        {tab === "importar" && (
+          <section className="space-y-6">
+            {/* Upload area */}
+            <label className="flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[20px] bg-surface-container-low text-center transition-colors duration-150 hover:bg-surface-container">
+              <Upload className="h-6 w-6 text-secondary" />
+              <span className="font-headline text-sm font-semibold text-on-surface">Seleccionar .xlsx</span>
+              <span className="font-body text-xs text-on-surface-variant">
+                Se parsea en cliente y muestra preview antes de confirmar.
+              </span>
+              <input type="file" accept=".xlsx" onChange={(event) => void importarExcel(event)} className="hidden" />
+            </label>
+
+            {previewImportacion.length ? (
+              <>
+                {/* Preview list */}
+                <div className="space-y-2">
+                  <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    Vista previa ({previewImportacion.length} registros)
+                  </p>
+                  {previewImportacion.map((fila, indice) => (
+                    <div
+                      key={`${fila.fecha}-${indice}`}
+                      className="rounded-2xl bg-surface-container-low p-3 transition-all duration-150"
+                    >
+                      <p className="tabular-nums font-headline text-sm font-semibold text-on-surface">
+                        {fila.fecha}{" "}
+                        <span className="text-on-surface-variant/60">·</span>{" "}
+                        {fila.nombre_lugar || "Sin lugar"}
+                      </p>
+                      <p className="font-body text-xs text-on-surface-variant">
+                        {fila.categoria} / {fila.subcategoria} · {fila.descripcion} · {fila.expresion_monto}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <Boton
+                  variante="secundario"
+                  anchoCompleto
+                  onClick={() => void confirmarImportacion()}
+                >
+                  Confirmar importacion
+                </Boton>
+              </>
+            ) : (
+              <p className="font-body text-center text-sm text-on-surface-variant">
+                Sube un archivo para ver la preview del mapeo.
+              </p>
+            )}
+          </section>
+        )}
+
+        {tab === "instalar" && (
+          <section className="space-y-6">
+            <div className="flex items-start gap-4 rounded-[20px] bg-surface-container-low p-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
+                <Download className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-headline text-base font-semibold text-on-surface">Instalar CasitaApp</h3>
+                <p className="font-body text-sm text-on-surface-variant">
+                  La instalacion quedo dentro de Configuracion para que no interrumpa al entrar. Desde aca podes
+                  instalarla cuando quieras en celular o escritorio.
+                </p>
+              </div>
+            </div>
+
+            <BotonInstalarApp />
+          </section>
+        )}
+      </div>
     </section>
   );
 }

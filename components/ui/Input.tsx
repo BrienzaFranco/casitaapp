@@ -9,18 +9,25 @@ interface Props extends InputHTMLAttributes<HTMLInputElement> {
 
 export function Input({ etiqueta, error, ayuda, className, ...props }: Props) {
   return (
-    <label className="flex flex-col gap-2 text-left">
-      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">{etiqueta}</span>
+    <label className="flex flex-col gap-1.5 text-left">
+      <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+        {etiqueta}
+      </span>
       <input
         className={combinarClases(
-          "h-12 rounded-[20px] border border-[var(--border)] bg-[var(--surface)] px-4 text-sm text-slate-900 outline-none transition placeholder:text-[color:rgba(102,95,85,0.7)] focus:border-blue-500 focus:ring-4 focus:ring-blue-100/80",
-          error && "border-red-500 focus:border-red-500 focus:ring-red-100",
+          "w-full bg-surface-container-low border-none px-0 py-3 font-headline text-on-surface outline-none transition-all duration-200 placeholder:text-on-surface-variant/50 focus:bg-surface-container-highest focus:border-b-2 focus:border-b-primary",
+          "border-b border-outline/20 focus:border-b-primary",
+          error && "border-b-error focus:border-b-error",
           className,
         )}
         {...props}
       />
-      {error ? <span className="text-sm text-red-500">{error}</span> : null}
-      {!error && ayuda ? <span className="text-sm text-[var(--muted)]">{ayuda}</span> : null}
+      {error ? (
+        <span className="font-label text-xs text-error">{error}</span>
+      ) : null}
+      {!error && ayuda ? (
+        <span className="font-label text-[10px] text-on-surface-variant">{ayuda}</span>
+      ) : null}
     </label>
   );
 }

@@ -498,58 +498,60 @@ export function FormularioCompraUnificado({
   }
 
   const botonBase =
-    "inline-flex h-8 items-center gap-2 whitespace-nowrap rounded bg-gray-100 px-3 text-sm font-medium text-gray-700 border border-gray-200 transition hover:bg-gray-200";
-  const botonActivo = "bg-blue-50 text-blue-700 border-blue-300";
+    "inline-flex h-8 items-center gap-2 whitespace-nowrap rounded-full px-3 text-sm font-medium transition-all duration-150 active:scale-[0.97]";
+  const botonActivo = "bg-primary text-on-primary shadow-sm";
+  const botonInactivo = "bg-surface-variant text-on-surface-variant hover:bg-surface-container-high";
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 pb-4 md:pb-24">
+    <div className="flex min-h-screen flex-col bg-surface pb-4 md:pb-24">
       <div className="mx-auto w-full max-w-[1160px] px-2 py-2 md:px-3 md:py-3">
         <div className="grid gap-2 md:gap-3 lg:grid-cols-[330px_1fr]">
-          <section className="space-y-3">
-            <div className="border border-gray-300 bg-white p-2.5 md:p-3">
+          <section className="space-y-2">
+            {/* Header Card */}
+            <div className="rounded-xl bg-surface-container-lowest p-3 md:p-4 shadow-sm">
               <input
                 type="text"
                 value={compra.nombre_lugar}
                 onChange={(event) => actualizarCampo("nombre_lugar", event.target.value)}
-                placeholder="Comercio (ej: Coto)"
-                className="mb-3 w-full rounded border border-gray-300 px-3 py-2 text-xl font-semibold text-gray-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                placeholder="Comercio"
+                className="mb-3 w-full border-b border-transparent bg-transparent px-0 py-2 font-headline text-2xl font-semibold tracking-tight text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
               />
 
-              <div className="flex flex-wrap items-center gap-2">
-                <label className={botonBase}>
-                  Fecha
+              <div className="flex flex-wrap items-center gap-1.5">
+                <label className={`${botonBase} ${botonInactivo} cursor-pointer`}>
+                  <span className="font-label text-[10px] uppercase tracking-widest">Fecha</span>
                   <input
                     type="date"
                     value={compra.fecha}
                     onChange={(event) => actualizarCampo("fecha", event.target.value)}
-                    className="border-none bg-transparent p-0 text-sm font-medium text-gray-700 outline-none"
+                    className="border-none bg-transparent p-0 font-label text-sm tabular-nums text-on-surface outline-none"
                   />
                 </label>
                 <button
                   type="button"
                   onClick={() => actualizarCampo("pagador_general", "franco")}
-                  className={`${botonBase} ${compra.pagador_general === "franco" ? botonActivo : ""}`}
+                  className={`${botonBase} ${compra.pagador_general === "franco" ? botonActivo : botonInactivo}`}
                 >
                   {nombres.franco}
                 </button>
                 <button
                   type="button"
                   onClick={() => actualizarCampo("pagador_general", "fabiola")}
-                  className={`${botonBase} ${compra.pagador_general === "fabiola" ? botonActivo : ""}`}
+                  className={`${botonBase} ${compra.pagador_general === "fabiola" ? botonActivo : botonInactivo}`}
                 >
                   {nombres.fabiola}
                 </button>
                 <button
                   type="button"
                   onClick={() => actualizarCampo("pagador_general", "compartido")}
-                  className={`${botonBase} ${compra.pagador_general === "compartido" ? botonActivo : ""}`}
+                  className={`${botonBase} ${compra.pagador_general === "compartido" ? botonActivo : botonInactivo}`}
                 >
                   Compartido
                 </button>
                 <button
                   type="button"
                   onClick={() => setMostrarNotas((actual) => !actual)}
-                  className={`${botonBase} ${mostrarNotas || compra.notas.trim() ? botonActivo : ""}`}
+                  className={`${botonBase} ${mostrarNotas || compra.notas.trim() ? botonActivo : botonInactivo}`}
                 >
                   Notas
                 </button>
@@ -560,12 +562,12 @@ export function FormularioCompraUnificado({
                   value={compra.notas}
                   onChange={(event) => actualizarCampo("notas", event.target.value)}
                   placeholder="Notas libres de la compra"
-                  className="mt-3 min-h-24 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                  className="mt-3 min-h-24 w-full border-b border-transparent bg-transparent px-0 py-2 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
                 />
               ) : null}
 
-              <div className="mt-3 border-t border-gray-200 pt-3">
-                <p className="mb-2 text-xs font-semibold uppercase text-gray-600">Etiquetas de compra</p>
+              <div className="mt-3">
+                <p className="mb-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Etiquetas de compra</p>
                 <input
                   list="etiquetas-sugeridas-compra"
                   value={entradaEtiquetaCompra}
@@ -578,7 +580,7 @@ export function FormularioCompraUnificado({
                     }
                   }}
                   placeholder="Escribe y elige etiqueta"
-                  className="h-9 w-full rounded border border-gray-300 bg-white px-2 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                  className="h-9 w-full border-b border-transparent bg-transparent px-0 py-1.5 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
                 />
                 <datalist id="etiquetas-sugeridas-compra">
                   {etiquetas.map((etiqueta) => (
@@ -596,7 +598,7 @@ export function FormularioCompraUnificado({
                         key={etiqueta.id}
                         type="button"
                         onClick={() => toggleEtiquetaCompra(etiqueta.id)}
-                        className="inline-flex h-7 items-center rounded border border-blue-300 bg-blue-50 px-2 text-xs font-medium text-blue-700"
+                        className="inline-flex h-6 items-center rounded-full bg-surface-variant px-2 font-label text-[10px] font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high"
                         title="Quitar etiqueta"
                       >
                         {etiqueta.nombre} ×
@@ -607,28 +609,29 @@ export function FormularioCompraUnificado({
               </div>
             </div>
 
-            <div className="border border-gray-300 bg-white p-2.5 md:p-3">
+            {/* Advanced Options Card */}
+            <div className="rounded-xl bg-surface-container-lowest p-3 md:p-4 shadow-sm">
               <button
                 type="button"
                 onClick={() => setMostrarPegadoMasivo((actual) => !actual)}
-                className="flex h-9 w-full items-center justify-between rounded border border-gray-300 bg-gray-50 px-3 text-left text-xs font-semibold uppercase text-gray-600 transition hover:bg-gray-100"
+                className="flex w-full items-center justify-between rounded-lg bg-surface-container-low px-3 py-2 text-left transition-all duration-150 hover:bg-surface-container"
               >
-                Opciones avanzadas
-                <span>{mostrarPegadoMasivo ? "Ocultar" : "Mostrar"}</span>
+                <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Opciones avanzadas</span>
+                <span className="font-label text-xs text-on-surface-variant">{mostrarPegadoMasivo ? "Ocultar" : "Mostrar"}</span>
               </button>
               {mostrarPegadoMasivo ? (
                 <div className="mt-3">
-                  <p className="mb-2 text-xs font-semibold uppercase text-gray-600">Pegado masivo</p>
+                  <p className="mb-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Pegado masivo</p>
                   <textarea
                     value={entradaPegado}
                     onChange={(event) => setEntradaPegado(event.target.value)}
                     placeholder={`Pega lineas: categoria - subcategoria - detalle - 7600+5200-500\nO columnas desde Sheets (TAB)`}
-                    className="min-h-28 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                    className="min-h-28 w-full border-b border-transparent bg-transparent px-0 py-2 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
                   />
                   <button
                     type="button"
                     onClick={importarLineasPegadas}
-                    className="mt-2 h-9 w-full rounded border border-gray-300 bg-white text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                    className="mt-2 h-9 w-full rounded-lg bg-surface-container-high px-3 font-label text-sm font-medium text-on-surface transition-all duration-150 hover:bg-surface-container-highest active:scale-[0.98]"
                   >
                     Cargar lineas en tabla
                   </button>
@@ -637,13 +640,13 @@ export function FormularioCompraUnificado({
             </div>
           </section>
 
-          <section className="border border-gray-300 bg-white">
-            <div className="flex items-center justify-between border-b border-gray-300 px-3 py-2">
-              <h3 className="text-sm font-semibold text-gray-900">Items</h3>
+          <section className="rounded-xl bg-surface-container-lowest shadow-sm">
+            <div className="flex items-center justify-between border-b border-outline-variant/20 px-3 py-2">
+              <h3 className="font-headline text-sm font-semibold text-on-surface">Items</h3>
               <button
                 type="button"
                 onClick={() => agregarFila()}
-                className="h-8 rounded border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                className="h-8 rounded-full bg-surface-container-high px-3 font-label text-xs font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-highest active:scale-[0.97]"
               >
                 + Fila
               </button>
@@ -651,13 +654,13 @@ export function FormularioCompraUnificado({
 
             <div className="space-y-2 p-2 md:hidden">
               {compra.items.map((item) => (
-                <article key={item.id} className="space-y-2 rounded border border-gray-200 bg-gray-50 p-2">
+                <article key={item.id} className="space-y-2 rounded-xl bg-surface-container-low p-2.5">
                   <input
                     type="text"
                     value={item.descripcion}
                     onChange={(event) => actualizarItem(item.id as string, { descripcion: event.target.value })}
-                    placeholder="Detalle rapido (ej: Yerba playadito oferta)"
-                    className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                    placeholder="Detalle"
+                    className="h-10 w-full border-b border-transparent bg-transparent px-0 py-1 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
                   />
                   <div className="grid grid-cols-[1fr_auto] gap-2">
                     <input
@@ -666,13 +669,13 @@ export function FormularioCompraUnificado({
                       value={item.expresion_monto}
                       onChange={(event) => actualizarItem(item.id as string, { expresion_monto: event.target.value })}
                       onBlur={() => actualizarItem(item.id as string, {}, true)}
-                      placeholder="Monto (ej: 4500-2500)"
-                      className="h-10 w-full rounded border border-gray-300 bg-white px-3 font-mono text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      placeholder="Monto"
+                      className="h-10 w-full border-b border-transparent bg-transparent px-0 py-1 font-label text-sm tabular-nums text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
                     />
                     <button
                       type="button"
                       onClick={() => eliminarFila(item.id as string)}
-                      className="h-10 rounded border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                      className="h-10 rounded-full bg-surface-container-high px-3 font-label text-xs font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-highest"
                     >
                       Borrar
                     </button>
@@ -681,21 +684,21 @@ export function FormularioCompraUnificado({
                     <button
                       type="button"
                       onClick={() => actualizarItem(item.id as string, { tipo_reparto: "50/50" }, true)}
-                      className={`h-8 rounded border px-2 text-xs font-medium ${item.tipo_reparto === "50/50" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
+                      className={`h-7 rounded-full px-2 font-label text-[10px] font-medium transition-all duration-150 ${item.tipo_reparto === "50/50" ? "bg-primary text-on-primary" : "bg-surface-variant text-on-surface-variant"}`}
                     >
                       50/50
                     </button>
                     <button
                       type="button"
                       onClick={() => actualizarItem(item.id as string, { tipo_reparto: "solo_franco" }, true)}
-                      className={`h-8 rounded border px-2 text-xs font-medium ${item.tipo_reparto === "solo_franco" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
+                      className={`h-7 rounded-full px-2 font-label text-[10px] font-medium transition-all duration-150 ${item.tipo_reparto === "solo_franco" ? "bg-primary text-on-primary" : "bg-surface-variant text-on-surface-variant"}`}
                     >
                       {nombres.franco}
                     </button>
                     <button
                       type="button"
                       onClick={() => actualizarItem(item.id as string, { tipo_reparto: "solo_fabiola" }, true)}
-                      className={`h-8 rounded border px-2 text-xs font-medium ${item.tipo_reparto === "solo_fabiola" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
+                      className={`h-7 rounded-full px-2 font-label text-[10px] font-medium transition-all duration-150 ${item.tipo_reparto === "solo_fabiola" ? "bg-primary text-on-primary" : "bg-surface-variant text-on-surface-variant"}`}
                     >
                       {nombres.fabiola}
                     </button>
@@ -725,16 +728,16 @@ export function FormularioCompraUnificado({
                 }}
               >
                 <thead className="sticky top-0 z-10">
-                  <tr className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
-                    <th className="border-b border-gray-200 px-2 py-1.5">Categoria</th>
-                    <th className="border-b border-gray-200 px-2 py-1.5">Subcategoria</th>
-                    <th className="border-b border-gray-200 px-2 py-1.5">Detalle</th>
-                    <th className="border-b border-gray-200 px-2 py-1.5">Monto</th>
-                    <th className="border-b border-gray-200 px-2 py-1.5">Reparto</th>
-                    <th className="border-b border-gray-200 px-2 py-1.5">Franco</th>
-                    <th className="border-b border-gray-200 px-2 py-1.5">Fabiola</th>
-                    <th className="border-b border-gray-200 px-2 py-1.5">Tags</th>
-                    <th className="border-b border-gray-200 px-2 py-1.5"></th>
+                  <tr className="bg-surface-container text-left">
+                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Categoria</th>
+                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Subcategoria</th>
+                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Detalle</th>
+                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Monto</th>
+                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Reparto</th>
+                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Franco</th>
+                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Fabiola</th>
+                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Tags</th>
+                    <th className="border-b border-outline-variant/20 px-2 py-2 w-16"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -746,12 +749,12 @@ export function FormularioCompraUnificado({
                     return (
                       <tr
                         key={item.id}
-                        className={`align-top text-sm transition-colors ${
-                          filaActiva === item.id ? "bg-blue-50/50" : filaActiva && filaActiva !== item.id ? "opacity-40" : ""
+                        className={`align-top text-sm transition-all duration-150 ${
+                          filaActiva === item.id ? "bg-surface-container-low" : filaActiva && filaActiva !== item.id ? "opacity-40" : ""
                         }`}
                         onFocus={() => setFilaActiva(item.id as string)}
                       >
-                        <td className="border-b border-gray-100 px-1 py-1.5">
+                        <td className="border-b border-outline-variant/10 px-1 py-1">
                           <Combobox
                             valor={item.categoria_id}
                             onChange={(valor) =>
@@ -771,7 +774,7 @@ export function FormularioCompraUnificado({
                           />
                         </td>
 
-                        <td className="border-b border-gray-100 px-1 py-1.5">
+                        <td className="border-b border-outline-variant/10 px-1 py-1">
                           <Combobox
                             valor={item.subcategoria_id}
                             onChange={(valor) => actualizarItem(item.id as string, { subcategoria_id: valor })}
@@ -786,7 +789,7 @@ export function FormularioCompraUnificado({
                           />
                         </td>
 
-                        <td className="border-b border-gray-100 px-1 py-1.5">
+                        <td className="border-b border-outline-variant/10 px-1 py-1">
                           <input
                             type="text"
                             value={item.descripcion}
@@ -811,11 +814,11 @@ export function FormularioCompraUnificado({
                               }
                             }}
                             placeholder="-"
-                            className="h-8 w-full border-none bg-transparent px-1 text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600"
+                            className="h-8 w-full border-b border-transparent bg-transparent px-1 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
                           />
                         </td>
 
-                        <td className="border-b border-gray-100 px-1 py-1.5">
+                        <td className="border-b border-outline-variant/10 px-1 py-1">
                           <div className="relative">
                             <input
                               type="text"
@@ -830,23 +833,23 @@ export function FormularioCompraUnificado({
                               }}
                               onBlur={() => actualizarItem(item.id as string, {}, true)}
                               placeholder="-"
-                              className="h-8 w-full border-none bg-transparent px-1 font-mono text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600"
+                              className="h-8 w-full border-b border-transparent bg-transparent px-1 font-label text-sm tabular-nums text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
                             />
                             {item.expresion_monto && item.expresion_monto !== item.monto_resuelto.toString() && (
-                              <span className="absolute -bottom-3 left-0 text-[10px] font-mono text-green-600">
+                              <span className="absolute -bottom-3 left-0 font-label text-[10px] tabular-nums text-tertiary">
                                 = {formatearPeso(item.monto_resuelto)}
                               </span>
                             )}
                           </div>
                         </td>
 
-                        <td className="border-b border-gray-100 px-1 py-1.5">
+                        <td className="border-b border-outline-variant/10 px-1 py-1">
                           <select
                             value={item.tipo_reparto}
                             onChange={(event) =>
                               actualizarItem(item.id as string, { tipo_reparto: event.target.value as TipoReparto }, true)
                             }
-                            className="h-8 w-full border-none bg-transparent px-1 text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600"
+                            className="h-8 w-full border-b border-transparent bg-transparent px-1 font-label text-[10px] text-on-surface outline-none transition-all duration-150 focus:border-b-primary"
                           >
                             <option value="50/50">50/50</option>
                             <option value="solo_franco">{nombres.franco}</option>
@@ -855,7 +858,7 @@ export function FormularioCompraUnificado({
                           </select>
                         </td>
 
-                        <td className="border-b border-gray-100 px-1 py-1.5">
+                        <td className="border-b border-outline-variant/10 px-1 py-1">
                           <input
                             type="number"
                             step="0.01"
@@ -868,11 +871,11 @@ export function FormularioCompraUnificado({
                               )
                             }
                             disabled={item.tipo_reparto !== "personalizado"}
-                            className="h-8 w-full border-none bg-transparent px-1 font-mono text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600 disabled:bg-transparent"
+                            className="h-8 w-full border-b border-transparent bg-transparent px-1 font-label text-sm tabular-nums text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary disabled:opacity-40"
                           />
                         </td>
 
-                        <td className="border-b border-gray-100 px-1 py-1.5">
+                        <td className="border-b border-outline-variant/10 px-1 py-1">
                           <input
                             type="number"
                             step="0.01"
@@ -885,11 +888,11 @@ export function FormularioCompraUnificado({
                               )
                             }
                             disabled={item.tipo_reparto !== "personalizado"}
-                            className="h-8 w-full border-none bg-transparent px-1 font-mono text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600 disabled:bg-transparent"
+                            className="h-8 w-full border-b border-transparent bg-transparent px-1 font-label text-sm tabular-nums text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary disabled:opacity-40"
                           />
                         </td>
 
-                        <td className="border-b border-gray-100 px-1 py-1.5">
+                        <td className="border-b border-outline-variant/10 px-1 py-1">
                           <div className="min-w-[100px]">
                             <input
                               list={`etiquetas-sugeridas-${item.id}`}
@@ -908,7 +911,7 @@ export function FormularioCompraUnificado({
                                 }
                               }}
                               placeholder="-"
-                              className="h-8 w-full border-none bg-transparent px-1 text-sm outline-none focus:bg-white focus:ring-1 focus:ring-blue-600"
+                              className="h-8 w-full border-b border-transparent bg-transparent px-1 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
                             />
                             <datalist id={`etiquetas-sugeridas-${item.id}`}>
                               {etiquetas.map((etiqueta) => (
@@ -927,7 +930,7 @@ export function FormularioCompraUnificado({
                                     key={etiqueta.id}
                                     type="button"
                                     onClick={() => toggleEtiquetaItem(item.id as string, etiqueta.id)}
-                                    className="inline-flex h-6 items-center rounded bg-blue-50 px-1.5 text-[10px] font-medium text-blue-700"
+                                    className="inline-flex h-5 items-center rounded-full bg-surface-variant px-1.5 font-label text-[10px] font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high"
                                   >
                                     {etiqueta.nombre} ×
                                   </button>
@@ -937,12 +940,12 @@ export function FormularioCompraUnificado({
                           </div>
                         </td>
 
-                        <td className="border-b border-gray-100 px-1 py-1.5">
+                        <td className="border-b border-outline-variant/10 px-1 py-1">
                           <div className="flex gap-0.5">
                             <button
                               type="button"
                               onClick={() => duplicarFila(item.id as string)}
-                              className="h-8 rounded px-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100"
+                              className="h-7 w-7 rounded-full px-1.5 font-label text-xs font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high"
                               title="Duplicar"
                             >
                               ⧉
@@ -950,7 +953,7 @@ export function FormularioCompraUnificado({
                             <button
                               type="button"
                               onClick={() => eliminarFila(item.id as string)}
-                              className="h-8 rounded px-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100"
+                              className="h-7 w-7 rounded-full px-1.5 font-label text-xs font-medium text-on-surface-variant transition-all duration-150 hover:bg-error-container hover:text-error"
                               title="Borrar"
                             >
                               ×
@@ -967,17 +970,17 @@ export function FormularioCompraUnificado({
         </div>
       </div>
 
-      <footer className="sticky bottom-0 left-0 right-0 z-20 mx-auto w-full max-w-[1160px] border-t border-gray-300 bg-gray-100 px-2 py-2 md:fixed md:px-4 md:py-3">
+      <footer className="sticky bottom-0 left-0 right-0 z-20 mx-auto w-full max-w-[1160px] bg-surface-container-high px-2 py-2 md:fixed md:px-4 md:py-3 md:shadow-card">
         <div className="flex flex-wrap items-center gap-2 md:justify-between md:gap-3">
           <div className="min-w-0">
-            <p className="text-xs uppercase text-gray-600">Total</p>
-            <p className="text-xl font-mono font-bold text-gray-900">{formatearPeso(total)}</p>
+            <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Total</p>
+            <p className="font-label text-2xl font-bold tracking-tight tabular-nums text-primary text-right">{formatearPeso(total)}</p>
           </div>
 
           <button
             type="button"
             onClick={() => agregarFila()}
-            className="h-10 rounded border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="h-10 rounded-full border border-outline-variant/30 bg-surface-container-lowest px-3 font-label text-sm font-medium text-on-surface transition-all duration-150 hover:bg-surface-container-high active:scale-[0.97]"
           >
             + Item
           </button>
@@ -986,7 +989,7 @@ export function FormularioCompraUnificado({
             type="button"
             onClick={() => void confirmarCompra(true)}
             disabled={guardandoCompra}
-            className="h-10 rounded border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="h-10 rounded-full border border-outline-variant/30 bg-surface-container-lowest px-4 font-label text-sm font-medium text-on-surface transition-all duration-150 hover:bg-surface-container-high active:scale-[0.97] disabled:opacity-50"
           >
             Confirmar y nueva
           </button>
@@ -995,7 +998,7 @@ export function FormularioCompraUnificado({
             type="button"
             onClick={() => void confirmarCompra(false)}
             disabled={guardandoCompra}
-            className="h-10 min-w-[180px] flex-1 rounded bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="h-10 min-w-[180px] flex-1 rounded-full bg-primary px-4 font-label text-sm font-semibold text-on-primary shadow-sm transition-all duration-150 hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50"
           >
             {guardandoCompra ? "Guardando..." : "Confirmar Compra"}
           </button>
