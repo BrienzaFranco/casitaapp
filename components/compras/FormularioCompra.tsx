@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { CompraEditable, ItemEditable } from "@/types";
 import type { Categoria, Subcategoria } from "@/types";
@@ -19,6 +18,11 @@ interface Props {
   compraInicial?: CompraEditable | null;
   guardando?: boolean;
   onGuardar: (compra: CompraEditable) => Promise<void> | void;
+}
+
+interface PrefillItem {
+  categoria_id: string;
+  subcategoria_id: string;
 }
 
 function hoy() {
@@ -118,6 +122,7 @@ export function FormularioCompraUnificado({
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial));
   const [sheetAbierto, setSheetAbierto] = useState(false);
   const [idItemEditando, setIdItemEditando] = useState<string | null>(null);
+  const [prefillItem, setPrefillItem] = useState<PrefillItem | null>(null);
   const [mostrarNotas, setMostrarNotas] = useState(Boolean(compraInicial?.notas));
   const [guardandoLocal, setGuardandoLocal] = useState(false);
   const guardandoCompra = guardando || guardandoLocal;
@@ -145,19 +150,22 @@ export function FormularioCompraUnificado({
     }));
   }
 
-  function abrirAltaItem() {
+  function abrirAltaItem(prefill?: PrefillItem) {
     setIdItemEditando(null);
+    setPrefillItem(prefill ?? null);
     setSheetAbierto(true);
   }
 
   function abrirEdicionItem(id: string) {
     setIdItemEditando(id);
+    setPrefillItem(null);
     setSheetAbierto(true);
   }
 
   function cerrarSheet() {
     setSheetAbierto(false);
     setIdItemEditando(null);
+    setPrefillItem(null);
   }
 
   function guardarItem(item: ItemEditable) {
@@ -284,7 +292,13 @@ export function FormularioCompraUnificado({
       </section>
 
       <div className="flex-1">
-        <TablaItems items={compra.items} categorias={categorias} subcategorias={subcategorias} onEditarItem={abrirEdicionItem} />
+        <TablaItems
+          items={compra.items}
+          categorias={categorias}
+          subcategorias={subcategorias}
+          onEditarItem={abrirEdicionItem}
+          onAgregarItem={abrirAltaItem}
+        />
       </div>
 
       <footer className="fixed bottom-0 left-0 right-0 z-10 mx-auto w-full max-w-[480px] border-t border-gray-100 bg-white/90 px-4 py-4 pb-safe backdrop-blur-md">
@@ -294,15 +308,11 @@ export function FormularioCompraUnificado({
             <p className="text-2xl font-mono font-bold text-gray-900 truncate">{formatearPeso(total)}</p>
           </div>
 
-          <button type="button" onClick={abrirAltaItem} className="h-12 w-12 shrink-0 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-200 transition" aria-label="Agregar item">
-            <Plus className="h-5 w-5" />
-          </button>
-
           <button
             type="button"
             onClick={() => void confirmarCompra()}
             disabled={guardandoCompra}
-            className="flex-1 h-12 rounded-2xl bg-gray-900 text-white font-semibold flex items-center justify-center shadow-lg hover:bg-gray-800 disabled:opacity-50"
+            className="h-12 min-w-[190px] rounded-2xl bg-gray-900 px-6 text-white font-semibold flex items-center justify-center shadow-lg hover:bg-gray-800 disabled:opacity-50"
           >
             {guardandoCompra ? "Guardando..." : "Confirmar Compra"}
           </button>
@@ -315,6 +325,7 @@ export function FormularioCompraUnificado({
         categorias={categorias}
         subcategorias={subcategorias}
         pagadorGeneral={compra.pagador_general}
+        prefill={prefillItem}
         onGuardar={guardarItem}
         onCerrar={cerrarSheet}
         onEliminar={itemEnEdicion ? eliminarItemEditando : undefined}

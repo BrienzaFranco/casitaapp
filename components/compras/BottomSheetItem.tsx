@@ -8,6 +8,7 @@ import { calcularReparto, evaluarExpresion } from "@/lib/calculos";
 interface Props {
   abierto: boolean;
   itemInicial?: ItemEditable | null;
+  prefill?: { categoria_id: string; subcategoria_id: string } | null;
   categorias: Categoria[];
   subcategorias: Subcategoria[];
   pagadorGeneral: PagadorCompra;
@@ -57,6 +58,7 @@ function crearBaseItem(pagadorGeneral: PagadorCompra): ItemEditable {
 export function BottomSheetItem({
   abierto,
   itemInicial,
+  prefill = null,
   categorias,
   subcategorias,
   pagadorGeneral,
@@ -76,10 +78,16 @@ export function BottomSheetItem({
       return;
     }
 
+    const base = itemInicial ? { ...itemInicial } : crearBaseItem(pagadorGeneral);
+    if (!itemInicial && prefill) {
+      base.categoria_id = prefill.categoria_id || "";
+      base.subcategoria_id = prefill.subcategoria_id || "";
+    }
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDraft(itemInicial ?? crearBaseItem(pagadorGeneral));
+    setDraft(base);
     setErrorMonto("");
-  }, [abierto, itemInicial, pagadorGeneral]);
+  }, [abierto, itemInicial, pagadorGeneral, prefill]);
 
   function actualizar<K extends keyof ItemEditable>(campo: K, valor: ItemEditable[K]) {
     setDraft((anterior) => ({
@@ -126,6 +134,7 @@ export function BottomSheetItem({
     }
 
     limpiarParaSiguiente();
+    onCerrar();
   }
 
   return (

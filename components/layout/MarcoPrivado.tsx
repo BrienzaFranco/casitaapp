@@ -12,13 +12,11 @@ interface Props {
 
 export function MarcoPrivado({ children }: Props) {
   return (
-    <>
-      <ContenedorPagina>
-        <BannerPendientes />
-        <AccionesRapidas />
-        {children}
-      </ContenedorPagina>
+    <ContenedorPagina>
+      <BannerPendientes />
+      <AccionesRapidas />
       <NavegacionInferior />
-    </>
+      {children}
+    </ContenedorPagina>
   );
 }

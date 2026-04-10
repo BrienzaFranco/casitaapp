@@ -8,36 +8,63 @@ import { combinarClases } from "@/lib/utiles";
 const enlaces = [
   { href: "/", etiqueta: "Inicio", icono: Home },
   { href: "/historial", etiqueta: "Historial", icono: WalletCards },
-  { href: "/nueva-compra", etiqueta: "Nueva", icono: Plus, destacada: true },
   { href: "/balance", etiqueta: "Balance", icono: ChartColumn },
 ];
 
+function estaActiva(pathname: string, href: string) {
+  if (href === "/") {
+    return pathname === "/";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function NavegacionInferior() {
   const pathname = usePathname();
+  const enNuevaCompra = pathname === "/nueva-compra";
+  const tituloUbicacion = enNuevaCompra ? "Nueva compra" : null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-2 z-40 mx-auto flex w-[calc(100%-16px)] max-w-[480px] items-center justify-between rounded-2xl border border-gray-200 bg-white/95 px-2 py-1.5 shadow-md backdrop-blur">
-      {enlaces.map(({ href, etiqueta, icono: Icono, destacada }) => {
-        const activa = pathname === href;
+    <nav className="rounded-[22px] border border-gray-100 bg-white p-2 shadow-sm">
+      <div className="flex items-center gap-2">
+        <div className="grid flex-1 grid-cols-3 gap-1 rounded-2xl bg-gray-50 p-1">
+          {enlaces.map(({ href, etiqueta, icono: Icono }) => {
+            const activa = estaActiva(pathname, href);
 
-        return (
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-label={etiqueta}
+                title={etiqueta}
+                className={combinarClases(
+                  "flex h-10 items-center justify-center gap-1 rounded-xl px-2 text-xs font-semibold transition",
+                  activa ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                <Icono className="h-4 w-4" />
+                <span>{etiqueta}</span>
+              </Link>
+            );
+          })}
+        </div>
+
+        {!enNuevaCompra ? (
           <Link
-            key={href}
-            href={href}
-            aria-label={etiqueta}
-            title={etiqueta}
-            className={combinarClases(
-              "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[11px] font-semibold transition",
-              activa ? "text-gray-900" : "text-gray-500",
-              destacada && "mx-1 bg-indigo-600 text-white",
-              destacada && activa && "bg-indigo-700 text-white",
-            )}
+            href="/nueva-compra"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-xl bg-indigo-600 px-3 text-xs font-semibold text-white transition hover:bg-indigo-700"
           >
-            <Icono className={combinarClases("h-[18px] w-[18px]", destacada && "h-5 w-5")} />
-            <span className="hidden truncate sm:inline">{etiqueta}</span>
+            <Plus className="h-4 w-4" />
+            Nueva
           </Link>
-        );
-      })}
+        ) : null}
+      </div>
+
+      {tituloUbicacion ? (
+        <div className="px-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-600">
+          Viendo: {tituloUbicacion}
+        </div>
+      ) : null}
     </nav>
   );
 }
