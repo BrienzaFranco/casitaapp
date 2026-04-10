@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import type { CompraEditable, ItemEditable } from "@/types";
-import type { Categoria, Subcategoria } from "@/types";
+import type { Categoria, CompraEditable, ItemEditable, Subcategoria } from "@/types";
 import { calcularReparto, evaluarExpresion } from "@/lib/calculos";
 import { formatearPeso } from "@/lib/formatear";
 import { guardarRegistradoPor, obtenerRegistradoPor } from "@/lib/offline";
-import { BottomSheetItem } from "@/components/compras/BottomSheetItem";
+import { PanelCargaItem } from "@/components/compras/PanelCargaItem";
 import { TablaItems } from "@/components/compras/TablaItems";
 
 interface Props {
@@ -18,11 +17,6 @@ interface Props {
   compraInicial?: CompraEditable | null;
   guardando?: boolean;
   onGuardar: (compra: CompraEditable) => Promise<void> | void;
-}
-
-interface PrefillItem {
-  categoria_id: string;
-  subcategoria_id: string;
 }
 
 function hoy() {
@@ -55,14 +49,14 @@ function crearCompraInicial(registradoPorDefecto: string, compraInicial?: Compra
     };
   }
 
-  const registrado_por = obtenerRegistradoPor() || registradoPorDefecto;
-  guardarRegistradoPor(registrado_por);
+  const registradoPor = obtenerRegistradoPor() || registradoPorDefecto;
+  guardarRegistradoPor(registradoPor);
 
   return {
     fecha: hoy(),
     nombre_lugar: "",
     notas: "",
-    registrado_por,
+    registrado_por: registradoPor,
     estado: "confirmada",
     pagador_general: "compartido",
     items: [],
@@ -98,7 +92,6 @@ function normalizarItemsParaGuardar(items: ItemEditable[]) {
     }
 
     const reparto = calcularReparto(item.tipo_reparto, montoResuelto, item.pago_franco, item.pago_fabiola);
-
     filasNormalizadas.push({
       ...item,
       monto_resuelto: montoResuelto,
@@ -120,9 +113,8 @@ export function FormularioCompraUnificado({
   onGuardar,
 }: Props) {
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial));
-  const [sheetAbierto, setSheetAbierto] = useState(false);
+  const [panelAbierto, setPanelAbierto] = useState(false);
   const [idItemEditando, setIdItemEditando] = useState<string | null>(null);
-  const [prefillItem, setPrefillItem] = useState<PrefillItem | null>(null);
   const [mostrarNotas, setMostrarNotas] = useState(Boolean(compraInicial?.notas));
   const [guardandoLocal, setGuardandoLocal] = useState(false);
   const guardandoCompra = guardando || guardandoLocal;
@@ -135,10 +127,7 @@ export function FormularioCompraUnificado({
 
   useEffect(() => {
     if (!compraInicial && registradoPorDefecto && !compra.registrado_por) {
-      setCompra((anterior) => ({
-        ...anterior,
-        registrado_por: registradoPorDefecto,
-      }));
+      setCompra((anterior) => ({ ...anterior, registrado_por: registradoPorDefecto }));
       guardarRegistradoPor(registradoPorDefecto);
     }
   }, [compra.registrado_por, compraInicial, registradoPorDefecto]);
@@ -150,40 +139,31 @@ export function FormularioCompraUnificado({
     }));
   }
 
-  function abrirAltaItem(prefill?: PrefillItem) {
+  function abrirAltaItem() {
     setIdItemEditando(null);
-    setPrefillItem(prefill ?? null);
-    setSheetAbierto(true);
+    setPanelAbierto(true);
   }
 
   function abrirEdicionItem(id: string) {
     setIdItemEditando(id);
-    setPrefillItem(null);
-    setSheetAbierto(true);
+    setPanelAbierto(true);
   }
 
-  function cerrarSheet() {
-    setSheetAbierto(false);
+  function cerrarPanel() {
+    setPanelAbierto(false);
     setIdItemEditando(null);
-    setPrefillItem(null);
   }
 
   function guardarItem(item: ItemEditable) {
     setCompra((anterior) => {
       const indice = anterior.items.findIndex((actual) => actual.id === item.id);
       if (indice === -1) {
-        return {
-          ...anterior,
-          items: [...anterior.items, item],
-        };
+        return { ...anterior, items: [...anterior.items, item] };
       }
 
       const items = [...anterior.items];
       items[indice] = item;
-      return {
-        ...anterior,
-        items,
-      };
+      return { ...anterior, items };
     });
   }
 
@@ -196,7 +176,7 @@ export function FormularioCompraUnificado({
       ...anterior,
       items: anterior.items.filter((item) => item.id !== idItemEditando),
     }));
-    cerrarSheet();
+    cerrarPanel();
   }
 
   async function confirmarCompra() {
@@ -222,112 +202,115 @@ export function FormularioCompraUnificado({
     }
   }
 
-  const pillBase =
-    "inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-full bg-gray-100 px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-200";
-  const pillActiva = "bg-indigo-50 text-indigo-700 border border-indigo-200";
+  const botonBase =
+    "inline-flex h-8 items-center gap-2 whitespace-nowrap rounded bg-gray-100 px-3 text-sm font-medium text-gray-700 border border-gray-200 transition hover:bg-gray-200";
+  const botonActivo = "bg-blue-50 text-blue-700 border-blue-300";
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-80px)] pb-24 relative">
-      <section>
+    <div className="flex flex-col min-h-screen bg-gray-50 pb-20">
+      <section className="bg-white border-b border-gray-300 p-4 mb-4">
         <input
           type="text"
           value={compra.nombre_lugar}
           onChange={(event) => actualizarCampo("nombre_lugar", event.target.value)}
           placeholder="Lugar"
-          className="w-full text-3xl font-bold text-gray-900 bg-transparent border-none outline-none focus:ring-0 placeholder:text-gray-300 px-4 pt-6 pb-2"
+          className="w-full text-xl font-semibold text-gray-900 bg-white border border-gray-300 rounded-md px-3 py-2 mb-3 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
         />
 
-        <div className="flex items-center gap-2 overflow-x-auto px-4 pb-4 scrollbar-hide">
-          <label className={pillBase}>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <label className={botonBase}>
             Fecha
             <input
               type="date"
               value={compra.fecha}
               onChange={(event) => actualizarCampo("fecha", event.target.value)}
-              className="bg-transparent text-sm font-medium text-gray-700 border-none outline-none focus:ring-0 [color-scheme:light]"
+              className="bg-transparent border-none p-0 text-sm font-medium text-gray-700 focus:outline-none"
             />
           </label>
 
           <button
             type="button"
             onClick={() => actualizarCampo("pagador_general", "franco")}
-            className={`${pillBase} ${compra.pagador_general === "franco" ? pillActiva : ""}`}
+            className={`${botonBase} ${compra.pagador_general === "franco" ? botonActivo : ""}`}
           >
             {nombres.franco}
           </button>
           <button
             type="button"
             onClick={() => actualizarCampo("pagador_general", "fabiola")}
-            className={`${pillBase} ${compra.pagador_general === "fabiola" ? pillActiva : ""}`}
+            className={`${botonBase} ${compra.pagador_general === "fabiola" ? botonActivo : ""}`}
           >
             {nombres.fabiola}
           </button>
           <button
             type="button"
             onClick={() => actualizarCampo("pagador_general", "compartido")}
-            className={`${pillBase} ${compra.pagador_general === "compartido" ? pillActiva : ""}`}
+            className={`${botonBase} ${compra.pagador_general === "compartido" ? botonActivo : ""}`}
           >
             Compartido
           </button>
-
           <button
             type="button"
             onClick={() => setMostrarNotas((actual) => !actual)}
-            className={`${pillBase} ${mostrarNotas || compra.notas.trim() ? pillActiva : ""}`}
+            className={`${botonBase} ${mostrarNotas || compra.notas.trim() ? botonActivo : ""}`}
           >
             Notas
           </button>
         </div>
 
         {mostrarNotas ? (
-          <div className="px-4 pb-2">
-            <textarea
-              value={compra.notas}
-              onChange={(event) => actualizarCampo("notas", event.target.value)}
-              placeholder="Anotacion de la compra"
-              className="w-full min-h-24 resize-y rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-            />
-          </div>
+          <textarea
+            value={compra.notas}
+            onChange={(event) => actualizarCampo("notas", event.target.value)}
+            placeholder="Notas"
+            className="mt-3 w-full min-h-20 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
+          />
         ) : null}
       </section>
 
-      <div className="flex-1">
+      <section className="flex-1">
         <TablaItems
           items={compra.items}
           categorias={categorias}
           subcategorias={subcategorias}
           onEditarItem={abrirEdicionItem}
-          onAgregarItem={abrirAltaItem}
         />
-      </div>
+      </section>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-10 mx-auto w-full max-w-[480px] border-t border-gray-100 bg-white/90 px-4 py-4 pb-safe backdrop-blur-md">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-gray-500 uppercase">Total</p>
-            <p className="text-2xl font-mono font-bold text-gray-900 truncate">{formatearPeso(total)}</p>
+      <footer className="fixed bottom-0 left-0 right-0 z-10 mx-auto w-full max-w-[480px] border-t border-gray-300 bg-gray-100 px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex flex-col">
+            <p className="text-xs text-gray-600 uppercase">Total</p>
+            <p className="text-xl font-mono font-bold text-gray-900">{formatearPeso(total)}</p>
           </div>
+
+          <button
+            type="button"
+            onClick={abrirAltaItem}
+            className="h-10 px-4 rounded-md border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-50 transition"
+          >
+            + Item
+          </button>
 
           <button
             type="button"
             onClick={() => void confirmarCompra()}
             disabled={guardandoCompra}
-            className="h-12 min-w-[190px] rounded-2xl bg-gray-900 px-6 text-white font-semibold flex items-center justify-center shadow-lg hover:bg-gray-800 disabled:opacity-50"
+            className="flex-1 h-10 rounded-md bg-blue-600 text-white font-medium flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 transition"
           >
             {guardandoCompra ? "Guardando..." : "Confirmar Compra"}
           </button>
         </div>
       </footer>
 
-      <BottomSheetItem
-        abierto={sheetAbierto}
+      <PanelCargaItem
+        abierto={panelAbierto}
         itemInicial={itemEnEdicion}
         categorias={categorias}
         subcategorias={subcategorias}
         pagadorGeneral={compra.pagador_general}
-        prefill={prefillItem}
         onGuardar={guardarItem}
-        onCerrar={cerrarSheet}
+        onCerrar={cerrarPanel}
         onEliminar={itemEnEdicion ? eliminarItemEditando : undefined}
       />
     </div>

@@ -70,15 +70,15 @@ export default function PaginaNuevaCompra() {
   if (estaEditando && compras.cargando) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-64 w-full rounded-[28px]" />
-        <Skeleton className="h-72 w-full rounded-[28px]" />
+        <Skeleton className="h-64 w-full rounded-md" />
+        <Skeleton className="h-72 w-full rounded-md" />
       </div>
     );
   }
 
   if (estaEditando && !compraInicial) {
     return (
-      <section className="rounded-[28px] border border-dashed border-gray-200 bg-white p-5 text-sm text-gray-500 shadow-sm">
+      <section className="border border-gray-300 bg-white p-4 text-sm text-gray-600">
         No se encontro la compra para editar.
       </section>
     );

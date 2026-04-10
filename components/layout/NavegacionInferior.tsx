@@ -25,9 +25,9 @@ export function NavegacionInferior() {
   const tituloUbicacion = enNuevaCompra ? "Nueva compra" : null;
 
   return (
-    <nav className="rounded-[22px] border border-gray-100 bg-white p-2 shadow-sm">
+    <nav className="border border-gray-300 bg-white p-2">
       <div className="flex items-center gap-2">
-        <div className="grid flex-1 grid-cols-3 gap-1 rounded-2xl bg-gray-50 p-1">
+        <div className="grid flex-1 grid-cols-3 gap-1 bg-gray-100 p-1">
           {enlaces.map(({ href, etiqueta, icono: Icono }) => {
             const activa = estaActiva(pathname, href);
 
@@ -38,8 +38,8 @@ export function NavegacionInferior() {
                 aria-label={etiqueta}
                 title={etiqueta}
                 className={combinarClases(
-                  "flex h-10 items-center justify-center gap-1 rounded-xl px-2 text-xs font-semibold transition",
-                  activa ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
+                  "flex h-10 items-center justify-center gap-1 rounded px-2 text-xs font-semibold transition",
+                  activa ? "bg-white text-gray-900 border border-gray-300" : "text-gray-500 hover:text-gray-700",
                 )}
               >
                 <Icono className="h-4 w-4" />
@@ -52,7 +52,7 @@ export function NavegacionInferior() {
         {!enNuevaCompra ? (
           <Link
             href="/nueva-compra"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-xl bg-indigo-600 px-3 text-xs font-semibold text-white transition hover:bg-indigo-700"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded border border-blue-700 bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />
             Nueva
@@ -61,7 +61,7 @@ export function NavegacionInferior() {
       </div>
 
       {tituloUbicacion ? (
-        <div className="px-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-600">
+        <div className="px-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-700">
           Viendo: {tituloUbicacion}
         </div>
       ) : null}
