@@ -8,11 +8,19 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 }
 
+function esDispositivoMovil() {
+  if (typeof window === "undefined") return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 export function BotonInstalarApp() {
   const [eventoInstalacion, setEventoInstalacion] = useState<BeforeInstallPromptEvent | null>(null);
   const [instalada, setInstalada] = useState(false);
+  const [esMovil, setEsMovil] = useState(true);
 
   useEffect(() => {
+    setEsMovil(esDispositivoMovil());
+
     const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setEventoInstalacion(event as BeforeInstallPromptEvent);
@@ -44,6 +52,10 @@ export function BotonInstalarApp() {
     }
   }
 
+  if (!esMovil) {
+    return null;
+  }
+
   if (instalada) {
     return <span className="text-xs font-medium text-gray-500">App instalada</span>;
   }
@@ -63,7 +75,7 @@ export function BotonInstalarApp() {
 
   return (
     <span className="text-[11px] text-gray-500">
-      Android: menu del navegador &rarr; Instalar app
+      Android: menu &rarr; Instalar app
     </span>
   );
 }
