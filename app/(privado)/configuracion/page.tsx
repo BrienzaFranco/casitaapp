@@ -14,7 +14,31 @@ import { fechaLocalISO } from "@/lib/utiles";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 
-type Tab = "categorias" | "subcategorias" | "etiquetas" | "importar" | "instalar";
+function ColorPersona({ persona, label, defaultColor }: { persona: string; label: string; defaultColor: string }) {
+  const colorKey = `color_${persona}`;
+  const [color, setColor] = useState(() => {
+    if (typeof window === "undefined") return defaultColor;
+    return localStorage.getItem(colorKey) || defaultColor;
+  });
+
+  return (
+    <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-container-low">
+      <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: color }} />
+      <span className="font-headline text-sm font-semibold text-on-surface">{label}</span>
+      <input
+        type="color"
+        value={color}
+        onChange={e => {
+          setColor(e.target.value);
+          localStorage.setItem(colorKey, e.target.value);
+        }}
+        className="h-8 w-12 cursor-pointer rounded bg-transparent border-none p-0 outline-none"
+      />
+    </div>
+  );
+}
+
+type Tab = "categorias" | "subcategorias" | "etiquetas" | "personas" | "importar" | "instalar";
 
 function normalizarCabecera(cabecera: string) {
   return cabecera
@@ -62,8 +86,9 @@ const TABS: { valor: Tab; etiqueta: string }[] = [
   { valor: "categorias", etiqueta: "Categorias" },
   { valor: "subcategorias", etiqueta: "Subcategorias" },
   { valor: "etiquetas", etiqueta: "Etiquetas" },
-  { valor: "importar", etiqueta: "Importar Excel" },
-  { valor: "instalar", etiqueta: "Instalar app" },
+  { valor: "personas", etiqueta: "Personas" },
+  { valor: "importar", etiqueta: "Importar" },
+  { valor: "instalar", etiqueta: "Instalar" },
 ];
 
 export default function PaginaConfiguracion() {
@@ -483,6 +508,19 @@ export default function PaginaConfiguracion() {
                 </div>
               ))}
             </div>
+          </section>
+        )}
+
+        {tab === "personas" && (
+          <section className="space-y-4 p-4">
+            <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+              Colores de cada persona
+            </p>
+            <p className="font-body text-xs text-on-surface-variant">
+              Estos colores se usan en el reparto y los resúmenes para identificar rapidamente quien pago que.
+            </p>
+            <ColorPersona persona="franco" label="Franco" defaultColor="#3b82f6" />
+            <ColorPersona persona="fabiola" label="Fabiola" defaultColor="#10b981" />
           </section>
         )}
 

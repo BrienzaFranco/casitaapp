@@ -9,7 +9,6 @@ import { formatearPeso } from "@/lib/formatear";
 import { guardarRegistradoPor, obtenerRegistradoPor } from "@/lib/offline";
 import { fechaLocalISO, normalizarTexto } from "@/lib/utiles";
 import { cargarMapaLugares, cargarMapaDetalles, predecirCategoria } from "@/lib/categorizacion";
-import { Boton } from "@/components/ui/Boton";
 
 interface Props {
   categorias: Categoria[];
@@ -21,6 +20,12 @@ interface Props {
   guardando?: boolean;
   onGuardar: (compra: CompraEditable) => Promise<void> | void;
   comprasHistoria?: Array<{ nombre_lugar: string; items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }> }>;
+}
+
+// Colores por persona (localStorage)
+function obtenerColorPersona(nombre: string, fallback: string) {
+  if (typeof window === "undefined") return fallback;
+  return localStorage.getItem(`color_${nombre}`) || fallback;
 }
 
 function hoy() { return fechaLocalISO(); }
@@ -66,14 +71,19 @@ function itemsParaGuardar(items: ItemEditable[]) {
   });
 }
 
+function nombreCorto(nombre: string) {
+  const n = nombre.toLowerCase();
+  if (n.includes("franco")) return "Fran";
+  if (n.includes("fabiola")) return "Fabi";
+  return nombre.slice(0, 4);
+}
+
 export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas, nombres, registradoPorDefecto, compraInicial, guardando = false, onGuardar, comprasHistoria = [] }: Props) {
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial));
   const [notas, setNotas] = useState(compraInicial?.notas ?? "");
   const [mostrarNotas, setMostrarNotas] = useState(!!compraInicial?.notas);
   const [mostrarAvanzadas, setMostrarAvanzadas] = useState(false);
   const [pegado, setPegado] = useState("");
-  const [etiquetaCompraInput, setEtiquetaCompraInput] = useState("");
-  const [etiquetaItemInput, setEtiquetaItemInput] = useState<Record<string, string>>({});
   const [guardandoLocal, setGuardandoLocal] = useState(false);
   const [etiquetasAbiertas, setEtiquetasAbiertas] = useState<Record<string, boolean>>({});
   const ref = useRef<Map<string, HTMLInputElement | null>>(new Map());
@@ -83,6 +93,12 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   const totalFabiola = useMemo(() => compra.items.reduce((a, i) => a + i.pago_fabiola, 0), [compra.items]);
   const mapaLugares = useMemo(() => cargarMapaLugares(comprasHistoria), [comprasHistoria]);
   const mapaDetalles = useMemo(() => cargarMapaDetalles(comprasHistoria), [comprasHistoria]);
+
+  // Colores de cada persona
+  const colorFranco = obtenerColorPersona("franco", "#3b82f6");
+  const colorFabiola = obtenerColorPersona("fabiola", "#10b981");
+  const colorFran = useMemo(() => colorFranco, [colorFranco]);
+  const colorFabi = useMemo(() => colorFabiola, [colorFabiola]);
 
   useEffect(() => { if (!compraInicial && registradoPorDefecto && !compra.registrado_por) { setCompra(a => ({ ...a, registrado_por: registradoPorDefecto })); guardarRegistradoPor(registradoPorDefecto); } }, [compra.registrado_por, compraInicial, registradoPorDefecto]);
 
@@ -118,7 +134,6 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
         : [...i.etiquetas_ids, etqId],
     }),
   }));
-  const etqPorTexto = (texto: string) => etiquetas.find(e => normalizarTexto(e.nombre) === normalizarTexto(texto));
 
   function encontrarCategoriaId(nombre: string) {
     const base = normalizarTexto(nombre);
@@ -149,21 +164,17 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
     finally { setGuardandoLocal(false); }
   }
 
-  const opcionesPagador = [
-    { val: "franco" as const, label: nombres.franco },
-    { val: "fabiola" as const, label: nombres.fabiola },
-  ];
+  const franCorto = nombreCorto(nombres.franco);
+  const fabiCorto = nombreCorto(nombres.fabiola);
 
-  const tiposReparto = [
-    { val: "50/50" as const, label: "50/50" },
-    { val: "solo_franco" as const, label: nombres.franco },
-    { val: "solo_fabiola" as const, label: nombres.fabiola },
-  ];
+  // Quien pago mas del otro
+  const debeFrancoAFabiola = totalFabiola > totalFranco ? totalFabiola - totalFranco : 0;
+  const debeFabiolaAFranco = totalFranco > totalFabiola ? totalFranco - totalFabiola : 0;
 
   return (
     <div className="min-h-screen bg-surface pb-32">
       <div className="mx-auto max-w-xl px-4 pt-4 space-y-3">
-        {/* Header: Lugar + Fecha + Quien Pagó */}
+        {/* Header: Lugar + Fecha + Pagó en linea */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-3">
           <input
             type="text" value={compra.nombre_lugar}
@@ -172,25 +183,22 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
             className="w-full bg-transparent border-b-2 border-dashed border-outline-variant/30 px-0 py-2 font-headline text-2xl font-bold tracking-tight text-on-surface outline-none placeholder:text-on-surface-variant/30 focus:border-primary"
           />
 
-          <div className="flex items-center justify-between gap-3">
-            <label className="flex items-center gap-2">
+          {/* Fecha + Pago en misma linea */}
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 shrink-0">
               <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Fecha</span>
               <input type="date" value={compra.fecha} onChange={e => set({ fecha: e.target.value })}
-                className="h-8 rounded bg-surface-container-low border-b border-outline/20 px-2 font-label text-xs tabular-nums outline-none focus:border-b-primary" />
+                className="h-7 rounded bg-surface-container-low px-2 font-label text-xs tabular-nums text-on-surface outline-none" />
             </label>
-          </div>
-
-          {/* QUIEN PAGO - Dropdown claro */}
-          <div className="flex items-center gap-3">
-            <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant shrink-0">Pagó</span>
-            <div className="flex items-center gap-1.5">
-              {opcionesPagador.map(({ val, label }) => (
-                <button key={val} type="button" onClick={() => set({ pagador_general: val })}
-                  className={`font-label text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded transition-colors ${compra.pagador_general === val ? "bg-secondary text-on-secondary" : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            <label className="flex items-center gap-1.5 shrink-0">
+              <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Pagó</span>
+              <select value={compra.pagador_general} onChange={e => set({ pagador_general: e.target.value as "franco" | "fabiola" | "compartido" })}
+                className="h-7 rounded bg-surface-container-low px-2 font-label text-xs text-on-surface outline-none">
+                <option value="compartido">50/50</option>
+                <option value="franco">{nombres.franco}</option>
+                <option value="fabiola">{nombres.fabiola}</option>
+              </select>
+            </label>
           </div>
 
           {/* Notas toggle */}
@@ -208,7 +216,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
           <div className="flex flex-wrap gap-1 pt-1 border-t border-outline-variant/10">
             {etiquetas.map(etq => (
               <button key={etq.id} type="button" onClick={() => toggleEtqCompra(etq.id)}
-                className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${compra.etiquetas_compra_ids.includes(etq.id) ? "bg-primary text-on-primary" : "bg-surface-variant text-on-surface-variant"}`}>
+                className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${compra.etiquetas_compra_ids.includes(etq.id) ? "bg-secondary text-on-secondary" : "bg-surface-variant text-on-surface-variant"}`}>
                 #{etq.nombre}
               </button>
             ))}
@@ -262,7 +270,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                     <div className="text-right">
                       <p className="font-label text-sm font-bold tabular-nums text-primary">{formatearPeso(item.monto_resuelto)}</p>
                       {item.tipo_reparto !== "50/50" && (
-                        <p className="font-label text-[8px] text-on-surface-variant">
+                        <p className="font-label text-[8px]" style={{ color: item.tipo_reparto === "solo_franco" ? colorFran : colorFabi }}>
                           {item.tipo_reparto === "solo_franco" ? nombres.franco : nombres.fabiola}
                         </p>
                       )}
@@ -275,7 +283,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                   </div>
                 </div>
 
-                {/* Detail: solo categoria, subcat, monto, reparto, etiquetas */}
+                {/* Detail compacto */}
                 <div className="px-3 pb-2.5 space-y-1.5 border-t border-outline-variant/10 pt-1.5">
                   {/* Categoria + Subcategoria inline */}
                   <div className="flex gap-1.5">
@@ -302,56 +310,63 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                       className="flex-1 bg-transparent border-b border-outline/20 px-0 py-1 font-label text-[10px] tabular-nums text-on-surface-variant outline-none placeholder:text-on-surface-variant/40 focus:border-b-primary" />
                   </div>
 
-                  {/* Reparto compacto */}
+                  {/* Reparto dropdown + Etiquetas toggle juntos */}
                   <div className="flex items-center gap-1">
-                    <span className="font-label text-[8px] uppercase tracking-wider text-on-surface-variant/60 shrink-0 w-10">Reparto</span>
-                    <div className="flex gap-0.5 flex-1">
-                      {tiposReparto.map(({ val, label }) => (
-                        <button key={val} type="button" onClick={() => setItem(item.id ?? "", { tipo_reparto: val }, true)}
-                          className={`flex-1 h-6 rounded font-label text-[9px] font-bold transition-colors ${item.tipo_reparto === val ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant"}`}>
-                          {label === nombres.franco ? "Fr." : label === nombres.fabiola ? "Fab." : label}
+                    <select value={item.tipo_reparto} onChange={e => setItem(item.id ?? "", { tipo_reparto: e.target.value as TipoReparto }, true)}
+                      className="h-6 rounded bg-surface-container px-1.5 font-label text-[9px] font-bold text-on-surface outline-none shrink-0"
+                      style={{ width: `${Math.max(48, (item.tipo_reparto === "solo_franco" ? franCorto : item.tipo_reparto === "solo_fabiola" ? fabiCorto : "50/50").length * 7 + 28)}px` }}>
+                      <option value="50/50">50/50</option>
+                      <option value="solo_franco">{franCorto}</option>
+                      <option value="solo_fabiola">{fabiCorto}</option>
+                    </select>
+
+                    {item.tipo_reparto === "50/50" && (
+                      <span className="font-label text-[8px] tabular-nums" style={{ color: colorFran }}>{formatearPeso(item.pago_franco)}</span>
+                    )}
+                    {item.tipo_reparto === "solo_franco" && (
+                      <span className="font-label text-[8px] tabular-nums" style={{ color: colorFran }}>{formatearPeso(item.monto_resuelto)}</span>
+                    )}
+                    {item.tipo_reparto === "solo_fabiola" && (
+                      <span className="font-label text-[8px] tabular-nums" style={{ color: colorFabi }}>{formatearPeso(item.monto_resuelto)}</span>
+                    )}
+
+                    {/* Etiquetas toggle */}
+                    <button type="button" onClick={() => setEtiquetasAbiertas(a => ({ ...a, [item.id ?? ""]: !a[item.id ?? ""] }))}
+                      className="flex items-center gap-0.5 h-6 px-1.5 rounded bg-surface-container font-label text-[9px] text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0">
+                      <span>Etq</span>
+                      {etqSeleccionadas.length > 0 && (
+                        <span className="text-[8px] px-0.5 rounded-full" style={{ color: colorFabi }}>{etqSeleccionadas.length}</span>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Etiquetas desplegadas */}
+                  {etqAbierta && (
+                    <div className="flex flex-wrap gap-1">
+                      {etiquetas.map(etq => (
+                        <button key={etq.id} type="button" onClick={() => toggleEtqItem(item.id ?? "", etq.id)}
+                          className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${item.etiquetas_ids.includes(etq.id) ? "bg-secondary text-on-secondary" : "bg-surface-variant text-on-surface-variant"}`}>
+                          #{etq.nombre}
                         </button>
                       ))}
                     </div>
-                  </div>
-
-                  {/* Etiquetas colapsadas */}
-                  <div>
-                    <button type="button" onClick={() => setEtiquetasAbiertas(a => ({ ...a, [item.id ?? ""]: !a[item.id ?? ""] }))}
-                      className="flex items-center gap-1 h-6 px-2 rounded bg-surface-container font-label text-[9px] text-on-surface-variant hover:bg-surface-container-high transition-colors">
-                      <span>Etiquetas</span>
-                      {etqSeleccionadas.length > 0 && (
-                        <span className="bg-secondary text-on-secondary text-[8px] px-1 rounded-full">{etqSeleccionadas.length}</span>
-                      )}
-                      <ChevronDown className={`h-3 w-3 transition-transform ${etqAbierta ? "rotate-180" : ""}`} />
-                    </button>
-                    {etqAbierta && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {etiquetas.map(etq => (
-                          <button key={etq.id} type="button" onClick={() => toggleEtqItem(item.id ?? "", etq.id)}
-                            className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${item.etiquetas_ids.includes(etq.id) ? "bg-secondary text-on-secondary" : "bg-surface-variant text-on-surface-variant"}`}>
-                            #{etq.nombre}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {etqSeleccionadas.length > 0 && !etqAbierta && (
-                      <div className="flex flex-wrap gap-0.5 mt-0.5">
-                        {etqSeleccionadas.map(etq => (
-                          <span key={etq!.id} className="font-label text-[8px] px-1.5 py-0 rounded-full bg-surface-variant text-on-surface-variant">
-                            #{etq!.nombre}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  )}
+                  {!etqAbierta && etqSeleccionadas.length > 0 && (
+                    <div className="flex flex-wrap gap-0.5">
+                      {etqSeleccionadas.map(etq => (
+                        <span key={etq!.id} className="font-label text-[8px] px-1.5 py-0 rounded-full bg-surface-variant text-on-surface-variant">
+                          #{etq!.nombre}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Opciones avanzadas - boton chico aparte */}
+        {/* Opciones avanzadas */}
         <div className="flex justify-center">
           <button type="button" onClick={() => setMostrarAvanzadas(!mostrarAvanzadas)}
             className="font-label text-[9px] uppercase tracking-widest text-on-surface-variant/50 hover:text-on-surface-variant transition-colors underline underline-offset-2 decoration-outline-variant/30">
@@ -387,18 +402,36 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
         )}
       </div>
 
-      {/* Footer fijo con total */}
+      {/* Footer fijo con total y deuda clara */}
       <footer className="fixed bottom-[72px] left-0 right-0 z-20 bg-surface border-t border-outline-variant/15 px-4 py-3">
         <div className="mx-auto max-w-xl">
           <div className="flex items-baseline justify-between mb-1">
             <span className="font-label text-[10px] uppercase tracking-wider text-outline">Total</span>
             <span className="font-label text-2xl font-bold tracking-tight tabular-nums text-primary">{formatearPeso(total)}</span>
           </div>
-          <div className="flex items-center justify-between text-xs mb-2">
-            <span className="font-label tabular-nums text-secondary">{nombres.franco}: {formatearPeso(totalFranco)}</span>
-            <span className="font-label tabular-nums text-tertiary">{nombres.fabiola}: {formatearPeso(totalFabiola)}</span>
+
+          {/* Quien pago cuanto */}
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="font-label tabular-nums" style={{ color: colorFran }}>{nombres.franco} pagó {formatearPeso(totalFranco)}</span>
+            <span className="font-label tabular-nums" style={{ color: colorFabi }}>{nombres.fabiola} pagó {formatearPeso(totalFabiola)}</span>
           </div>
-          <div className="flex gap-2">
+
+          {/* Deuda clara */}
+          {debeFabiolaAFranco > 0 && (
+            <p className="font-label text-xs tabular-nums text-center text-secondary">
+              {nombres.fabiola} le debe {formatearPeso(debeFabiolaAFranco)} a {nombres.franco}
+            </p>
+          )}
+          {debeFrancoAFabiola > 0 && (
+            <p className="font-label text-xs tabular-nums text-center text-secondary">
+              {nombres.franco} le debe {formatearPeso(debeFrancoAFabiola)} a {nombres.fabiola}
+            </p>
+          )}
+          {debeFrancoAFabiola === 0 && debeFabiolaAFranco === 0 && total > 0 && (
+            <p className="font-label text-xs text-center text-tertiary">A mano</p>
+          )}
+
+          <div className="flex gap-2 mt-2">
             <button type="button" onClick={() => guardar(true)} disabled={guardandoLocal}
               className="h-10 flex-1 rounded border border-outline-variant/30 bg-surface-container-high font-label text-[10px] font-bold uppercase tracking-wider text-on-surface disabled:opacity-50 hover:bg-surface-container-highest active:scale-[0.98] transition-all">
               Confirmar y nueva
