@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Save } from "lucide-react";
+import { arrayMove } from "@dnd-kit/sortable";
+import { toast } from "sonner";
 import type { Categoria, CompraEditable, Etiqueta, ItemEditable, Subcategoria } from "@/types";
-import { FormularioItem } from "@/components/items/FormularioItem";
-import { ListaItems } from "@/components/items/ListaItems";
-import { Boton } from "@/components/ui/Boton";
-import { Input } from "@/components/ui/Input";
+import { calcularReparto, evaluarExpresion } from "@/lib/calculos";
 import { guardarRegistradoPor, obtenerRegistradoPor } from "@/lib/offline";
+import { ResumenTotal } from "@/components/compras/ResumenTotal";
+import { TablaItems } from "@/components/compras/TablaItems";
 
 interface Props {
   categorias: Categoria[];
@@ -24,17 +24,54 @@ function hoy() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function generarIdTemporal() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `tmp-${crypto.randomUUID()}`;
+  }
+
+  return `tmp-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+function crearItemVacio(): ItemEditable {
+  return {
+    id: generarIdTemporal(),
+    descripcion: "",
+    categoria_id: "",
+    subcategoria_id: "",
+    expresion_monto: "",
+    monto_resuelto: 0,
+    tipo_reparto: "50/50",
+    pago_franco: 0,
+    pago_fabiola: 0,
+    etiquetas_ids: [],
+  };
+}
+
+function normalizarItemsIniciales(items: ItemEditable[]) {
+  return items.map((item) => ({
+    ...item,
+    id: item.id ?? generarIdTemporal(),
+  }));
+}
+
 function crearCompraInicial(registradoPorDefecto: string, compraInicial?: CompraEditable | null): CompraEditable {
   if (compraInicial) {
-    return compraInicial;
+    guardarRegistradoPor(compraInicial.registrado_por);
+    return {
+      ...compraInicial,
+      items: normalizarItemsIniciales(compraInicial.items),
+    };
   }
+
+  const registrado_por = obtenerRegistradoPor() || registradoPorDefecto;
+  guardarRegistradoPor(registrado_por);
 
   return {
     fecha: hoy(),
     nombre_lugar: "",
     notas: "",
-    registrado_por: obtenerRegistradoPor() || registradoPorDefecto,
-    items: [],
+    registrado_por,
+    items: [crearItemVacio()],
   };
 }
 
@@ -49,32 +86,27 @@ export function FormularioCompra({
   onGuardar,
 }: Props) {
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial));
-  const [indiceEditando, setIndiceEditando] = useState<number | null>(null);
-  const [versionItem, setVersionItem] = useState(0);
+  const [idItemConFoco, setIdItemConFoco] = useState<string | null>(compra.items[0]?.id ?? null);
+  const [guardandoLocal, setGuardandoLocal] = useState(false);
+
+  const guardandoCompra = guardando || guardandoLocal;
 
   function actualizarCampo<K extends keyof CompraEditable>(campo: K, valor: CompraEditable[K]) {
-    setCompra((anterior) => {
-      const siguiente = {
-        ...anterior,
-        [campo]: valor,
-      };
-
-      if (campo === "registrado_por" && typeof valor === "string") {
-        guardarRegistradoPor(valor);
-      }
-
-      return siguiente;
-    });
+    setCompra((anterior) => ({
+      ...anterior,
+      [campo]: valor,
+    }));
   }
 
-  function guardarItem(item: ItemEditable) {
+  function agregarItem(indiceInsercion?: number) {
+    const nuevoItem = crearItemVacio();
     setCompra((anterior) => {
       const items = [...anterior.items];
 
-      if (indiceEditando !== null) {
-        items[indiceEditando] = item;
+      if (typeof indiceInsercion === "number") {
+        items.splice(indiceInsercion, 0, nuevoItem);
       } else {
-        items.push(item);
+        items.push(nuevoItem);
       }
 
       return {
@@ -82,90 +114,152 @@ export function FormularioCompra({
         items,
       };
     });
+    setIdItemConFoco(nuevoItem.id ?? null);
+  }
 
-    setIndiceEditando(null);
-    setVersionItem((anterior) => anterior + 1);
+  function actualizarItem(id: string, cambios: Partial<ItemEditable>) {
+    setCompra((anterior) => ({
+      ...anterior,
+      items: anterior.items.map((item) => (item.id === id ? { ...item, ...cambios } : item)),
+    }));
+  }
+
+  function eliminarItem(id: string) {
+    setCompra((anterior) => {
+      const siguientes = anterior.items.filter((item) => item.id !== id);
+      return {
+        ...anterior,
+        items: siguientes.length ? siguientes : [crearItemVacio()],
+      };
+    });
+  }
+
+  function reordenarItems(indiceInicial: number, indiceFinal: number) {
+    setCompra((anterior) => ({
+      ...anterior,
+      items: arrayMove(anterior.items, indiceInicial, indiceFinal),
+    }));
+  }
+
+  function normalizarItemsParaGuardar(items: ItemEditable[]) {
+    const filasConContenido = items.filter(
+      (item) =>
+        item.descripcion.trim() ||
+        item.categoria_id ||
+        item.subcategoria_id ||
+        item.expresion_monto.trim() ||
+        item.etiquetas_ids.length,
+    );
+
+    if (!filasConContenido.length) {
+      return [] as ItemEditable[];
+    }
+
+    const filasNormalizadas: ItemEditable[] = [];
+
+    for (const item of filasConContenido) {
+      if (!item.expresion_monto.trim()) {
+        throw new Error("Cada item con contenido necesita monto.");
+      }
+
+      let montoResuelto = 0;
+      try {
+        montoResuelto = evaluarExpresion(item.expresion_monto);
+      } catch {
+        throw new Error(`Monto invalido en item: ${item.descripcion || "sin descripcion"}`);
+      }
+
+      const reparto = calcularReparto(item.tipo_reparto, montoResuelto, item.pago_franco, item.pago_fabiola);
+
+      filasNormalizadas.push({
+        ...item,
+        monto_resuelto: montoResuelto,
+        pago_franco: reparto.pago_franco,
+        pago_fabiola: reparto.pago_fabiola,
+      });
+    }
+
+    return filasNormalizadas;
   }
 
   async function guardarCompra() {
-    if (!compra.items.length) {
-      return;
-    }
+    try {
+      setGuardandoLocal(true);
+      const items = normalizarItemsParaGuardar(compra.items);
 
-    await onGuardar(compra);
+      if (!items.length) {
+        toast.error("Agrega al menos un item antes de guardar.");
+        return;
+      }
 
-    if (!compraInicial) {
-      setCompra(crearCompraInicial(compra.registrado_por));
-      setIndiceEditando(null);
-      setVersionItem((anterior) => anterior + 1);
+      await onGuardar({
+        ...compra,
+        items,
+      });
+
+      if (!compraInicial) {
+        const registrado_por = compra.registrado_por || registradoPorDefecto;
+        const nuevoItem = crearItemVacio();
+        setCompra({
+          fecha: hoy(),
+          nombre_lugar: "",
+          notas: "",
+          registrado_por,
+          items: [nuevoItem],
+        });
+        setIdItemConFoco(nuevoItem.id ?? null);
+      }
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : "No se pudo guardar la compra.";
+      toast.error(mensaje);
+    } finally {
+      setGuardandoLocal(false);
     }
   }
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="mb-4">
-          <h2 className="text-base font-semibold text-gray-900">Paso 1: encabezado</h2>
-          <p className="text-sm text-gray-500">Carga lo minimo y segui con los items.</p>
-        </div>
-
-        <div className="space-y-4">
-          <Input etiqueta="Fecha" type="date" value={compra.fecha} onChange={(event) => actualizarCampo("fecha", event.target.value)} />
-          <Input
-            etiqueta="Nombre del lugar"
+    <div className="relative rounded-lg border border-gray-100 bg-white">
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-4 py-3">
+        <div className="flex items-center gap-3">
+          <input
+            type="date"
+            value={compra.fecha}
+            onChange={(event) => actualizarCampo("fecha", event.target.value)}
+            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:ring-1 focus:ring-gray-200"
+          />
+          <input
+            type="text"
             value={compra.nombre_lugar}
             onChange={(event) => actualizarCampo("nombre_lugar", event.target.value)}
-            placeholder="Ej: Coto Palermo"
+            placeholder="Lugar..."
+            className="h-9 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:ring-1 focus:ring-gray-200"
           />
-          <Input
-            etiqueta="Registrado por"
-            value={compra.registrado_por}
-            onChange={(event) => actualizarCampo("registrado_por", event.target.value)}
-            placeholder="Nombre del perfil"
-          />
-          <label className="flex flex-col gap-2 text-left">
-            <span className="text-sm font-semibold text-gray-800">Notas</span>
-            <textarea
-              className="min-h-24 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-              value={compra.notas}
-              onChange={(event) => actualizarCampo("notas", event.target.value)}
-              placeholder="Opcional"
-            />
-          </label>
+          <button
+            type="button"
+            onClick={() => void guardarCompra()}
+            disabled={guardandoCompra}
+            className="h-9 rounded-lg bg-gray-900 px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {guardandoCompra ? "Guardando..." : "Guardar"}
+          </button>
         </div>
-      </section>
+      </header>
 
-      <FormularioItem
-        key={`${indiceEditando === null ? "nuevo" : indiceEditando}-${versionItem}`}
-        categorias={categorias}
-        subcategorias={subcategorias}
-        etiquetas={etiquetas}
-        nombres={nombres}
-        itemEditando={indiceEditando !== null ? compra.items[indiceEditando] : null}
-        onGuardarItem={guardarItem}
-        onCancelarEdicion={() => {
-          setIndiceEditando(null);
-          setVersionItem((anterior) => anterior + 1);
-        }}
-      />
+      <div className="px-4 py-3 pb-44">
+        <TablaItems
+          items={compra.items}
+          categorias={categorias}
+          subcategorias={subcategorias}
+          etiquetas={etiquetas}
+          idItemConFoco={idItemConFoco}
+          onActualizarItem={actualizarItem}
+          onEliminarItem={eliminarItem}
+          onAgregarItem={agregarItem}
+          onReordenarItems={reordenarItems}
+        />
+      </div>
 
-      <ListaItems
-        items={compra.items}
-        categorias={categorias}
-        subcategorias={subcategorias}
-        etiquetas={etiquetas}
-        onEditar={setIndiceEditando}
-        onEliminar={(indice) =>
-          setCompra((anterior) => ({
-            ...anterior,
-            items: anterior.items.filter((_, indiceActual) => indiceActual !== indice),
-          }))
-        }
-      />
-
-      <Boton anchoCompleto onClick={guardarCompra} disabled={guardando || !compra.items.length} icono={<Save className="h-4 w-4" />}>
-        {guardando ? "Guardando..." : compraInicial ? "Guardar compra" : "Guardar compra"}
-      </Boton>
+      <ResumenTotal items={compra.items} nombres={nombres} />
     </div>
   );
 }

@@ -47,3 +47,7 @@ summary::-webkit-details-marker {
     transform: translateX(-4px);
   }
 }
+
+.pb-safe {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}

@@ -72,23 +72,16 @@ export default function PaginaNuevaCompra() {
   }
 
   return (
-    <section className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold text-gray-950">{compraInicial ? "Editar compra" : "Nueva compra"}</h2>
-        <p className="text-sm text-gray-500">Formulario principal, mobile-first y listo para trabajar offline.</p>
-      </div>
-
-      <FormularioCompra
-        key={compraInicial?.id ?? "nueva-compra"}
-        categorias={categorias.categorias}
-        subcategorias={categorias.subcategorias}
-        etiquetas={categorias.etiquetas}
-        nombres={nombres}
-        registradoPorDefecto={usuario.perfil?.nombre ?? ""}
-        compraInicial={compraInicial}
-        guardando={compras.guardando}
-        onGuardar={guardar}
-      />
-    </section>
+    <FormularioCompra
+      key={compraInicial?.id ?? "nueva-compra"}
+      categorias={categorias.categorias}
+      subcategorias={categorias.subcategorias}
+      etiquetas={categorias.etiquetas}
+      nombres={nombres}
+      registradoPorDefecto={usuario.perfil?.nombre ?? ""}
+      compraInicial={compraInicial}
+      guardando={compras.guardando}
+      onGuardar={guardar}
+    />
   );
 }
