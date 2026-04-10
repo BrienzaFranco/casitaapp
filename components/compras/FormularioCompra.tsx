@@ -76,6 +76,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   const [etiquetaItemInput, setEtiquetaItemInput] = useState<Record<string, string>>({});
   const [guardandoLocal, setGuardandoLocal] = useState(false);
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
+  const [etiquetasAbiertas, setEtiquetasAbiertas] = useState<Record<string, boolean>>({});
   const ref = useRef<Map<string, HTMLInputElement | null>>(new Map());
 
   const total = useMemo(() => compra.items.reduce((a, i) => a + i.monto_resuelto, 0), [compra.items]);
@@ -227,35 +228,50 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
           {compra.items.map((item) => {
             const abierto = expandido[item.id ?? ""] ?? true;
+            const etqAbierta = etiquetasAbiertas[item.id ?? ""];
             const subs = item.categoria_id ? (subsPorCat.get(item.categoria_id) ?? []) : [];
+            const etqSeleccionadas = item.etiquetas_ids.map(id => etiquetas.find(e => e.id === id)).filter(Boolean);
+
             return (
               <div key={item.id} className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 overflow-hidden">
-                {/* Item header - siempre visible, estilo ticket */}
-                <button type="button" onClick={() => setExpandido(a => ({ ...a, [item.id ?? ""]: !a[item.id ?? ""] }))}
-                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-surface-container-low/50 transition-colors">
-                  <div className="flex-1 min-w-0 text-left">
-                    <p className="font-headline text-sm font-semibold text-on-surface truncate">{item.descripcion || "Sin descripcion"}</p>
-                    {item.categoria_id && (
-                      <p className="font-label text-[9px] text-on-surface-variant">
-                        {categorias.find(c => c.id === item.categoria_id)?.nombre}
-                        {item.subcategoria_id ? ` → ${subs.find(s => s.id === item.subcategoria_id)?.nombre}` : ""}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="text-right">
-                      {item.expresion_monto && item.expresion_monto !== String(item.monto_resuelto) && (
-                        <p className="font-label text-[9px] text-on-surface-variant/60 tabular-nums">{item.expresion_monto}</p>
+                {/* Item header - compacto */}
+                <div className="flex items-center px-3 py-2 gap-2">
+                  {/* Drag/expand area + desc + monto inline */}
+                  <button type="button" onClick={() => setExpandido(a => ({ ...a, [item.id ?? ""]: !a[item.id ?? ""] }))}
+                    className="flex-1 min-w-0 flex items-center gap-2 text-left">
+                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-on-surface-variant/50 transition-transform ${abierto ? "rotate-180" : ""}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-headline text-xs font-semibold text-on-surface truncate">{item.descripcion || "—"}</p>
+                      {item.categoria_id && (
+                        <p className="font-label text-[8px] text-on-surface-variant truncate">
+                          {categorias.find(c => c.id === item.categoria_id)?.nombre}
+                          {item.subcategoria_id ? ` › ${subs.find(s => s.id === item.subcategoria_id)?.nombre}` : ""}
+                        </p>
                       )}
-                      <p className="font-label text-base font-bold tabular-nums text-primary">{formatearPeso(item.monto_resuelto)}</p>
                     </div>
-                    <ChevronDown className={`h-4 w-4 text-on-surface-variant transition-transform ${abierto ? "rotate-180" : ""}`} />
-                  </div>
-                </button>
+                  </button>
 
-                {/* Item detail - expandible */}
+                  {/* Monto + Eliminar */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="text-right">
+                      <p className="font-label text-sm font-bold tabular-nums text-primary">{formatearPeso(item.monto_resuelto)}</p>
+                      {item.tipo_reparto !== "50/50" && (
+                        <p className="font-label text-[8px] text-on-surface-variant">
+                          {item.tipo_reparto === "solo_franco" ? nombres.franco : nombres.fabiola}
+                        </p>
+                      )}
+                    </div>
+                    <button type="button" onClick={() => del(item.id ?? "")}
+                      className="w-7 h-7 flex items-center justify-center rounded text-error hover:bg-error-container transition-colors"
+                      title="Eliminar item">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Item detail - expandible, compacto */}
                 {abierto && (
-                  <div className="px-3 pb-3 space-y-2 border-t border-outline-variant/10 pt-2">
+                  <div className="px-3 pb-2.5 space-y-1.5 border-t border-outline-variant/10 pt-1.5">
                     {/* Descripcion */}
                     <input ref={el => { if (el) ref.current.set(item.id ?? "", el); }}
                       type="text" value={item.descripcion}
@@ -268,79 +284,75 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                       }}
                       onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
                       placeholder="Descripcion"
-                      className="w-full bg-transparent border-b border-outline/20 px-0 py-1.5 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-b-primary" />
+                      className="w-full bg-transparent border-b border-outline/20 px-0 py-1 font-headline text-xs text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-b-primary" />
 
-                    {/* Categoria + Subcategoria */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">Categoria</label>
-                        <select value={item.categoria_id} onChange={e => setItem(item.id ?? "", { categoria_id: e.target.value, subcategoria_id: "" })}
-                          className="w-full h-8 rounded bg-surface-container-low px-2 font-label text-xs text-on-surface outline-none">
-                          <option value="">-</option>
-                          {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">Subcategoria</label>
-                        <select value={item.subcategoria_id} onChange={e => setItem(item.id ?? "", { subcategoria_id: e.target.value })} disabled={!subs.length}
-                          className="w-full h-8 rounded bg-surface-container-low px-2 font-label text-xs text-on-surface outline-none disabled:opacity-40">
-                          <option value="">-</option>
-                          {subs.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                        </select>
-                      </div>
+                    {/* Categoria + Subcategoria inline */}
+                    <div className="flex gap-1.5">
+                      <select value={item.categoria_id} onChange={e => setItem(item.id ?? "", { categoria_id: e.target.value, subcategoria_id: "" })}
+                        className="flex-1 h-7 rounded bg-surface-container px-1.5 font-label text-[10px] text-on-surface outline-none">
+                        <option value="">Categoria</option>
+                        {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                      </select>
+                      <select value={item.subcategoria_id} onChange={e => setItem(item.id ?? "", { subcategoria_id: e.target.value })} disabled={!subs.length}
+                        className="flex-1 h-7 rounded bg-surface-container px-1.5 font-label text-[10px] text-on-surface outline-none disabled:opacity-40">
+                        <option value="">Subcat</option>
+                        {subs.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                      </select>
                     </div>
 
-                    {/* Monto: total grande + expresion chiquita */}
-                    <div>
-                      <label className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">Monto</label>
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-label text-2xl font-bold tabular-nums text-primary">{formatearPeso(item.monto_resuelto)}</span>
-                        <input type="text" inputMode="decimal" value={item.expresion_monto}
-                          onChange={e => setItem(item.id ?? "", { expresion_monto: e.target.value })}
-                          onBlur={() => setItem(item.id ?? "", {}, true)}
-                          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-                          placeholder="200+200"
-                          className="flex-1 bg-transparent border-b border-outline/20 px-0 py-1 font-label text-sm tabular-nums text-on-surface-variant outline-none placeholder:text-on-surface-variant/40 focus:border-b-primary" />
-                      </div>
+                    {/* Monto expresion */}
+                    <div className="flex items-center gap-2">
+                      <span className="font-label text-sm font-bold tabular-nums text-primary shrink-0 w-20 text-right">{formatearPeso(item.monto_resuelto)}</span>
+                      <input type="text" inputMode="decimal" value={item.expresion_monto}
+                        onChange={e => setItem(item.id ?? "", { expresion_monto: e.target.value })}
+                        onBlur={() => setItem(item.id ?? "", {}, true)}
+                        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+                        placeholder="200+200"
+                        className="flex-1 bg-transparent border-b border-outline/20 px-0 py-1 font-label text-[10px] tabular-nums text-on-surface-variant outline-none placeholder:text-on-surface-variant/40 focus:border-b-primary" />
                     </div>
 
-                    {/* Reparto por item */}
-                    <div>
-                      <label className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">Reparto</label>
-                      <div className="flex gap-1">
+                    {/* Reparto compacto: 3 chips inline */}
+                    <div className="flex items-center gap-1">
+                      <span className="font-label text-[8px] uppercase tracking-wider text-on-surface-variant/60 shrink-0 w-10">Reparto</span>
+                      <div className="flex gap-0.5 flex-1">
                         {tiposReparto.map(({ val, label }) => (
                           <button key={val} type="button" onClick={() => setItem(item.id ?? "", { tipo_reparto: val }, true)}
-                            className={`flex-1 h-7 rounded font-label text-[10px] font-bold uppercase tracking-wider transition-colors ${item.tipo_reparto === val ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}>
-                            {label}
+                            className={`flex-1 h-6 rounded font-label text-[9px] font-bold transition-colors ${item.tipo_reparto === val ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant"}`}>
+                            {label === nombres.franco ? "Fr." : label === nombres.fabiola ? "Fab." : label}
                           </button>
                         ))}
                       </div>
-                      {item.tipo_reparto === "50/50" && (
-                        <p className="font-label text-[9px] text-on-surface-variant mt-0.5">
-                          {nombres.franco}: {formatearPeso(item.pago_franco)} · {nombres.fabiola}: {formatearPeso(item.pago_fabiola)}
-                        </p>
-                      )}
                     </div>
 
-                    {/* Tags por item */}
+                    {/* Etiquetas: solo boton toggle, se expanden al tocar */}
                     <div>
-                      <label className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">Etiquetas</label>
-                      <div className="flex flex-wrap gap-1 mt-0.5">
-                        {etiquetas.map(etq => (
-                          <button key={etq.id} type="button" onClick={() => toggleEtqItem(item.id ?? "", etq.id)}
-                            className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${item.etiquetas_ids.includes(etq.id) ? "bg-secondary text-on-secondary" : "bg-surface-variant text-on-surface-variant"}`}>
-                            #{etq.nombre}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Delete */}
-                    <div className="flex justify-end pt-1">
-                      <button type="button" onClick={() => del(item.id ?? "")}
-                        className="inline-flex items-center gap-1 h-6 px-2 rounded text-error font-label text-[9px] font-bold uppercase tracking-wider hover:bg-error-container transition-colors">
-                        <X className="h-3 w-3" /> Eliminar
+                      <button type="button" onClick={() => setEtiquetasAbiertas(a => ({ ...a, [item.id ?? ""]: !a[item.id ?? ""] }))}
+                        className="flex items-center gap-1 h-6 px-2 rounded bg-surface-container font-label text-[9px] text-on-surface-variant hover:bg-surface-container-high transition-colors">
+                        <span>Etiquetas</span>
+                        {etqSeleccionadas.length > 0 && (
+                          <span className="bg-secondary text-on-secondary text-[8px] px-1 rounded-full">{etqSeleccionadas.length}</span>
+                        )}
+                        <ChevronDown className={`h-3 w-3 transition-transform ${etqAbierta ? "rotate-180" : ""}`} />
                       </button>
+                      {etqAbierta && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {etiquetas.map(etq => (
+                            <button key={etq.id} type="button" onClick={() => toggleEtqItem(item.id ?? "", etq.id)}
+                              className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${item.etiquetas_ids.includes(etq.id) ? "bg-secondary text-on-secondary" : "bg-surface-variant text-on-surface-variant"}`}>
+                              #{etq.nombre}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {etqSeleccionadas.length > 0 && !etqAbierta && (
+                        <div className="flex flex-wrap gap-0.5 mt-0.5">
+                          {etqSeleccionadas.map(etq => (
+                            <span key={etq!.id} className="font-label text-[8px] px-1.5 py-0 rounded-full bg-surface-variant text-on-surface-variant">
+                              #{etq!.nombre}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
