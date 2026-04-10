@@ -45,7 +45,7 @@ export default function PaginaNuevaCompra() {
   const idEditar = useDeferredValue(searchParams.get("editar"));
   const estaEditando = Boolean(idEditar);
   const categorias = usarCategorias();
-  const compras = usarCompras({ cargarInicial: estaEditando });
+  const compras = usarCompras({ cargarInicial: estaEditando, incluirBorradores: estaEditando });
   const usuario = usarUsuario();
   const nombres = deducirNombresParticipantes(usuario.perfiles);
   const compraExistente = compras.compras.find((compra) => compra.id === idEditar);

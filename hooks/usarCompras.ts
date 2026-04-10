@@ -66,6 +66,15 @@ interface OpcionesCompras {
   incluirBorradores?: boolean;
 }
 
+interface BorradorRapidoInput {
+  fecha: string;
+  nombre_lugar: string;
+  pagador_general: CompraEditable["pagador_general"];
+  registrado_por: string;
+  detalle_rapido: string;
+  expresion_monto: string;
+}
+
 function normalizarItem(item: CompraBaseDatos["items"][number]): Item {
   return {
     id: item.id,
@@ -200,12 +209,65 @@ export function useCompras(opciones: OpcionesCompras = {}) {
     await recargar();
   }
 
+  async function crearBorradorRapido(input: BorradorRapidoInput) {
+    const cliente = crearClienteSupabase();
+    setGuardando(true);
+
+    try {
+      const borrador = await cliente.rpc("crear_compra_borrador", {
+        p_fecha: input.fecha,
+        p_nombre_lugar: input.nombre_lugar || null,
+        p_notas: input.detalle_rapido || null,
+        p_registrado_por: input.registrado_por,
+        p_hogar_id: null,
+        p_pagador_general: input.pagador_general ?? "compartido",
+      });
+
+      if (borrador.error) {
+        throw borrador.error;
+      }
+
+      const compraId = borrador.data as string;
+      if (input.detalle_rapido.trim() || input.expresion_monto.trim()) {
+        const expresion = input.expresion_monto.trim() || "0";
+        const montoInicial = Number(expresion.replace(",", "."));
+        const monto = Number.isFinite(montoInicial) ? montoInicial : 0;
+
+        const item = await cliente.from("items").insert({
+          compra_id: compraId,
+          hogar_id: null,
+          categoria_id: null,
+          subcategoria_id: null,
+          descripcion: input.detalle_rapido || null,
+          expresion_monto: expresion,
+          monto_resuelto: monto,
+          tipo_reparto: "50/50",
+          pago_franco: 0,
+          pago_fabiola: 0,
+        });
+
+        if (item.error) {
+          throw item.error;
+        }
+      }
+
+      if (cargarInicial) {
+        await recargar();
+      }
+
+      return compraId;
+    } finally {
+      setGuardando(false);
+    }
+  }
+
   return {
     compras,
     cargando,
     guardando,
     recargar,
     guardarCompra,
+    crearBorradorRapido,
     eliminarCompra,
   };
 }

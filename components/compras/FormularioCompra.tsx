@@ -654,7 +654,62 @@ export function FormularioCompraUnificado({
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="space-y-2 p-2 md:hidden">
+              {compra.items.map((item) => (
+                <article key={item.id} className="space-y-2 rounded border border-gray-200 bg-gray-50 p-2">
+                  <input
+                    type="text"
+                    value={item.descripcion}
+                    onChange={(event) => actualizarItem(item.id as string, { descripcion: event.target.value })}
+                    placeholder="Detalle rapido (ej: Yerba playadito oferta)"
+                    className="h-10 w-full rounded border border-gray-300 bg-white px-3 text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                  />
+                  <div className="grid grid-cols-[1fr_auto] gap-2">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={item.expresion_monto}
+                      onChange={(event) => actualizarItem(item.id as string, { expresion_monto: event.target.value })}
+                      onBlur={() => actualizarItem(item.id as string, {}, true)}
+                      placeholder="Monto (ej: 4500-2500)"
+                      className="h-10 w-full rounded border border-gray-300 bg-white px-3 font-mono text-sm outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => eliminarFila(item.id as string)}
+                      className="h-10 rounded border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                      Borrar
+                    </button>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => actualizarItem(item.id as string, { tipo_reparto: "50/50" }, true)}
+                      className={`h-8 rounded border px-2 text-xs font-medium ${item.tipo_reparto === "50/50" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
+                    >
+                      50/50
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => actualizarItem(item.id as string, { tipo_reparto: "solo_franco" }, true)}
+                      className={`h-8 rounded border px-2 text-xs font-medium ${item.tipo_reparto === "solo_franco" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
+                    >
+                      {nombres.franco}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => actualizarItem(item.id as string, { tipo_reparto: "solo_fabiola" }, true)}
+                      className={`h-8 rounded border px-2 text-xs font-medium ${item.tipo_reparto === "solo_fabiola" ? "border-blue-300 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-700"}`}
+                    >
+                      {nombres.fabiola}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[940px] border-collapse md:min-w-[1020px]">
                 <thead>
                   <tr className="bg-gray-100 text-left text-xs font-semibold uppercase text-gray-600">

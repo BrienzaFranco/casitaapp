@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, Home, Plus, WalletCards } from "lucide-react";
+import { ChartColumn, Home, NotebookPen, Plus, WalletCards } from "lucide-react";
 import { combinarClases } from "@/lib/utiles";
 
 const enlaces = [
   { href: "/", etiqueta: "Inicio", icono: Home },
+  { href: "/anotador-rapido", etiqueta: "Anotar", icono: NotebookPen },
   { href: "/historial", etiqueta: "Historial", icono: WalletCards },
   { href: "/balance", etiqueta: "Balance", icono: ChartColumn },
 ];
@@ -27,7 +28,7 @@ export function NavegacionInferior() {
   return (
     <nav className="border border-gray-300 bg-white p-2">
       <div className="flex items-center gap-2">
-        <div className="grid flex-1 grid-cols-3 gap-1 bg-gray-100 p-1">
+        <div className="grid flex-1 grid-cols-4 gap-1 bg-gray-100 p-1">
           {enlaces.map(({ href, etiqueta, icono: Icono }) => {
             const activa = estaActiva(pathname, href);
 
