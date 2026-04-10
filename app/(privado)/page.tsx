@@ -24,13 +24,13 @@ export default function PaginaInicio() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-5">
       {/* Editorial Header */}
       <div className="space-y-1">
         <span className="font-label text-xs uppercase tracking-widest text-outline">
           {mesActual}
         </span>
-        <h2 className="font-headline text-3xl font-bold tracking-tighter text-on-surface">
+        <h2 className="font-headline text-3xl sm:text-4xl font-bold tracking-tight text-on-surface">
           {formatearPeso(balance.resumenMes.total)}
         </h2>
         {balance.saldoAbierto.deudor ? (
@@ -42,13 +42,13 @@ export default function PaginaInicio() {
         )}
       </div>
 
-      {/* Stats Grid - Bento compact */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <div className="bg-surface-container-low rounded-lg border border-outline-variant/10 p-3">
           <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">
             {balance.nombres.franco}
           </p>
-          <p className="font-label text-lg font-bold tabular-nums text-on-surface">
+          <p className="font-label text-base sm:text-lg font-bold tabular-nums text-on-surface">
             {formatearPeso(balance.resumenMes.franco_pago)}
           </p>
         </div>
@@ -56,7 +56,7 @@ export default function PaginaInicio() {
           <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">
             {balance.nombres.fabiola}
           </p>
-          <p className="font-label text-lg font-bold tabular-nums text-on-surface">
+          <p className="font-label text-base sm:text-lg font-bold tabular-nums text-on-surface">
             {formatearPeso(balance.resumenMes.fabiola_pago)}
           </p>
         </div>

@@ -40,7 +40,7 @@ export function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-md border-b border-outline-variant/15">
-      <div className="max-w-[480px] mx-auto px-5 h-14 flex justify-between items-center">
+      <div className="mx-auto max-w-4xl px-4 h-14 flex justify-between items-center">
         <div className="flex items-center gap-3 min-w-0">
           {mostrarVolver ? (
             <button
@@ -58,7 +58,7 @@ export function Header() {
             <p className="font-label text-[10px] uppercase tracking-widest text-outline truncate">
               {perfil?.nombre ?? "CasitaApp"}
             </p>
-            <h1 className="font-headline text-xl font-bold tracking-tighter text-on-surface truncate">
+            <h1 className="font-headline text-xl font-bold tracking-tight text-on-surface truncate">
               {tituloPagina(pathname)}
             </h1>
           </div>
@@ -74,8 +74,8 @@ export function Header() {
         </button>
       </div>
 
-      {/* Desktop nav - text links with underline active */}
-      <nav className="hidden md:block max-w-[480px] mx-auto px-5 pb-2">
+      {/* Desktop nav */}
+      <nav className="hidden md:block mx-auto max-w-4xl px-4 pb-2">
         <div className="flex items-center gap-5">
           {enlaces.map(({ href, etiqueta }) => {
             const activa = estaActiva(pathname, href);
@@ -84,7 +84,7 @@ export function Header() {
                 key={href}
                 href={href}
                 className={combinarClases(
-                  "text-xs font-medium pb-0.5 border-b-2 transition-colors duration-150",
+                  "text-sm font-medium pb-0.5 border-b-2 transition-colors duration-150",
                   activa
                     ? "text-secondary border-secondary"
                     : "text-on-surface-variant border-transparent hover:text-on-surface"

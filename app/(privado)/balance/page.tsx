@@ -127,8 +127,8 @@ export default function PaginaBalance() {
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Stats row - responsive grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div className="bg-surface-container-low rounded-lg border border-outline-variant/10 p-3">
           <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">Total mes</p>
           <p className="font-label text-lg font-bold tabular-nums text-on-surface">{formatearPeso(balance.resumenMes.total)}</p>
@@ -207,10 +207,16 @@ export default function PaginaBalance() {
         )}
       </div>
 
-      {/* Charts */}
-      <TablaBalance filas={balance.resumenHistorico} deudaActual={deudaHistorica} />
-      <GraficoCategoriasDonut registros={balance.categoriasMes} />
-      <GraficoEtiquetas registros={balance.etiquetasMes} />
+      {/* Charts - responsive grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <TablaBalance filas={balance.resumenHistorico} deudaActual={deudaHistorica} />
+        </div>
+        <div className="space-y-4">
+          <GraficoCategoriasDonut registros={balance.categoriasMes} />
+          <GraficoEtiquetas registros={balance.etiquetasMes} />
+        </div>
+      </div>
     </section>
   );
 }

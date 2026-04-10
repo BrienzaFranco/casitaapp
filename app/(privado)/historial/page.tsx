@@ -57,10 +57,10 @@ export default function PaginaHistorial() {
 
   return (
     <section className="space-y-4">
-      {/* Filters - compact ledger style */}
+      {/* Filters */}
       <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3">
         <div className="space-y-3">
-          {/* Person filter - text links */}
+          {/* Person filter */}
           <div className="flex items-center gap-3 text-xs">
             <span className="font-label text-[9px] uppercase tracking-wider text-outline shrink-0">Quien</span>
             <div className="flex items-center gap-2">
@@ -103,7 +103,7 @@ export default function PaginaHistorial() {
             </div>
           </div>
 
-          {/* Month filter - scrollable text */}
+          {/* Month filter */}
           <div className="flex items-center gap-3 text-xs">
             <span className="font-label text-[9px] uppercase tracking-wider text-outline shrink-0">Mes</span>
             <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
@@ -133,8 +133,8 @@ export default function PaginaHistorial() {
             </div>
           </div>
 
-          {/* View toggle + Category/Etiqueta selects */}
-          <div className="flex items-center justify-between gap-3">
+          {/* View toggle + selects */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -159,7 +159,7 @@ export default function PaginaHistorial() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select
               etiqueta="Categoria"
               value={categoriaId}
