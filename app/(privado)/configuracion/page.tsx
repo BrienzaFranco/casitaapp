@@ -9,8 +9,6 @@ import { BotonInstalarApp } from "@/components/pwa/BotonInstalarApp";
 import type { CompraEditable, DatosImportados, TipoReparto } from "@/types";
 import { Badge } from "@/components/ui/Badge";
 import { Boton } from "@/components/ui/Boton";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { fechaLocalISO } from "@/lib/utiles";
 import { usarCategorias } from "@/hooks/usarCategorias";
@@ -148,8 +146,8 @@ export default function PaginaConfiguracion() {
   if (categorias.cargando) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-40 w-full rounded-[28px]" />
-        <Skeleton className="h-56 w-full rounded-[28px]" />
+        <Skeleton className="h-40 w-full rounded-lg" />
+        <Skeleton className="h-56 w-full rounded-lg" />
       </div>
     );
   }
@@ -163,16 +161,16 @@ export default function PaginaConfiguracion() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1.5 overflow-x-auto rounded-full bg-surface-container-high p-1 scrollbar-hide">
+      <div className="flex gap-4 overflow-x-auto border-b border-outline-variant/15">
         {TABS.map(({ valor, etiqueta }) => (
           <button
             key={valor}
             type="button"
             onClick={() => setTab(valor)}
-            className={`rounded-full px-4 py-2 text-xs font-semibold font-headline transition-all duration-150 whitespace-nowrap ${
+            className={`text-xs font-medium pb-1 whitespace-nowrap border-b-2 transition-colors ${
               tab === valor
-                ? "bg-primary text-on-primary shadow-sm"
-                : "text-on-surface-variant hover:bg-surface-container-highest"
+                ? "border-secondary text-secondary"
+                : "border-transparent text-on-surface-variant hover:text-on-surface"
             }`}
           >
             {etiqueta}
@@ -181,31 +179,42 @@ export default function PaginaConfiguracion() {
       </div>
 
       {/* Content */}
-      <div className="rounded-[28px] bg-surface-container-lowest p-4 shadow-card">
+      <div className="rounded-lg border border-outline-variant/15 bg-surface-container-lowest shadow-sm">
         {tab === "categorias" && (
-          <section className="space-y-6">
+          <section className="space-y-4 p-4">
             {/* Form */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Input
-                  etiqueta="Nombre"
-                  value={nuevaCategoria.nombre}
-                  onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, nombre: event.target.value }))}
-                />
-                <Input
-                  etiqueta="Color"
-                  type="color"
-                  value={nuevaCategoria.color}
-                  onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, color: event.target.value }))}
-                />
-                <Input
-                  etiqueta="Limite mensual"
-                  type="number"
-                  value={nuevaCategoria.limite_mensual}
-                  onChange={(event) =>
-                    setNuevaCategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))
-                  }
-                />
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Nombre</label>
+                  <input
+                    className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    value={nuevaCategoria.nombre}
+                    onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, nombre: event.target.value }))}
+                    placeholder="Nombre de la categoria"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Color</label>
+                  <input
+                    className="h-8 w-full cursor-pointer rounded bg-transparent border-none p-0 outline-none"
+                    type="color"
+                    value={nuevaCategoria.color}
+                    onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, color: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Limite mensual</label>
+                  <input
+                    className="w-full bg-transparent border-none p-0 text-sm text-on-surface tabular-nums outline-none placeholder:text-on-surface-variant"
+                    type="number"
+                    value={nuevaCategoria.limite_mensual}
+                    onChange={(event) =>
+                      setNuevaCategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))
+                    }
+                    placeholder="Sin limite"
+                  />
+                </div>
               </div>
               <Boton
                 anchoCompleto
@@ -224,28 +233,28 @@ export default function PaginaConfiguracion() {
             </div>
 
             {/* List */}
-            <div className="space-y-2">
-              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+            <div className="space-y-0.5">
+              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
                 Categorias existentes
               </p>
               {categorias.categorias.map((categoria) => (
                 <div
                   key={categoria.id}
-                  className="group flex items-center gap-3 rounded-2xl bg-surface-container-low p-3 transition-all duration-150"
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors"
                 >
                   <span
-                    className="h-3 w-3 shrink-0 rounded-full"
+                    className="h-2.5 w-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: categoria.color }}
                   />
                   <input
-                    className="flex-1 bg-transparent font-body text-sm font-semibold text-on-surface outline-none transition-colors duration-150 focus:text-primary"
+                    className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
                     defaultValue={categoria.nombre}
                     onBlur={(event) =>
                       void categorias.actualizarCategoria(categoria.id, { nombre: event.target.value })
                     }
                   />
                   <input
-                    className="tabular-nums w-24 bg-transparent text-right font-body text-sm text-on-surface-variant outline-none transition-colors duration-150 focus:text-primary"
+                    className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
                     defaultValue={String(categoria.limite_mensual ?? "")}
                     onBlur={(event) =>
                       void categorias.actualizarCategoria(categoria.id, {
@@ -256,7 +265,7 @@ export default function PaginaConfiguracion() {
                   />
                   <button
                     type="button"
-                    className="shrink-0 rounded-full p-2 text-error transition-colors duration-150 hover:bg-error-container"
+                    className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
                     onClick={() =>
                       void categorias.eliminarCategoria(categoria.id).catch(() => {
                         toast.error("No se puede eliminar si tiene items asociados");
@@ -273,47 +282,62 @@ export default function PaginaConfiguracion() {
         )}
 
         {tab === "subcategorias" && (
-          <section className="space-y-6">
-            <Select
-              etiqueta="Filtrar por categoria"
-              value={filtroCategoria}
-              onChange={(event) => setFiltroCategoria(event.target.value)}
-              placeholder="Todas"
-              opciones={categorias.categorias.map((categoria) => ({
-                etiqueta: categoria.nombre,
-                valor: categoria.id,
-              }))}
-            />
+          <section className="space-y-4 p-4">
+            <div className="space-y-1">
+              <label className="font-label text-[10px] uppercase tracking-wider text-outline">Filtrar por categoria</label>
+              <select
+                className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
+                value={filtroCategoria}
+                onChange={(event) => setFiltroCategoria(event.target.value)}
+              >
+                <option value="">Todas</option>
+                {categorias.categorias.map((categoria) => (
+                  <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
+                ))}
+              </select>
+            </div>
 
             {/* Form */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Select
-                  etiqueta="Categoria"
-                  value={nuevaSubcategoria.categoria_id}
-                  onChange={(event) =>
-                    setNuevaSubcategoria((anterior) => ({ ...anterior, categoria_id: event.target.value }))
-                  }
-                  opciones={categorias.categorias.map((categoria) => ({
-                    etiqueta: categoria.nombre,
-                    valor: categoria.id,
-                  }))}
-                />
-                <Input
-                  etiqueta="Nombre"
-                  value={nuevaSubcategoria.nombre}
-                  onChange={(event) =>
-                    setNuevaSubcategoria((anterior) => ({ ...anterior, nombre: event.target.value }))
-                  }
-                />
-                <Input
-                  etiqueta="Limite mensual"
-                  type="number"
-                  value={nuevaSubcategoria.limite_mensual}
-                  onChange={(event) =>
-                    setNuevaSubcategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))
-                  }
-                />
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Categoria</label>
+                  <select
+                    className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
+                    value={nuevaSubcategoria.categoria_id}
+                    onChange={(event) =>
+                      setNuevaSubcategoria((anterior) => ({ ...anterior, categoria_id: event.target.value }))
+                    }
+                  >
+                    <option value="">Seleccionar</option>
+                    {categorias.categorias.map((categoria) => (
+                      <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Nombre</label>
+                  <input
+                    className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    value={nuevaSubcategoria.nombre}
+                    onChange={(event) =>
+                      setNuevaSubcategoria((anterior) => ({ ...anterior, nombre: event.target.value }))
+                    }
+                    placeholder="Nombre de la subcategoria"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Limite mensual</label>
+                  <input
+                    className="w-full bg-transparent border-none p-0 text-sm text-on-surface tabular-nums outline-none placeholder:text-on-surface-variant"
+                    type="number"
+                    value={nuevaSubcategoria.limite_mensual}
+                    onChange={(event) =>
+                      setNuevaSubcategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))
+                    }
+                    placeholder="Sin limite"
+                  />
+                </div>
               </div>
               <Boton
                 anchoCompleto
@@ -334,24 +358,24 @@ export default function PaginaConfiguracion() {
             </div>
 
             {/* List */}
-            <div className="space-y-2">
-              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+            <div className="space-y-0.5">
+              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
                 Subcategorias existentes
               </p>
               {subcategoriasFiltradas.map((subcategoria) => (
                 <div
                   key={subcategoria.id}
-                  className="group flex items-center gap-3 rounded-2xl bg-surface-container-low p-3 transition-all duration-150"
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors"
                 >
                   <input
-                    className="flex-1 bg-transparent font-body text-sm font-semibold text-on-surface outline-none transition-colors duration-150 focus:text-primary"
+                    className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
                     defaultValue={subcategoria.nombre}
                     onBlur={(event) =>
                       void categorias.actualizarSubcategoria(subcategoria.id, { nombre: event.target.value })
                     }
                   />
                   <input
-                    className="tabular-nums w-24 bg-transparent text-right font-body text-sm text-on-surface-variant outline-none transition-colors duration-150 focus:text-primary"
+                    className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
                     defaultValue={String(subcategoria.limite_mensual ?? "")}
                     onBlur={(event) =>
                       void categorias.actualizarSubcategoria(subcategoria.id, {
@@ -362,7 +386,7 @@ export default function PaginaConfiguracion() {
                   />
                   <button
                     type="button"
-                    className="shrink-0 rounded-full p-2 text-error transition-colors duration-150 hover:bg-error-container"
+                    className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
                     onClick={() =>
                       void categorias.eliminarSubcategoria(subcategoria.id).catch(() => {
                         toast.error("No se puede eliminar si tiene items asociados");
@@ -379,25 +403,32 @@ export default function PaginaConfiguracion() {
         )}
 
         {tab === "etiquetas" && (
-          <section className="space-y-6">
+          <section className="space-y-4 p-4">
             {/* Form */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Input
-                  etiqueta="Nombre"
-                  value={nuevaEtiqueta.nombre}
-                  onChange={(event) =>
-                    setNuevaEtiqueta((anterior) => ({ ...anterior, nombre: event.target.value }))
-                  }
-                />
-                <Input
-                  etiqueta="Color"
-                  type="color"
-                  value={nuevaEtiqueta.color}
-                  onChange={(event) =>
-                    setNuevaEtiqueta((anterior) => ({ ...anterior, color: event.target.value }))
-                  }
-                />
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Nombre</label>
+                  <input
+                    className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                    value={nuevaEtiqueta.nombre}
+                    onChange={(event) =>
+                      setNuevaEtiqueta((anterior) => ({ ...anterior, nombre: event.target.value }))
+                    }
+                    placeholder="Nombre de la etiqueta"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Color</label>
+                  <input
+                    className="h-8 w-full cursor-pointer rounded bg-transparent border-none p-0 outline-none"
+                    type="color"
+                    value={nuevaEtiqueta.color}
+                    onChange={(event) =>
+                      setNuevaEtiqueta((anterior) => ({ ...anterior, color: event.target.value }))
+                    }
+                  />
+                </div>
               </div>
               <Boton
                 anchoCompleto
@@ -412,18 +443,18 @@ export default function PaginaConfiguracion() {
             </div>
 
             {/* List */}
-            <div className="space-y-2">
-              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+            <div className="space-y-0.5">
+              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
                 Etiquetas existentes
               </p>
               {categorias.etiquetas.map((etiqueta) => (
                 <div
                   key={etiqueta.id}
-                  className="group flex items-center gap-3 rounded-2xl bg-surface-container-low p-3 transition-all duration-150"
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors"
                 >
                   <Badge color={etiqueta.color}>{etiqueta.nombre}</Badge>
                   <input
-                    className="flex-1 bg-transparent font-body text-sm font-semibold text-on-surface outline-none transition-colors duration-150 focus:text-primary"
+                    className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
                     defaultValue={etiqueta.nombre}
                     onBlur={(event) =>
                       void categorias.actualizarEtiqueta(etiqueta.id, { nombre: event.target.value })
@@ -431,7 +462,7 @@ export default function PaginaConfiguracion() {
                   />
                   <input
                     type="color"
-                    className="h-8 w-8 cursor-pointer rounded-full bg-transparent outline-none"
+                    className="h-6 w-6 cursor-pointer rounded bg-transparent border-none p-0 outline-none"
                     defaultValue={etiqueta.color}
                     onBlur={(event) =>
                       void categorias.actualizarEtiqueta(etiqueta.id, { color: event.target.value })
@@ -439,7 +470,7 @@ export default function PaginaConfiguracion() {
                   />
                   <button
                     type="button"
-                    className="shrink-0 rounded-full p-2 text-error transition-colors duration-150 hover:bg-error-container"
+                    className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
                     onClick={() =>
                       void categorias.eliminarEtiqueta(etiqueta.id).catch(() => {
                         toast.error("No se puede eliminar si esta usada");
@@ -456,10 +487,10 @@ export default function PaginaConfiguracion() {
         )}
 
         {tab === "importar" && (
-          <section className="space-y-6">
+          <section className="space-y-4 p-4">
             {/* Upload area */}
-            <label className="flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[20px] bg-surface-container-low text-center transition-colors duration-150 hover:bg-surface-container">
-              <Upload className="h-6 w-6 text-secondary" />
+            <label className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed border-outline-variant rounded-lg text-center transition-colors duration-150 hover:bg-surface-container-low">
+              <Upload className="h-5 w-5 text-secondary" />
               <span className="font-headline text-sm font-semibold text-on-surface">Seleccionar .xlsx</span>
               <span className="font-body text-xs text-on-surface-variant">
                 Se parsea en cliente y muestra preview antes de confirmar.
@@ -470,14 +501,14 @@ export default function PaginaConfiguracion() {
             {previewImportacion.length ? (
               <>
                 {/* Preview list */}
-                <div className="space-y-2">
-                  <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                <div className="space-y-1">
+                  <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
                     Vista previa ({previewImportacion.length} registros)
                   </p>
                   {previewImportacion.map((fila, indice) => (
                     <div
                       key={`${fila.fecha}-${indice}`}
-                      className="rounded-2xl bg-surface-container-low p-3 transition-all duration-150"
+                      className="py-2 px-3 bg-surface-container-low rounded-lg transition-all duration-150"
                     >
                       <p className="tabular-nums font-headline text-sm font-semibold text-on-surface">
                         {fila.fecha}{" "}
@@ -507,9 +538,9 @@ export default function PaginaConfiguracion() {
         )}
 
         {tab === "instalar" && (
-          <section className="space-y-6">
-            <div className="flex items-start gap-4 rounded-[20px] bg-surface-container-low p-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container">
+          <section className="space-y-4 p-4">
+            <div className="flex items-start gap-4 py-2 px-3 bg-surface-container-low rounded-lg">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container text-on-secondary-container">
                 <Download className="h-5 w-5" />
               </div>
               <div className="space-y-1">

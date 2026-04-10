@@ -14,18 +14,21 @@ const enlaces = [
 ];
 
 function estaActiva(pathname: string, href: string) {
-  if (href === "/") {
-    return pathname === "/";
-  }
-
+  if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function rutaVolver(pathname: string) {
-  if (pathname === "/nueva-compra" || pathname === "/anotador-rapido") {
-    return "/";
-  }
+function tituloPagina(pathname: string) {
+  if (pathname === "/nueva-compra") return "Carga de Gasto";
+  if (pathname === "/historial") return "Historial";
+  if (pathname === "/balance") return "Balance";
+  if (pathname === "/configuracion") return "Configuracion";
+  if (pathname === "/anotador-rapido") return "Registro Rapido";
+  return "CasitaApp";
+}
 
+function rutaVolver(pathname: string) {
+  if (pathname === "/nueva-compra" || pathname === "/anotador-rapido") return "/";
   return "/";
 }
 
@@ -34,56 +37,56 @@ export function Header() {
   const router = useRouter();
   const { perfil, cerrarSesion } = usarUsuario();
   const mostrarVolver = pathname !== "/";
-  const esHome = pathname === "/";
 
   return (
-    <header className="sticky top-0 z-40 bg-surface">
-      <div className="max-w-[480px] mx-auto px-4 h-14 flex items-center justify-between">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-md border-b border-outline-variant/15">
+      <div className="max-w-[480px] mx-auto px-5 h-14 flex justify-between items-center">
         <div className="flex items-center gap-3 min-w-0">
           {mostrarVolver ? (
             <button
               type="button"
               onClick={() => {
-                if (window.history.length > 1) {
-                  router.back();
-                } else {
-                  router.push(rutaVolver(pathname));
-                }
+                if (window.history.length > 1) router.back();
+                else router.push(rutaVolver(pathname));
               }}
-              className="shrink-0 inline-flex items-center text-on-surface-variant hover:text-primary transition-colors"
+              className="shrink-0 text-on-surface-variant hover:text-primary transition-colors"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
           ) : null}
-          <p className="font-headline text-lg font-semibold text-on-surface truncate">
-            {esHome ? "CasitaApp" : (perfil?.nombre ?? "Gastos domesticos")}
-          </p>
+          <div className="min-w-0">
+            <p className="font-label text-[10px] uppercase tracking-widest text-outline truncate">
+              {perfil?.nombre ?? "CasitaApp"}
+            </p>
+            <h1 className="font-headline text-xl font-bold tracking-tighter text-on-surface truncate">
+              {tituloPagina(pathname)}
+            </h1>
+          </div>
         </div>
 
         <button
           type="button"
           onClick={cerrarSesion}
-          className="shrink-0 inline-flex h-9 w-9 items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
+          className="shrink-0 h-9 w-9 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
           aria-label="Cerrar sesion"
         >
           <LogOut className="h-5 w-5" />
         </button>
       </div>
 
-      {/* Nav desktop - simple text links */}
-      <nav className="hidden md:block max-w-[480px] mx-auto px-4 pb-2">
-        <div className="flex items-center gap-6">
+      {/* Desktop nav - text links with underline active */}
+      <nav className="hidden md:block max-w-[480px] mx-auto px-5 pb-2">
+        <div className="flex items-center gap-5">
           {enlaces.map(({ href, etiqueta }) => {
             const activa = estaActiva(pathname, href);
-
             return (
               <Link
                 key={href}
                 href={href}
                 className={combinarClases(
-                  "text-sm font-medium transition-colors duration-150 pb-1 border-b-2",
+                  "text-xs font-medium pb-0.5 border-b-2 transition-colors duration-150",
                   activa
-                    ? "text-on-surface border-on-surface"
+                    ? "text-secondary border-secondary"
                     : "text-on-surface-variant border-transparent hover:text-on-surface"
                 )}
               >

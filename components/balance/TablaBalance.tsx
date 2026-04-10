@@ -8,55 +8,71 @@ interface Props {
 
 export function TablaBalance({ filas, deudaActual }: Props) {
   const totales = filas.reduce(
-    (acumulado, fila) => ({
-      total: acumulado.total + fila.total,
-      franco: acumulado.franco + fila.franco,
-      fabiola: acumulado.fabiola + fila.fabiola,
+    (acc, fila) => ({
+      total: acc.total + fila.total,
+      franco: acc.franco + fila.franco,
+      fabiola: acc.fabiola + fila.fabiola,
     }),
     { total: 0, franco: 0, fabiola: 0 },
   );
 
   return (
-    <section className="rounded-xl bg-surface-container-lowest p-4 shadow-[var(--shadow-card)]">
-      <div className="mb-4 space-y-1">
-        <h2 className="font-headline text-lg font-semibold tracking-tight text-on-surface">
+    <section className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-outline-variant/15 bg-surface-container-high">
+        <h2 className="font-headline text-base font-semibold tracking-tight text-on-surface">
           Balance acumulado historico
         </h2>
-        <p className="font-label text-sm text-on-surface-variant">{deudaActual}</p>
+        <p className="font-label text-xs text-on-surface-variant">{deudaActual}</p>
       </div>
 
-      <div className="space-y-1">
-        {/* Header */}
-        <div className="grid grid-cols-[72px_1fr_1fr_1fr_1fr] gap-2 rounded-lg bg-surface-container px-3 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-          <span>Mes</span>
-          <span className="text-right">Total</span>
-          <span className="text-right">Franco</span>
-          <span className="text-right">Fabiola</span>
-          <span className="text-right">Balance</span>
-        </div>
-
-        {/* Rows */}
-        {filas.map((fila) => (
-          <div
-            key={fila.mes}
-            className="grid grid-cols-[72px_1fr_1fr_1fr_1fr] gap-2 rounded-lg px-3 py-2.5 font-label text-sm tabular-nums text-on-surface hover:bg-surface-container-low transition-colors duration-150"
-          >
-            <span className="font-medium text-on-surface-variant">{fila.mes}</span>
-            <span className="text-right font-semibold">{formatearPeso(fila.total)}</span>
-            <span className="text-right font-semibold">{formatearPeso(fila.franco)}</span>
-            <span className="text-right font-semibold">{formatearPeso(fila.fabiola)}</span>
-            <span className="text-right font-semibold">{formatearPeso(Math.abs(fila.balance))}</span>
-          </div>
-        ))}
-
-        {/* Totals Row */}
-        <div className="grid grid-cols-[72px_1fr_1fr_1fr_1fr] gap-2 rounded-lg bg-surface-container-high px-3 py-3 font-label text-sm font-bold tabular-nums text-on-surface">
-          <span>Totales</span>
-          <span className="text-right">{formatearPeso(totales.total)}</span>
-          <span className="text-right">{formatearPeso(totales.franco)}</span>
-          <span className="text-right">{formatearPeso(totales.fabiola)}</span>
-          <span className="text-right">{formatearPeso(Math.abs(filas.reduce((acc, fila) => acc + fila.balance, 0)))}</span>
-        </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[600px]">
+          <thead>
+            <tr className="bg-surface-container-low text-[9px] uppercase tracking-widest font-black text-on-surface-variant border-b border-outline-variant/30">
+              <th className="px-3 py-2">Mes</th>
+              <th className="px-3 py-2 text-right border-r border-outline-variant/20">Total</th>
+              <th className="px-3 py-2 text-right border-r border-outline-variant/20">Franco</th>
+              <th className="px-3 py-2 text-right border-r border-outline-variant/20">Fabiola</th>
+              <th className="px-3 py-2 text-right">Balance</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-outline-variant/10">
+            {filas.map((fila) => (
+              <tr key={fila.mes} className="hover:bg-surface-container-low/50 transition-colors">
+                <td className="px-3 py-2 font-label text-xs text-on-surface-variant">{fila.mes}</td>
+                <td className="px-3 py-2 text-right font-label text-sm tabular-nums border-r border-outline-variant/10">
+                  {formatearPeso(fila.total)}
+                </td>
+                <td className="px-3 py-2 text-right font-label text-sm tabular-nums border-r border-outline-variant/10">
+                  {formatearPeso(fila.franco)}
+                </td>
+                <td className="px-3 py-2 text-right font-label text-sm tabular-nums border-r border-outline-variant/10">
+                  {formatearPeso(fila.fabiola)}
+                </td>
+                <td className="px-3 py-2 text-right font-label text-sm tabular-nums font-semibold">
+                  {formatearPeso(Math.abs(fila.balance))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-surface-container-highest text-sm font-bold border-t border-outline-variant/30">
+              <td className="px-3 py-2.5 font-label text-on-surface">Totales</td>
+              <td className="px-3 py-2.5 text-right font-label tabular-nums border-r border-outline-variant/20">
+                {formatearPeso(totales.total)}
+              </td>
+              <td className="px-3 py-2.5 text-right font-label tabular-nums border-r border-outline-variant/20">
+                {formatearPeso(totales.franco)}
+              </td>
+              <td className="px-3 py-2.5 text-right font-label tabular-nums border-r border-outline-variant/20">
+                {formatearPeso(totales.fabiola)}
+              </td>
+              <td className="px-3 py-2.5 text-right font-label tabular-nums">
+                {formatearPeso(Math.abs(filas.reduce((acc, f) => acc + f.balance, 0)))}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
     </section>
   );

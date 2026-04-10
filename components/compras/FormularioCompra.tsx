@@ -497,61 +497,76 @@ export function FormularioCompraUnificado({
     }
   }
 
-  const botonBase =
-    "inline-flex h-8 items-center gap-2 whitespace-nowrap rounded-full px-3 text-sm font-medium transition-all duration-150 active:scale-[0.97]";
-  const botonActivo = "bg-primary text-on-primary shadow-sm";
-  const botonInactivo = "bg-surface-variant text-on-surface-variant hover:bg-surface-container-high";
+  const totalFranco = useMemo(() => compra.items.reduce((a, i) => a + i.pago_franco, 0), [compra.items]);
+  const totalFabiola = useMemo(() => compra.items.reduce((a, i) => a + i.pago_fabiola, 0), [compra.items]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface pb-4 md:pb-24">
+    <div className="flex min-h-screen flex-col bg-surface-container-lowest pb-4 md:pb-24">
       <div className="mx-auto w-full max-w-[1160px] px-2 py-2 md:px-3 md:py-3">
-        <div className="grid gap-2 md:gap-3 lg:grid-cols-[330px_1fr]">
+        <div className="grid gap-2 md:gap-3 lg:grid-cols-[340px_1fr]">
+          {/* LEFT COLUMN */}
           <section className="space-y-2">
-            {/* Header Card */}
+            {/* Header Card - Ticket style */}
             <div className="rounded-xl bg-surface-container-lowest p-3 md:p-4 shadow-sm">
               <input
                 type="text"
                 value={compra.nombre_lugar}
                 onChange={(event) => actualizarCampo("nombre_lugar", event.target.value)}
                 placeholder="Comercio"
-                className="mb-3 w-full border-b border-transparent bg-transparent px-0 py-2 font-headline text-2xl font-semibold tracking-tight text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
+                className="mb-2 w-full border-b-2 border-dashed border-outline-variant/30 bg-transparent px-0 py-1.5 font-headline text-2xl font-semibold tracking-tight text-on-surface outline-none placeholder:text-on-surface-variant/30 focus:border-primary"
               />
 
               <div className="flex flex-wrap items-center gap-1.5">
-                <label className={`${botonBase} ${botonInactivo} cursor-pointer`}>
-                  <span className="font-label text-[10px] uppercase tracking-widest">Fecha</span>
+                <label className="inline-flex h-7 items-center gap-1.5 rounded-full border border-outline-variant/40 bg-surface-variant px-2.5 transition-all duration-150 cursor-pointer">
+                  <span className="font-label text-[10px] text-outline uppercase tracking-wider">Fecha</span>
                   <input
                     type="date"
                     value={compra.fecha}
                     onChange={(event) => actualizarCampo("fecha", event.target.value)}
-                    className="border-none bg-transparent p-0 font-label text-sm tabular-nums text-on-surface outline-none"
+                    className="border-none bg-transparent p-0 font-label text-xs tabular-nums text-on-surface outline-none"
                   />
                 </label>
                 <button
                   type="button"
                   onClick={() => actualizarCampo("pagador_general", "franco")}
-                  className={`${botonBase} ${compra.pagador_general === "franco" ? botonActivo : botonInactivo}`}
+                  className={`inline-flex h-7 items-center rounded-full border px-2.5 font-label text-[10px] font-medium uppercase tracking-wider transition-all duration-150 ${
+                    compra.pagador_general === "franco"
+                      ? "border-primary bg-primary text-on-primary"
+                      : "border-outline-variant/40 bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
                 >
                   {nombres.franco}
                 </button>
                 <button
                   type="button"
                   onClick={() => actualizarCampo("pagador_general", "fabiola")}
-                  className={`${botonBase} ${compra.pagador_general === "fabiola" ? botonActivo : botonInactivo}`}
+                  className={`inline-flex h-7 items-center rounded-full border px-2.5 font-label text-[10px] font-medium uppercase tracking-wider transition-all duration-150 ${
+                    compra.pagador_general === "fabiola"
+                      ? "border-primary bg-primary text-on-primary"
+                      : "border-outline-variant/40 bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
                 >
                   {nombres.fabiola}
                 </button>
                 <button
                   type="button"
                   onClick={() => actualizarCampo("pagador_general", "compartido")}
-                  className={`${botonBase} ${compra.pagador_general === "compartido" ? botonActivo : botonInactivo}`}
+                  className={`inline-flex h-7 items-center rounded-full border px-2.5 font-label text-[10px] font-medium uppercase tracking-wider transition-all duration-150 ${
+                    compra.pagador_general === "compartido"
+                      ? "border-primary bg-primary text-on-primary"
+                      : "border-outline-variant/40 bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
                 >
-                  Compartido
+                  50/50
                 </button>
                 <button
                   type="button"
                   onClick={() => setMostrarNotas((actual) => !actual)}
-                  className={`${botonBase} ${mostrarNotas || compra.notas.trim() ? botonActivo : botonInactivo}`}
+                  className={`inline-flex h-7 items-center rounded-full border px-2.5 font-label text-[10px] font-medium uppercase tracking-wider transition-all duration-150 ${
+                    mostrarNotas || compra.notas.trim()
+                      ? "border-primary bg-primary text-on-primary"
+                      : "border-outline-variant/40 bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
                 >
                   Notas
                 </button>
@@ -562,12 +577,12 @@ export function FormularioCompraUnificado({
                   value={compra.notas}
                   onChange={(event) => actualizarCampo("notas", event.target.value)}
                   placeholder="Notas libres de la compra"
-                  className="mt-3 min-h-24 w-full border-b border-transparent bg-transparent px-0 py-2 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
+                  className="mt-3 min-h-20 w-full border-b border-dashed border-outline-variant/30 bg-transparent px-0 py-2 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/30 focus:border-primary"
                 />
               ) : null}
 
-              <div className="mt-3">
-                <p className="mb-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Etiquetas de compra</p>
+              <div className="mt-3 border-t border-dashed border-outline-variant/30 pt-3">
+                <p className="mb-1.5 font-label text-[10px] text-outline uppercase tracking-wider">Etiquetas de compra</p>
                 <input
                   list="etiquetas-sugeridas-compra"
                   value={entradaEtiquetaCompra}
@@ -580,14 +595,14 @@ export function FormularioCompraUnificado({
                     }
                   }}
                   placeholder="Escribe y elige etiqueta"
-                  className="h-9 w-full border-b border-transparent bg-transparent px-0 py-1.5 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
+                  className="h-8 w-full border-none bg-transparent px-0 py-1 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/30"
                 />
                 <datalist id="etiquetas-sugeridas-compra">
                   {etiquetas.map((etiqueta) => (
                     <option key={etiqueta.id} value={etiqueta.nombre} />
                   ))}
                 </datalist>
-                <div className="mt-2 flex flex-wrap gap-1">
+                <div className="mt-1.5 flex flex-wrap gap-1">
                   {compra.etiquetas_compra_ids.map((etiquetaId) => {
                     const etiqueta = etiquetas.find((actual) => actual.id === etiquetaId);
                     if (!etiqueta) {
@@ -598,10 +613,10 @@ export function FormularioCompraUnificado({
                         key={etiqueta.id}
                         type="button"
                         onClick={() => toggleEtiquetaCompra(etiqueta.id)}
-                        className="inline-flex h-6 items-center rounded-full bg-surface-variant px-2 font-label text-[10px] font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high"
+                        className="inline-flex h-5 items-center rounded-full bg-secondary-fixed px-2 py-0 font-label text-[9px] font-medium text-on-secondary-fixed transition-all duration-150 hover:opacity-80"
                         title="Quitar etiqueta"
                       >
-                        {etiqueta.nombre} ×
+                        {etiqueta.nombre} x
                       </button>
                     );
                   })}
@@ -609,29 +624,29 @@ export function FormularioCompraUnificado({
               </div>
             </div>
 
-            {/* Advanced Options Card */}
+            {/* Advanced Options */}
             <div className="rounded-xl bg-surface-container-lowest p-3 md:p-4 shadow-sm">
               <button
                 type="button"
                 onClick={() => setMostrarPegadoMasivo((actual) => !actual)}
                 className="flex w-full items-center justify-between rounded-lg bg-surface-container-low px-3 py-2 text-left transition-all duration-150 hover:bg-surface-container"
               >
-                <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Opciones avanzadas</span>
+                <span className="font-label text-[10px] text-outline uppercase tracking-wider">Opciones avanzadas</span>
                 <span className="font-label text-xs text-on-surface-variant">{mostrarPegadoMasivo ? "Ocultar" : "Mostrar"}</span>
               </button>
               {mostrarPegadoMasivo ? (
-                <div className="mt-3">
-                  <p className="mb-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Pegado masivo</p>
+                <div className="mt-3 border-t border-dashed border-outline-variant/30 pt-3">
+                  <p className="mb-1.5 font-label text-[10px] text-outline uppercase tracking-wider">Pegado masivo</p>
                   <textarea
                     value={entradaPegado}
                     onChange={(event) => setEntradaPegado(event.target.value)}
                     placeholder={`Pega lineas: categoria - subcategoria - detalle - 7600+5200-500\nO columnas desde Sheets (TAB)`}
-                    className="min-h-28 w-full border-b border-transparent bg-transparent px-0 py-2 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
+                    className="min-h-24 w-full border-none bg-transparent px-0 py-2 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/30"
                   />
                   <button
                     type="button"
                     onClick={importarLineasPegadas}
-                    className="mt-2 h-9 w-full rounded-lg bg-surface-container-high px-3 font-label text-sm font-medium text-on-surface transition-all duration-150 hover:bg-surface-container-highest active:scale-[0.98]"
+                    className="mt-2 h-8 w-full rounded-lg bg-surface-container-high px-3 font-label text-xs font-medium text-on-surface transition-all duration-150 hover:bg-surface-container-highest active:scale-[0.98]"
                   >
                     Cargar lineas en tabla
                   </button>
@@ -640,73 +655,90 @@ export function FormularioCompraUnificado({
             </div>
           </section>
 
+          {/* RIGHT COLUMN - Items ledger */}
           <section className="rounded-xl bg-surface-container-lowest shadow-sm">
-            <div className="flex items-center justify-between border-b border-outline-variant/20 px-3 py-2">
-              <h3 className="font-headline text-sm font-semibold text-on-surface">Items</h3>
+            <div className="flex items-center justify-between border-b border-dashed border-outline-variant/30 px-3 py-2">
+              <h3 className="font-label text-[10px] font-semibold uppercase tracking-wider text-outline">Items</h3>
               <button
                 type="button"
                 onClick={() => agregarFila()}
-                className="h-8 rounded-full bg-surface-container-high px-3 font-label text-xs font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-highest active:scale-[0.97]"
+                className="h-7 rounded-full border border-outline-variant/40 bg-surface-variant px-2.5 font-label text-[10px] font-medium uppercase tracking-wider text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high active:scale-[0.97]"
               >
                 + Fila
               </button>
             </div>
 
+            {/* Mobile items */}
             <div className="space-y-2 p-2 md:hidden">
               {compra.items.map((item) => (
-                <article key={item.id} className="space-y-2 rounded-xl bg-surface-container-low p-2.5">
-                  <input
-                    type="text"
-                    value={item.descripcion}
-                    onChange={(event) => actualizarItem(item.id as string, { descripcion: event.target.value })}
-                    placeholder="Detalle"
-                    className="h-10 w-full border-b border-transparent bg-transparent px-0 py-1 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
-                  />
-                  <div className="grid grid-cols-[1fr_auto] gap-2">
+                <article key={item.id} className="space-y-1.5 rounded-lg bg-surface-container-low p-2.5">
+                  <div className="flex items-center justify-between gap-2">
                     <input
                       type="text"
-                      inputMode="decimal"
-                      value={item.expresion_monto}
-                      onChange={(event) => actualizarItem(item.id as string, { expresion_monto: event.target.value })}
-                      onBlur={() => actualizarItem(item.id as string, {}, true)}
-                      placeholder="Monto"
-                      className="h-10 w-full border-b border-transparent bg-transparent px-0 py-1 font-label text-sm tabular-nums text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
+                      value={item.descripcion}
+                      onChange={(event) => actualizarItem(item.id as string, { descripcion: event.target.value })}
+                      placeholder="Detalle"
+                      className="h-8 w-full border-none bg-transparent px-0 py-0 font-headline text-sm font-semibold text-on-surface outline-none placeholder:text-on-surface-variant/30"
                     />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="font-label text-[10px] text-outline">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={item.expresion_monto}
+                        onChange={(event) => actualizarItem(item.id as string, { expresion_monto: event.target.value })}
+                        onBlur={() => actualizarItem(item.id as string, {}, true)}
+                        placeholder="0"
+                        className="h-8 w-24 border-none bg-transparent px-0 py-0 font-label text-lg font-bold tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/30 text-right"
+                      />
+                    </div>
+                  </div>
+                  {/* Reparto buttons grid */}
+                  <div className="grid grid-cols-4 gap-1">
+                    {(["50/50", "solo_franco", "solo_fabiola"] as const).map((tipo) => (
+                      <button
+                        key={tipo}
+                        type="button"
+                        onClick={() => actualizarItem(item.id as string, { tipo_reparto: tipo }, true)}
+                        className={`h-7 rounded border font-label text-[10px] font-medium uppercase tracking-wider transition-all duration-150 ${
+                          item.tipo_reparto === tipo
+                            ? "border-primary bg-primary text-on-primary"
+                            : "border-outline-variant bg-surface-variant text-on-surface-variant"
+                        }`}
+                      >
+                        {tipo === "50/50" ? "50/50" : tipo === "solo_franco" ? nombres.franco : nombres.fabiola}
+                      </button>
+                    ))}
                     <button
                       type="button"
                       onClick={() => eliminarFila(item.id as string)}
-                      className="h-10 rounded-full bg-surface-container-high px-3 font-label text-xs font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-highest"
+                      className="h-7 rounded border border-outline-variant bg-surface-variant font-label text-[10px] font-medium text-on-surface-variant transition-all duration-150 hover:bg-error-container hover:text-error"
                     >
-                      Borrar
+                      x
                     </button>
                   </div>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => actualizarItem(item.id as string, { tipo_reparto: "50/50" }, true)}
-                      className={`h-7 rounded-full px-2 font-label text-[10px] font-medium transition-all duration-150 ${item.tipo_reparto === "50/50" ? "bg-primary text-on-primary" : "bg-surface-variant text-on-surface-variant"}`}
-                    >
-                      50/50
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => actualizarItem(item.id as string, { tipo_reparto: "solo_franco" }, true)}
-                      className={`h-7 rounded-full px-2 font-label text-[10px] font-medium transition-all duration-150 ${item.tipo_reparto === "solo_franco" ? "bg-primary text-on-primary" : "bg-surface-variant text-on-surface-variant"}`}
-                    >
-                      {nombres.franco}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => actualizarItem(item.id as string, { tipo_reparto: "solo_fabiola" }, true)}
-                      className={`h-7 rounded-full px-2 font-label text-[10px] font-medium transition-all duration-150 ${item.tipo_reparto === "solo_fabiola" ? "bg-primary text-on-primary" : "bg-surface-variant text-on-surface-variant"}`}
-                    >
-                      {nombres.fabiola}
-                    </button>
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-0.5">
+                    {item.etiquetas_ids.map((etiquetaId) => {
+                      const etiqueta = etiquetas.find((actual) => actual.id === etiquetaId);
+                      if (!etiqueta) return null;
+                      return (
+                        <button
+                          key={etiquetaId}
+                          type="button"
+                          onClick={() => toggleEtiquetaItem(item.id as string, etiquetaId)}
+                          className="inline-flex h-4 items-center rounded-full bg-secondary-fixed px-1.5 py-0 font-label text-[9px] font-medium text-on-secondary-fixed transition-all duration-150 hover:opacity-80"
+                        >
+                          {etiqueta.nombre} x
+                        </button>
+                      );
+                    })}
                   </div>
                 </article>
               ))}
             </div>
 
+            {/* Desktop table - Ledger style */}
             <div className="hidden overflow-x-auto md:block">
               <table
                 className="w-full min-w-[940px] border-collapse md:min-w-[1020px]"
@@ -728,20 +760,20 @@ export function FormularioCompraUnificado({
                 }}
               >
                 <thead className="sticky top-0 z-10">
-                  <tr className="bg-surface-container text-left">
-                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Categoria</th>
-                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Subcategoria</th>
-                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Detalle</th>
-                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Monto</th>
-                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Reparto</th>
-                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Franco</th>
-                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Fabiola</th>
-                    <th className="border-b border-outline-variant/20 px-2 py-2 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Tags</th>
-                    <th className="border-b border-outline-variant/20 px-2 py-2 w-16"></th>
+                  <tr className="bg-surface-container">
+                    <th className="border-b border-dashed border-outline-variant/30 px-2 py-1.5 text-left font-label text-[10px] font-semibold uppercase tracking-wider text-outline">Categoria</th>
+                    <th className="border-b border-dashed border-outline-variant/30 px-2 py-1.5 text-left font-label text-[10px] font-semibold uppercase tracking-wider text-outline">Subcategoria</th>
+                    <th className="border-b border-dashed border-outline-variant/30 px-2 py-1.5 text-left font-label text-[10px] font-semibold uppercase tracking-wider text-outline">Detalle</th>
+                    <th className="border-b border-dashed border-outline-variant/30 px-2 py-1.5 text-right font-label text-[10px] font-semibold uppercase tracking-wider text-outline">Monto</th>
+                    <th className="border-b border-dashed border-outline-variant/30 px-2 py-1.5 text-left font-label text-[10px] font-semibold uppercase tracking-wider text-outline">Reparto</th>
+                    <th className="border-b border-dashed border-outline-variant/30 px-2 py-1.5 text-right font-label text-[10px] font-semibold uppercase tracking-wider text-outline">Franco</th>
+                    <th className="border-b border-dashed border-outline-variant/30 px-2 py-1.5 text-right font-label text-[10px] font-semibold uppercase tracking-wider text-outline">Fabiola</th>
+                    <th className="border-b border-dashed border-outline-variant/30 px-2 py-1.5 text-left font-label text-[10px] font-semibold uppercase tracking-wider text-outline">Tags</th>
+                    <th className="border-b border-dashed border-outline-variant/30 px-2 py-1.5 w-16"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {compra.items.map((item) => {
+                  {compra.items.map((item, idx) => {
                     const subcategoriasFila = item.categoria_id
                       ? opcionesSubcategoriaPorCategoria.get(item.categoria_id) ?? []
                       : [];
@@ -751,10 +783,10 @@ export function FormularioCompraUnificado({
                         key={item.id}
                         className={`align-top text-sm transition-all duration-150 ${
                           filaActiva === item.id ? "bg-surface-container-low" : filaActiva && filaActiva !== item.id ? "opacity-40" : ""
-                        }`}
+                        } ${idx !== compra.items.length - 1 ? "border-b border-dashed border-outline-variant/20" : ""}`}
                         onFocus={() => setFilaActiva(item.id as string)}
                       >
-                        <td className="border-b border-outline-variant/10 px-1 py-1">
+                        <td className="px-1.5 py-1">
                           <Combobox
                             valor={item.categoria_id}
                             onChange={(valor) =>
@@ -774,7 +806,7 @@ export function FormularioCompraUnificado({
                           />
                         </td>
 
-                        <td className="border-b border-outline-variant/10 px-1 py-1">
+                        <td className="px-1.5 py-1">
                           <Combobox
                             valor={item.subcategoria_id}
                             onChange={(valor) => actualizarItem(item.id as string, { subcategoria_id: valor })}
@@ -789,7 +821,7 @@ export function FormularioCompraUnificado({
                           />
                         </td>
 
-                        <td className="border-b border-outline-variant/10 px-1 py-1">
+                        <td className="px-1.5 py-1">
                           <input
                             type="text"
                             value={item.descripcion}
@@ -814,11 +846,11 @@ export function FormularioCompraUnificado({
                               }
                             }}
                             placeholder="-"
-                            className="h-8 w-full border-b border-transparent bg-transparent px-1 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
+                            className="h-7 w-full border-none bg-transparent px-1 py-0 font-headline text-sm font-semibold text-on-surface outline-none placeholder:text-on-surface-variant/30"
                           />
                         </td>
 
-                        <td className="border-b border-outline-variant/10 px-1 py-1">
+                        <td className="px-1.5 py-1">
                           <div className="relative">
                             <input
                               type="text"
@@ -833,32 +865,67 @@ export function FormularioCompraUnificado({
                               }}
                               onBlur={() => actualizarItem(item.id as string, {}, true)}
                               placeholder="-"
-                              className="h-8 w-full border-b border-transparent bg-transparent px-1 font-label text-sm tabular-nums text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
+                              className="h-7 w-full border-none bg-transparent px-1 py-0 font-label text-xl font-bold tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/30 text-right"
                             />
                             {item.expresion_monto && item.expresion_monto !== item.monto_resuelto.toString() && (
-                              <span className="absolute -bottom-3 left-0 font-label text-[10px] tabular-nums text-tertiary">
+                              <span className="absolute -bottom-3 right-0 font-label text-[10px] tabular-nums text-tertiary">
                                 = {formatearPeso(item.monto_resuelto)}
                               </span>
                             )}
                           </div>
                         </td>
 
-                        <td className="border-b border-outline-variant/10 px-1 py-1">
-                          <select
-                            value={item.tipo_reparto}
-                            onChange={(event) =>
-                              actualizarItem(item.id as string, { tipo_reparto: event.target.value as TipoReparto }, true)
-                            }
-                            className="h-8 w-full border-b border-transparent bg-transparent px-1 font-label text-[10px] text-on-surface outline-none transition-all duration-150 focus:border-b-primary"
-                          >
-                            <option value="50/50">50/50</option>
-                            <option value="solo_franco">{nombres.franco}</option>
-                            <option value="solo_fabiola">{nombres.fabiola}</option>
-                            <option value="personalizado">Custom</option>
-                          </select>
+                        <td className="px-1.5 py-1">
+                          <div className="grid grid-cols-2 gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => actualizarItem(item.id as string, { tipo_reparto: "50/50" }, true)}
+                              className={`h-6 rounded border px-1 font-label text-[9px] font-medium uppercase tracking-wider transition-all duration-150 ${
+                                item.tipo_reparto === "50/50"
+                                  ? "border-primary bg-primary text-on-primary"
+                                  : "border-outline-variant bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                              }`}
+                            >
+                              50/50
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => actualizarItem(item.id as string, { tipo_reparto: "solo_franco" }, true)}
+                              className={`h-6 rounded border px-1 font-label text-[9px] font-medium uppercase tracking-wider transition-all duration-150 ${
+                                item.tipo_reparto === "solo_franco"
+                                  ? "border-primary bg-primary text-on-primary"
+                                  : "border-outline-variant bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                              }`}
+                            >
+                              Fran.
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => actualizarItem(item.id as string, { tipo_reparto: "solo_fabiola" }, true)}
+                              className={`h-6 rounded border px-1 font-label text-[9px] font-medium uppercase tracking-wider transition-all duration-150 ${
+                                item.tipo_reparto === "solo_fabiola"
+                                  ? "border-primary bg-primary text-on-primary"
+                                  : "border-outline-variant bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                              }`}
+                            >
+                              Fab.
+                            </button>
+                            <select
+                              value={item.tipo_reparto}
+                              onChange={(event) =>
+                                actualizarItem(item.id as string, { tipo_reparto: event.target.value as TipoReparto }, true)
+                              }
+                              className="h-6 w-full border border-outline-variant bg-surface-variant px-1 font-label text-[9px] text-on-surface-variant outline-none transition-all duration-150 focus:border-primary"
+                            >
+                              <option value="50/50">50/50</option>
+                              <option value="solo_franco">{nombres.franco}</option>
+                              <option value="solo_fabiola">{nombres.fabiola}</option>
+                              <option value="personalizado">Custom</option>
+                            </select>
+                          </div>
                         </td>
 
-                        <td className="border-b border-outline-variant/10 px-1 py-1">
+                        <td className="px-1.5 py-1">
                           <input
                             type="number"
                             step="0.01"
@@ -871,11 +938,11 @@ export function FormularioCompraUnificado({
                               )
                             }
                             disabled={item.tipo_reparto !== "personalizado"}
-                            className="h-8 w-full border-b border-transparent bg-transparent px-1 font-label text-sm tabular-nums text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary disabled:opacity-40"
+                            className="h-7 w-full border-none bg-transparent px-1 py-0 font-label text-sm tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/30 disabled:opacity-40 text-right"
                           />
                         </td>
 
-                        <td className="border-b border-outline-variant/10 px-1 py-1">
+                        <td className="px-1.5 py-1">
                           <input
                             type="number"
                             step="0.01"
@@ -888,11 +955,11 @@ export function FormularioCompraUnificado({
                               )
                             }
                             disabled={item.tipo_reparto !== "personalizado"}
-                            className="h-8 w-full border-b border-transparent bg-transparent px-1 font-label text-sm tabular-nums text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary disabled:opacity-40"
+                            className="h-7 w-full border-none bg-transparent px-1 py-0 font-label text-sm tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/30 disabled:opacity-40 text-right"
                           />
                         </td>
 
-                        <td className="border-b border-outline-variant/10 px-1 py-1">
+                        <td className="px-1.5 py-1">
                           <div className="min-w-[100px]">
                             <input
                               list={`etiquetas-sugeridas-${item.id}`}
@@ -911,14 +978,14 @@ export function FormularioCompraUnificado({
                                 }
                               }}
                               placeholder="-"
-                              className="h-8 w-full border-b border-transparent bg-transparent px-1 font-headline text-sm text-on-surface outline-none transition-all duration-150 placeholder:text-on-surface-variant/40 focus:border-b-primary"
+                              className="h-7 w-full border-none bg-transparent px-1 py-0 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/30"
                             />
                             <datalist id={`etiquetas-sugeridas-${item.id}`}>
                               {etiquetas.map((etiqueta) => (
                                 <option key={etiqueta.id} value={etiqueta.nombre} />
                               ))}
                             </datalist>
-                            <div className="flex flex-wrap gap-0.5">
+                            <div className="mt-0.5 flex flex-wrap gap-0.5">
                               {item.etiquetas_ids.map((etiquetaId) => {
                                 const etiqueta = etiquetas.find((actual) => actual.id === etiquetaId);
                                 if (!etiqueta) {
@@ -930,9 +997,9 @@ export function FormularioCompraUnificado({
                                     key={etiqueta.id}
                                     type="button"
                                     onClick={() => toggleEtiquetaItem(item.id as string, etiqueta.id)}
-                                    className="inline-flex h-5 items-center rounded-full bg-surface-variant px-1.5 font-label text-[10px] font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high"
+                                    className="inline-flex h-4 items-center rounded-full bg-secondary-fixed px-1.5 py-0 font-label text-[9px] font-medium text-on-secondary-fixed transition-all duration-150 hover:opacity-80"
                                   >
-                                    {etiqueta.nombre} ×
+                                    {etiqueta.nombre} x
                                   </button>
                                 );
                               })}
@@ -940,23 +1007,23 @@ export function FormularioCompraUnificado({
                           </div>
                         </td>
 
-                        <td className="border-b border-outline-variant/10 px-1 py-1">
+                        <td className="px-1.5 py-1">
                           <div className="flex gap-0.5">
                             <button
                               type="button"
                               onClick={() => duplicarFila(item.id as string)}
-                              className="h-7 w-7 rounded-full px-1.5 font-label text-xs font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high"
+                              className="h-6 w-6 rounded-full px-1 font-label text-xs font-medium text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high"
                               title="Duplicar"
                             >
-                              ⧉
+                              +
                             </button>
                             <button
                               type="button"
                               onClick={() => eliminarFila(item.id as string)}
-                              className="h-7 w-7 rounded-full px-1.5 font-label text-xs font-medium text-on-surface-variant transition-all duration-150 hover:bg-error-container hover:text-error"
+                              className="h-6 w-6 rounded-full px-1 font-label text-xs font-medium text-on-surface-variant transition-all duration-150 hover:bg-error-container hover:text-error"
                               title="Borrar"
                             >
-                              ×
+                              x
                             </button>
                           </div>
                         </td>
@@ -965,43 +1032,77 @@ export function FormularioCompraUnificado({
                   })}
                 </tbody>
               </table>
+
+              {/* Add item button - dashed border */}
+              <button
+                type="button"
+                onClick={() => agregarFila()}
+                className="mt-1 flex w-full items-center justify-center rounded-xl border-2 border-dashed border-outline-variant/40 bg-transparent py-3 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high hover:text-on-surface"
+              >
+                + Agregar item
+              </button>
+            </div>
+
+            {/* Mobile add item button */}
+            <div className="md:hidden">
+              <button
+                type="button"
+                onClick={() => agregarFila()}
+                className="mt-1 flex w-full items-center justify-center rounded-xl border-2 border-dashed border-outline-variant/40 bg-transparent py-3 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant transition-all duration-150 hover:bg-surface-container-high hover:text-on-surface"
+              >
+                + Agregar item
+              </button>
             </div>
           </section>
         </div>
       </div>
 
-      <footer className="sticky bottom-0 left-0 right-0 z-20 mx-auto w-full max-w-[1160px] bg-surface-container-high px-2 py-2 md:fixed md:px-4 md:py-3 md:shadow-card">
-        <div className="flex flex-wrap items-center gap-2 md:justify-between md:gap-3">
-          <div className="min-w-0">
-            <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Total</p>
-            <p className="font-label text-2xl font-bold tracking-tight tabular-nums text-primary text-right">{formatearPeso(total)}</p>
+      {/* Footer / Total - Ticket style */}
+      <footer className="sticky bottom-0 left-0 right-0 z-20 mx-auto w-full max-w-[1160px] px-2 py-2 md:fixed md:px-4 md:py-3">
+        <div className="rounded-xl bg-surface-container-high p-4 shadow-lg">
+          <div className="mb-3 border-t-2 border-stone-100 pt-3">
+            <div className="flex items-baseline justify-between">
+              <span className="font-label text-[10px] text-outline uppercase tracking-wider">Total</span>
+              <span className="font-label text-2xl font-bold tabular-nums text-primary">{formatearPeso(total)}</span>
+            </div>
+            {/* Distribution summary */}
+            <div className="mt-2 rounded-lg bg-surface-container p-3">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-baseline justify-between">
+                  <span className="font-label text-[10px] text-outline uppercase tracking-wider">{nombres.franco}</span>
+                  <span className="font-label text-sm font-semibold tabular-nums text-on-surface">
+                    {formatearPeso(totalFranco)}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="font-label text-[10px] text-outline uppercase tracking-wider">{nombres.fabiola}</span>
+                  <span className="font-label text-sm font-semibold tabular-nums text-on-surface">
+                    {formatearPeso(totalFabiola)}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => agregarFila()}
-            className="h-10 rounded-full border border-outline-variant/30 bg-surface-container-lowest px-3 font-label text-sm font-medium text-on-surface transition-all duration-150 hover:bg-surface-container-high active:scale-[0.97]"
-          >
-            + Item
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void confirmarCompra(true)}
+              disabled={guardandoCompra}
+              className="h-10 flex-1 rounded-full border border-outline-variant/40 bg-surface-container-lowest px-3 font-label text-xs font-medium uppercase tracking-wider text-on-surface transition-all duration-150 hover:bg-surface-container-high active:scale-[0.97] disabled:opacity-50"
+            >
+              Confirmar y nueva
+            </button>
 
-          <button
-            type="button"
-            onClick={() => void confirmarCompra(true)}
-            disabled={guardandoCompra}
-            className="h-10 rounded-full border border-outline-variant/30 bg-surface-container-lowest px-4 font-label text-sm font-medium text-on-surface transition-all duration-150 hover:bg-surface-container-high active:scale-[0.97] disabled:opacity-50"
-          >
-            Confirmar y nueva
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void confirmarCompra(false)}
-            disabled={guardandoCompra}
-            className="h-10 min-w-[180px] flex-1 rounded-full bg-primary px-4 font-label text-sm font-semibold text-on-primary shadow-sm transition-all duration-150 hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50"
-          >
-            {guardandoCompra ? "Guardando..." : "Confirmar Compra"}
-          </button>
+            <button
+              type="button"
+              onClick={() => void confirmarCompra(false)}
+              disabled={guardandoCompra}
+              className="h-10 flex-[2] rounded-full bg-primary px-4 font-label text-sm font-semibold uppercase tracking-wider text-on-primary shadow-sm transition-all duration-150 hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50"
+            >
+              {guardandoCompra ? "Guardando..." : "Confirmar Compra"}
+            </button>
+          </div>
         </div>
       </footer>
     </div>

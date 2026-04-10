@@ -19,129 +19,107 @@ interface Props {
 export function CardCompra({ compra, nombres, onEliminar }: Props) {
   const [expandida, setExpandida] = useState(false);
   const categorias = obtenerCategoriasUsadas(compra);
-  const tagsCompra = compra.etiquetas_compra;
   const total = totalCompra(compra);
-  const totalFranco = compra.items.reduce((acumulado, item) => acumulado + item.pago_franco, 0);
-  const totalFabiola = compra.items.reduce((acumulado, item) => acumulado + item.pago_fabiola, 0);
+  const totalFranco = compra.items.reduce((acc, item) => acc + item.pago_franco, 0);
+  const totalFabiola = compra.items.reduce((acc, item) => acc + item.pago_fabiola, 0);
   const divisor = totalFranco + totalFabiola || 1;
-  const porcentajeFranco = (totalFranco / divisor) * 100;
-  const porcentajeFabiola = 100 - porcentajeFranco;
+  const pctFranco = (totalFranco / divisor) * 100;
 
   return (
-    <article className="overflow-hidden rounded-xl bg-surface-container-lowest p-4 shadow-[var(--shadow-card)]">
-      {/* Header: Lugar + Fecha + Total */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-surface-variant px-2.5 py-1 font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-              {compra.nombre_lugar || "Compra sin lugar"}
-            </span>
-            <span className="font-label text-[10px] text-on-surface-variant">
+    <article className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 shadow-sm overflow-hidden">
+      {/* Header - ticket style */}
+      <div className="px-4 pt-3 pb-2 border-b border-dashed border-outline-variant/30">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant bg-surface-variant px-2 py-0.5 rounded">
+                {compra.nombre_lugar || "Compra sin lugar"}
+              </span>
+              <span className="font-label text-[10px] text-on-surface-variant">
+                {compra.registrado_por}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {categorias.map((cat) => (
+                <span key={cat} className="font-label text-[9px] text-outline">
+                  {cat}
+                </span>
+              ))}
+              {compra.etiquetas_compra.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-1 font-label text-[9px] text-on-surface-variant"
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color }} />
+                  #{tag.nombre}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="font-label text-[10px] text-outline">
               {formatearFecha(compra.fecha)}
-            </span>
+            </p>
+            <p className="font-label text-xl font-bold tracking-tight tabular-nums text-primary">
+              {formatearPeso(total)}
+            </p>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {categorias.map((categoria) => (
-              <span
-                key={categoria}
-                className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-2.5 py-0.5 text-[11px] font-medium text-on-surface-variant"
-              >
-                {categoria}
-              </span>
-            ))}
-            {tagsCompra.map((tag) => (
-              <span
-                key={tag.id}
-                className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-high px-2.5 py-0.5 text-[11px] font-medium text-on-surface-variant"
-              >
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color }} />
-                #{tag.nombre}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="font-label text-[10px] text-on-surface-variant">{compra.registrado_por}</p>
-          <p className="font-label text-2xl font-bold tracking-tight tabular-nums text-primary">
-            {formatearPeso(total)}
-          </p>
         </div>
       </div>
 
-      {/* Distribution Bar */}
-      <div className="mt-4 rounded-lg bg-surface-container p-3 space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-            {nombres.franco}
-          </span>
-          <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-            Distribucion
-          </span>
-          <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-            {nombres.fabiola}
-          </span>
+      {/* Distribution bar */}
+      <div className="px-4 py-2 bg-surface-container flex items-center gap-3 text-[10px]">
+        <span className="font-label font-bold text-secondary tabular-nums w-20 text-right">
+          {formatearPeso(totalFranco)}
+        </span>
+        <div className="flex-1 flex h-1.5 overflow-hidden rounded-full bg-surface-container-lowest">
+          <div className="bg-secondary transition-all duration-200" style={{ width: `${pctFranco}%` }} />
+          <div className="bg-tertiary transition-all duration-200" style={{ width: `${100 - pctFranco}%` }} />
         </div>
-        <div className="flex h-2 overflow-hidden rounded-full bg-surface-container-lowest">
-          <div
-            className="bg-secondary transition-all duration-200"
-            style={{ width: `${porcentajeFranco}%` }}
-          />
-          <div
-            className="bg-tertiary transition-all duration-200"
-            style={{ width: `${porcentajeFabiola}%` }}
-          />
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="font-label text-sm font-semibold tabular-nums text-secondary">
-            {formatearPeso(totalFranco)}
-          </span>
-          <span className="font-label text-sm font-semibold tabular-nums text-tertiary">
-            {formatearPeso(totalFabiola)}
-          </span>
-        </div>
+        <span className="font-label font-bold text-tertiary tabular-nums w-20">
+          {formatearPeso(totalFabiola)}
+        </span>
       </div>
 
-      {/* Action Buttons */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      {/* Actions */}
+      <div className="px-3 py-2 border-t border-dashed border-outline-variant/30 flex items-center gap-2">
         <Boton
           variante="secundario"
-          onClick={() => setExpandida((valor) => !valor)}
+          onClick={() => setExpandida((v) => !v)}
           icono={
             <ChevronDown
-              className={combinarClases(
-                "h-4 w-4 transition-transform duration-200",
-                expandida && "rotate-180"
-              )}
+              className={combinarClases("h-3.5 w-3.5 transition-transform duration-150", expandida && "rotate-180")}
             />
           }
+          className="h-7 px-2.5 text-[10px] font-label font-bold uppercase tracking-wider rounded"
         >
-          {expandida ? "Ocultar items" : "Ver items"}
+          {expandida ? "Ocultar" : "Ver items"}
         </Boton>
         <Link
           href={`/nueva-compra?editar=${compra.id}`}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-surface-container-high px-3 text-sm font-semibold font-headline text-on-surface transition-all duration-200 hover:bg-surface-container-highest active:scale-[0.98]"
+          className="inline-flex h-7 items-center justify-center gap-1.5 rounded bg-surface-container px-2.5 text-[10px] font-label font-bold uppercase tracking-wider text-on-surface-variant hover:bg-surface-container-high transition-colors"
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil className="h-3 w-3" />
           Editar
         </Link>
-        <Boton
-          variante="peligro"
+        <button
+          type="button"
           onClick={() => onEliminar(compra.id)}
-          icono={<Trash2 className="h-4 w-4" />}
+          className="inline-flex h-7 w-7 items-center justify-center rounded text-on-surface-variant hover:text-error hover:bg-error-container transition-colors ml-auto"
         >
-          Eliminar
-        </Boton>
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
 
-      {/* Expandable Items */}
+      {/* Expandable items */}
       <div
         className={combinarClases(
           "grid overflow-hidden transition-all duration-200",
-          expandida ? "mt-4 grid-rows-[1fr]" : "grid-rows-[0fr]"
+          expandida ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         )}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="space-y-2 divide-y divide-outline-variant/10">
+          <div className="px-4 py-2 space-y-0 divide-y divide-outline-variant/10">
             {compra.items.map((item) => (
               <ItemCompra key={item.id} item={item} nombres={nombres} />
             ))}
