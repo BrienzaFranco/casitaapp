@@ -1,0 +1,15 @@
+# dependencias
+node_modules/
+
+# build
+.next/
+out/
+
+# archivos locales
+.env.local
+AGENTS.md
+promptinicial.txt
+
+# sistema
+Thumbs.db
+Desktop.ini
