@@ -78,6 +78,8 @@ export default function PaginaBalance() {
     }
   }
 
+  const sinCompras = !balance.compras.cargando && balance.compras.compras.length === 0;
+
   if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando || balance.cortes.cargando) {
     return (
       <div className="space-y-3">
@@ -85,6 +87,22 @@ export default function PaginaBalance() {
         <Skeleton className="h-40 w-full rounded" />
         <Skeleton className="h-56 w-full rounded" />
       </div>
+    );
+  }
+
+  if (sinCompras) {
+    return (
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3 border border-gray-300 bg-white p-3">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Balance y deuda</h2>
+            <p className="text-sm text-gray-600">Sin compras registradas.</p>
+          </div>
+        </div>
+        <article className="border border-gray-300 bg-white p-6 text-center">
+          <p className="text-gray-600">Registrá compras para ver el balance.</p>
+        </article>
+      </section>
     );
   }
 

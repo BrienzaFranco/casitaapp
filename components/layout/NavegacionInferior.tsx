@@ -61,7 +61,8 @@ export function NavegacionInferior() {
             className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700"
           >
             <Zap className="h-4 w-4" />
-            <span>Rápido</span>
+            <span className="hidden xs:inline">+ Anotar</span>
+            <span className="xs:hidden">+</span>
           </Link>
         ) : (
           <Link
