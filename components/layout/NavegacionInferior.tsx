@@ -16,7 +16,7 @@ export function NavegacionInferior() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-[calc(100%-24px)] max-w-[480px] items-center justify-between rounded-[28px] border border-gray-100 bg-white/95 px-3 py-3 shadow-lg backdrop-blur">
+    <nav className="fixed inset-x-0 bottom-2 z-40 mx-auto flex w-[calc(100%-16px)] max-w-[480px] items-center justify-between rounded-2xl border border-gray-200 bg-white/95 px-2 py-1.5 shadow-md backdrop-blur">
       {enlaces.map(({ href, etiqueta, icono: Icono, destacada }) => {
         const activa = pathname === href;
 
@@ -25,14 +25,14 @@ export function NavegacionInferior() {
             key={href}
             href={href}
             className={combinarClases(
-              "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-xs font-semibold transition",
-              activa ? "text-gray-950" : "text-gray-500",
-              destacada && "mx-2 bg-indigo-600 text-white shadow-md",
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[11px] font-semibold transition",
+              activa ? "text-gray-900" : "text-gray-500",
+              destacada && "mx-1 bg-indigo-600 text-white",
               destacada && activa && "bg-indigo-700 text-white",
             )}
           >
-            <Icono className={combinarClases("h-5 w-5", destacada && "h-6 w-6")} />
-            <span className="truncate">{etiqueta}</span>
+            <Icono className={combinarClases("h-[18px] w-[18px]", destacada && "h-5 w-5")} />
+            <span className="hidden truncate sm:inline">{etiqueta}</span>
           </Link>
         );
       })}
