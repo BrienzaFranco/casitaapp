@@ -23,6 +23,7 @@ function compraAEditable(compra: Compra): CompraEditable {
     pagador_general: compra.pagador_general,
     estado: compra.estado,
     hogar_id: compra.hogar_id,
+    etiquetas_compra_ids: compra.etiquetas_compra.map((etiqueta) => etiqueta.id),
     items: compra.items.map((item) => ({
       id: item.id,
       descripcion: item.descripcion,
@@ -93,6 +94,8 @@ export default function PaginaNuevaCompra() {
       registradoPorDefecto={usuario.perfil?.nombre ?? ""}
       compraInicial={compraInicial}
       guardando={compras.guardando}
+      etiquetas={categorias.etiquetas}
+      onCrearSubcategoria={categorias.crearSubcategoria}
       onGuardar={guardar}
     />
   );

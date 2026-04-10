@@ -36,6 +36,11 @@ export interface ItemEtiquetaRelacion {
   etiquetas: Etiqueta | null;
 }
 
+export interface CompraEtiquetaRelacion {
+  etiqueta_id: string;
+  etiquetas: Etiqueta | null;
+}
+
 export interface ItemBaseDatos {
   id: string;
   compra_id: string;
@@ -82,6 +87,7 @@ export interface CompraBaseDatos {
   pagador_general: PagadorCompra;
   estado: EstadoCompra;
   creado_en: string;
+  compra_etiquetas: CompraEtiquetaRelacion[];
   items: ItemBaseDatos[];
 }
 
@@ -95,6 +101,7 @@ export interface Compra {
   pagador_general: PagadorCompra;
   estado: EstadoCompra;
   creado_en: string;
+  etiquetas_compra: Etiqueta[];
   items: Item[];
 }
 
@@ -120,7 +127,18 @@ export interface CompraEditable {
   pagador_general: PagadorCompra;
   estado: EstadoCompra;
   hogar_id?: string | null;
+  etiquetas_compra_ids: string[];
   items: ItemEditable[];
+}
+
+export interface SettlementCut {
+  id: string;
+  hogar_id: string | null;
+  fecha_corte: string;
+  nota: string;
+  activo: boolean;
+  actualizado_por: string;
+  creado_en: string;
 }
 
 export interface ResumenBalance {
@@ -182,6 +200,7 @@ export interface FiltrosHistorial {
   mes: string;
   categoria_id: string;
   etiqueta_id: string;
+  etiqueta_compra_id?: string;
 }
 
 export interface DatosImportados {

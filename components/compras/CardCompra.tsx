@@ -20,6 +20,7 @@ interface Props {
 export function CardCompra({ compra, nombres, onEliminar }: Props) {
   const [expandida, setExpandida] = useState(false);
   const categorias = obtenerCategoriasUsadas(compra);
+  const tagsCompra = compra.etiquetas_compra;
   const total = totalCompra(compra);
   const totalFranco = compra.items.reduce((acumulado, item) => acumulado + item.pago_franco, 0);
   const totalFabiola = compra.items.reduce((acumulado, item) => acumulado + item.pago_fabiola, 0);
@@ -28,7 +29,7 @@ export function CardCompra({ compra, nombres, onEliminar }: Props) {
   const porcentajeFabiola = 100 - porcentajeFranco;
 
   return (
-    <article className="rounded-[28px] border border-gray-100 bg-white p-4 shadow-sm">
+    <article className="border border-gray-300 bg-white p-3">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <p className="text-base font-semibold text-gray-950">{compra.nombre_lugar || "Compra sin lugar"}</p>
@@ -36,6 +37,11 @@ export function CardCompra({ compra, nombres, onEliminar }: Props) {
           <div className="flex flex-wrap gap-2">
             {categorias.map((categoria) => (
               <Badge key={categoria}>{categoria}</Badge>
+            ))}
+            {tagsCompra.map((tag) => (
+              <Badge key={tag.id} color={tag.color}>
+                #{tag.nombre}
+              </Badge>
             ))}
           </div>
         </div>
@@ -45,7 +51,7 @@ export function CardCompra({ compra, nombres, onEliminar }: Props) {
         </div>
       </div>
 
-      <div className="mt-2 flex h-1.5 overflow-hidden rounded-full">
+      <div className="mt-2 flex h-1.5 overflow-hidden rounded">
         <div className="bg-indigo-400" style={{ width: `${porcentajeFranco}%` }} />
         <div className="bg-emerald-400" style={{ width: `${porcentajeFabiola}%` }} />
       </div>
@@ -60,7 +66,7 @@ export function CardCompra({ compra, nombres, onEliminar }: Props) {
         </Boton>
         <Link
           href={`/nueva-compra?editar=${compra.id}`}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 transition hover:bg-gray-50"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-900 transition hover:bg-gray-50"
         >
           <Pencil className="h-4 w-4" />
           Editar

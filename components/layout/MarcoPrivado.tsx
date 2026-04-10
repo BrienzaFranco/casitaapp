@@ -16,7 +16,7 @@ export function MarcoPrivado({ children }: Props) {
   const esNuevaCompra = pathname.startsWith("/nueva-compra");
 
   if (esNuevaCompra) {
-    return <main className="mx-auto min-h-screen w-full max-w-[480px]">{children}</main>;
+    return <main className="mx-auto min-h-screen w-full max-w-[1160px]">{children}</main>;
   }
 
   return (

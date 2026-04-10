@@ -71,6 +71,22 @@ create table if not exists item_etiquetas (
   primary key(item_id, etiqueta_id)
 );
 
+create table if not exists compra_etiquetas (
+  compra_id uuid not null references compras(id) on delete cascade,
+  etiqueta_id uuid not null references etiquetas(id),
+  primary key(compra_id, etiqueta_id)
+);
+
+create table if not exists settlement_cuts (
+  id uuid primary key default gen_random_uuid(),
+  hogar_id uuid,
+  fecha_corte date not null,
+  nota text not null default '',
+  activo boolean not null default false,
+  actualizado_por text not null,
+  creado_en timestamptz not null default now()
+);
+
 create table if not exists perfiles (
   id uuid primary key references auth.users(id) on delete cascade,
   nombre text,
@@ -82,6 +98,9 @@ create index if not exists idx_items_compra_id on items(compra_id);
 create index if not exists idx_items_categoria_id on items(categoria_id);
 create index if not exists idx_items_subcategoria_id on items(subcategoria_id);
 create index if not exists idx_item_etiquetas_etiqueta_id on item_etiquetas(etiqueta_id);
+create index if not exists idx_compra_etiquetas_etiqueta_id on compra_etiquetas(etiqueta_id);
+create index if not exists idx_settlement_cuts_fecha on settlement_cuts(fecha_corte desc);
+create index if not exists idx_settlement_cuts_activo on settlement_cuts(activo);
 create index if not exists idx_compras_fecha on compras(fecha desc);
 
 create or replace function public.sincronizar_perfil_desde_auth()
@@ -156,7 +175,8 @@ create or replace function public.crear_compra_completa(
   p_registrado_por text,
   p_hogar_id uuid,
   p_items jsonb,
-  p_pagador_general text default 'compartido'
+  p_pagador_general text default 'compartido',
+  p_etiquetas_compra_ids uuid[] default array[]::uuid[]
 )
 returns uuid
 language plpgsql
@@ -168,6 +188,7 @@ declare
   v_item jsonb;
   v_item_id uuid;
   v_etiqueta_id uuid;
+  v_compra_etiqueta_id uuid;
 begin
   insert into compras (fecha, nombre_lugar, notas, registrado_por, hogar_id, pagador_general, estado)
   values (
@@ -180,6 +201,15 @@ begin
     'confirmada'
   )
   returning id into v_compra_id;
+
+  if p_etiquetas_compra_ids is not null then
+    foreach v_compra_etiqueta_id in array p_etiquetas_compra_ids
+    loop
+      insert into compra_etiquetas (compra_id, etiqueta_id)
+      values (v_compra_id, v_compra_etiqueta_id)
+      on conflict do nothing;
+    end loop;
+  end if;
 
   for v_item in select * from jsonb_array_elements(p_items)
   loop
@@ -230,7 +260,8 @@ create or replace function public.actualizar_compra_completa(
   p_registrado_por text,
   p_hogar_id uuid,
   p_items jsonb,
-  p_pagador_general text default 'compartido'
+  p_pagador_general text default 'compartido',
+  p_etiquetas_compra_ids uuid[] default array[]::uuid[]
 )
 returns uuid
 language plpgsql
@@ -241,6 +272,7 @@ declare
   v_item jsonb;
   v_item_id uuid;
   v_etiqueta_id uuid;
+  v_compra_etiqueta_id uuid;
 begin
   update compras
   set
@@ -252,6 +284,17 @@ begin
     pagador_general = coalesce(nullif(p_pagador_general, ''), 'compartido'),
     estado = 'confirmada'
   where id = p_compra_id;
+
+  delete from compra_etiquetas where compra_id = p_compra_id;
+
+  if p_etiquetas_compra_ids is not null then
+    foreach v_compra_etiqueta_id in array p_etiquetas_compra_ids
+    loop
+      insert into compra_etiquetas (compra_id, etiqueta_id)
+      values (p_compra_id, v_compra_etiqueta_id)
+      on conflict do nothing;
+    end loop;
+  end if;
 
   delete from items where compra_id = p_compra_id;
 
@@ -302,7 +345,9 @@ alter table etiquetas enable row level security;
 alter table compras enable row level security;
 alter table items enable row level security;
 alter table item_etiquetas enable row level security;
+alter table compra_etiquetas enable row level security;
 alter table perfiles enable row level security;
+alter table settlement_cuts enable row level security;
 
 drop policy if exists categorias_autenticados on categorias;
 create policy categorias_autenticados on categorias
@@ -340,8 +385,20 @@ for all to authenticated
 using (true)
 with check (true);
 
+drop policy if exists compra_etiquetas_autenticados on compra_etiquetas;
+create policy compra_etiquetas_autenticados on compra_etiquetas
+for all to authenticated
+using (true)
+with check (true);
+
 drop policy if exists perfiles_autenticados on perfiles;
 create policy perfiles_autenticados on perfiles
+for all to authenticated
+using (true)
+with check (true);
+
+drop policy if exists settlement_cuts_autenticados on settlement_cuts;
+create policy settlement_cuts_autenticados on settlement_cuts
 for all to authenticated
 using (true)
 with check (true);

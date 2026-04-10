@@ -259,6 +259,14 @@ export function filtrarComprasPorMes(compras: Compra[], mes: string) {
   return compras.filter((compra) => mesClave(compra.fecha) === mes);
 }
 
+export function filtrarComprasDesdeFechaExclusiva(compras: Compra[], fechaCorte: string | null | undefined) {
+  if (!fechaCorte) {
+    return compras;
+  }
+
+  return compras.filter((compra) => compra.fecha > fechaCorte);
+}
+
 export function obtenerMesAnterior(mes: string) {
   if (!/^\d{4}-\d{2}$/.test(mes)) {
     return "";
@@ -311,6 +319,7 @@ export function filtrarComprasHistorial(
     mes?: string;
     categoria_id?: string;
     etiqueta_id?: string;
+    etiqueta_compra_id?: string;
     persona?: "franco" | "fabiola" | null;
   },
 ) {
@@ -322,13 +331,16 @@ export function filtrarComprasHistorial(
     const coincideEtiqueta = filtros.etiqueta_id
       ? compra.items.some((item) => item.etiquetas.some((etiqueta) => etiqueta.id === filtros.etiqueta_id))
       : true;
+    const coincideEtiquetaCompra = filtros.etiqueta_compra_id
+      ? compra.etiquetas_compra.some((etiqueta) => etiqueta.id === filtros.etiqueta_compra_id)
+      : true;
     const coincidePersona = filtros.persona
       ? compra.items.some((item) =>
           filtros.persona === "franco" ? item.pago_franco > 0 : item.pago_fabiola > 0,
         )
       : true;
 
-    return coincideMes && coincideCategoria && coincideEtiqueta && coincidePersona;
+    return coincideMes && coincideCategoria && coincideEtiqueta && coincideEtiquetaCompra && coincidePersona;
   });
 }
 

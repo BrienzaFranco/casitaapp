@@ -10,12 +10,14 @@ import {
   calcularVariacionPeriodo,
   construirBalanceHistorico,
   deducirNombresParticipantes,
+  filtrarComprasDesdeFechaExclusiva,
   filtrarComprasPorMes,
   obtenerMesAnterior,
 } from "@/lib/calculos";
 import { exportarExcel } from "@/lib/exportar";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
+import { usarSettlementCuts } from "@/hooks/usarSettlementCuts";
 import { usarUsuario } from "@/hooks/usarUsuario";
 
 function mesActual() {
@@ -26,6 +28,7 @@ export function useBalance() {
   const [mesSeleccionado, setMesSeleccionado] = useState(mesActual());
   const compras = usarCompras();
   const categorias = usarCategorias();
+  const cortes = usarSettlementCuts();
   const usuario = usarUsuario();
 
   const nombres = deducirNombresParticipantes(usuario.perfiles);
@@ -37,6 +40,8 @@ export function useBalance() {
   const variacionMensual = calcularVariacionPeriodo(resumenMes.total, resumenMesAnterior.total);
   const resumenHistorico = construirBalanceHistorico(compras.compras, nombres);
   const acumulado = calcularBalance(compras.compras, nombres);
+  const comprasAbiertas = filtrarComprasDesdeFechaExclusiva(compras.compras, cortes.corteActivo?.fecha_corte);
+  const saldoAbierto = calcularBalance(comprasAbiertas, nombres);
   const categoriasMes = calcularCategoriasMes(comprasMes, categorias.categorias, categorias.subcategorias);
   const etiquetasMes = calcularEtiquetasMes(comprasMes, categorias.etiquetas);
   const diasMasGasto = calcularDiasMasGasto(comprasMes);
@@ -52,6 +57,7 @@ export function useBalance() {
     nombres,
     compras,
     categorias,
+    cortes,
     usuario,
     comprasMes,
     resumenMes,
@@ -59,6 +65,8 @@ export function useBalance() {
     variacionMensual,
     resumenHistorico,
     acumulado,
+    comprasAbiertas,
+    saldoAbierto,
     categoriasMes,
     etiquetasMes,
     diasMasGasto,

@@ -13,6 +13,7 @@ export function generarSheets(
       id_compra: compra.id,
       fecha: compra.fecha,
       lugar: compra.nombre_lugar,
+      tags_compra: compra.etiquetas_compra.map((etiqueta) => etiqueta.nombre).join(", "),
       categoria: item.categoria?.nombre ?? "",
       subcategoria: item.subcategoria?.nombre ?? "",
       descripcion: item.descripcion,

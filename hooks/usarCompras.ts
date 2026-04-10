@@ -14,6 +14,14 @@ const seleccionCompras = `
   pagador_general,
   estado,
   creado_en,
+  compra_etiquetas (
+    etiqueta_id,
+    etiquetas (
+      id,
+      nombre,
+      color
+    )
+  ),
   items (
     id,
     compra_id,
@@ -91,6 +99,9 @@ function normalizarCompra(compra: CompraBaseDatos): Compra {
     pagador_general: compra.pagador_general ?? "compartido",
     estado: compra.estado ?? "confirmada",
     creado_en: compra.creado_en,
+    etiquetas_compra: (compra.compra_etiquetas ?? [])
+      .map((relacion) => relacion.etiquetas)
+      .filter(Boolean) as Compra["etiquetas_compra"],
     items: (compra.items ?? []).map(normalizarItem),
   };
 }
@@ -134,36 +145,6 @@ export function useCompras(opciones: OpcionesCompras = {}) {
     void recargar();
   }, [cargarInicial, recargar]);
 
-  async function crearCompraBorrador(
-    compra: Pick<CompraEditable, "fecha" | "nombre_lugar" | "notas" | "registrado_por" | "hogar_id" | "pagador_general">,
-  ) {
-    const cliente = crearClienteSupabase();
-    setGuardando(true);
-
-    try {
-      const respuesta = await cliente.rpc("crear_compra_borrador", {
-        p_fecha: compra.fecha,
-        p_nombre_lugar: compra.nombre_lugar || null,
-        p_notas: compra.notas || null,
-        p_registrado_por: compra.registrado_por,
-        p_hogar_id: compra.hogar_id ?? null,
-        p_pagador_general: compra.pagador_general ?? "compartido",
-      });
-
-      if (respuesta.error) {
-        throw respuesta.error;
-      }
-
-      if (cargarInicial) {
-        await recargar();
-      }
-
-      return respuesta.data as string;
-    } finally {
-      setGuardando(false);
-    }
-  }
-
   async function guardarCompra(compra: CompraEditable) {
     const cliente = crearClienteSupabase();
     setGuardando(true);
@@ -175,6 +156,7 @@ export function useCompras(opciones: OpcionesCompras = {}) {
       p_registrado_por: compra.registrado_por,
       p_hogar_id: compra.hogar_id ?? null,
       p_pagador_general: compra.pagador_general ?? "compartido",
+      p_etiquetas_compra_ids: compra.etiquetas_compra_ids ?? [],
       p_items: compra.items.map((item) => ({
         categoria_id: item.categoria_id || null,
         subcategoria_id: item.subcategoria_id || null,
@@ -223,7 +205,6 @@ export function useCompras(opciones: OpcionesCompras = {}) {
     cargando,
     guardando,
     recargar,
-    crearCompraBorrador,
     guardarCompra,
     eliminarCompra,
   };

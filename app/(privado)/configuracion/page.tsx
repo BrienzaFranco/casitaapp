@@ -107,6 +107,7 @@ export default function PaginaConfiguracion() {
         registrado_por: "Importacion",
         pagador_general: "compartido",
         estado: "confirmada",
+        etiquetas_compra_ids: [],
         items: [],
       };
 

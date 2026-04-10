@@ -25,7 +25,7 @@ function textoReparto(item: Item, nombres: { franco: string; fabiola: string }) 
 
 export function ItemCompra({ item, nombres }: Props) {
   return (
-    <div className="rounded-2xl bg-gray-50 p-3">
+    <div className="border border-gray-200 bg-gray-50 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-gray-900">{item.descripcion || "Sin descripcion"}</p>

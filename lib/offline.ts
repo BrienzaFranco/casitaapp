@@ -26,6 +26,7 @@ export function obtenerComprasPendientes() {
       ...compra,
       pagador_general: compra.pagador_general ?? "compartido",
       estado: compra.estado ?? "confirmada",
+      etiquetas_compra_ids: compra.etiquetas_compra_ids ?? [],
     }));
   } catch {
     return [] as CompraEditable[];

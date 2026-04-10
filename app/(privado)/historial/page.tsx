@@ -36,6 +36,7 @@ export default function PaginaHistorial() {
   const [filtroPersona, setFiltroPersona] = useState<"franco" | "fabiola" | null>(null);
   const [categoriaId, setCategoriaId] = useState("");
   const [etiquetaId, setEtiquetaId] = useState("");
+  const [etiquetaCompraId, setEtiquetaCompraId] = useState("");
   const [compraAEliminar, setCompraAEliminar] = useState<string | null>(null);
   const ultimosMeses = generarUltimosMeses(6);
 
@@ -43,10 +44,11 @@ export default function PaginaHistorial() {
     mes,
     categoria_id: categoriaId,
     etiqueta_id: etiquetaId,
+    etiqueta_compra_id: etiquetaCompraId,
     persona: filtroPersona,
   });
   const serieTendencia = useMemo(() => calcularSerieGastoDiario(filtradas), [filtradas]);
-  const hayFiltrosActivos = Boolean(mes || categoriaId || etiquetaId || filtroPersona);
+  const hayFiltrosActivos = Boolean(mes || categoriaId || etiquetaId || etiquetaCompraId || filtroPersona);
   const modoVacio = !compras.compras.length && !hayFiltrosActivos ? "onboarding" : "filtros";
 
   async function eliminarCompra() {
@@ -144,6 +146,13 @@ export default function PaginaHistorial() {
             value={etiquetaId}
             onChange={(event) => setEtiquetaId(event.target.value)}
             placeholder="Todas"
+            opciones={categorias.etiquetas.map((etiqueta) => ({ etiqueta: etiqueta.nombre, valor: etiqueta.id }))}
+          />
+          <Select
+            etiqueta="Tag de compra"
+            value={etiquetaCompraId}
+            onChange={(event) => setEtiquetaCompraId(event.target.value)}
+            placeholder="Todos"
             opciones={categorias.etiquetas.map((etiqueta) => ({ etiqueta: etiqueta.nombre, valor: etiqueta.id }))}
           />
           </div>
