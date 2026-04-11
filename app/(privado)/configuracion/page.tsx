@@ -1,7 +1,6 @@
 "use client";
 
-import type { ChangeEvent } from "react";
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo, type ChangeEvent } from "react";
 import * as XLSX from "xlsx";
 import { Download, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -169,6 +168,15 @@ export default function PaginaConfiguracion() {
   const compras = usarCompras();
   const balance = usarBalance();
   const config = usarConfiguracion();
+  const [modoOscuro, setModoOscuro] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return document.documentElement.classList.contains("dark");
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", modoOscuro);
+  }, [modoOscuro]);
+
   const [tab, setTab] = useState<Tab>("categorias");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [nuevaCategoria, setNuevaCategoria] = useState({ nombre: "", color: "#6366f1", limite_mensual: "" });
@@ -384,9 +392,15 @@ export default function PaginaConfiguracion() {
   return (
     <section className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="space-y-1">
-        <h2 className="font-headline text-xl sm:text-2xl font-bold text-on-surface">Configuracion</h2>
-        <p className="font-body text-sm text-on-surface-variant">Categorias, subcategorias, etiquetas e importacion.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-headline text-xl sm:text-2xl font-bold text-on-surface">Configuracion</h2>
+          <p className="font-body text-sm text-on-surface-variant">Categorias, colores, importacion.</p>
+        </div>
+        <button type="button" onClick={() => setModoOscuro(!modoOscuro)}
+          className="h-8 px-3 rounded-full bg-surface-container-high font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant hover:bg-surface-container-highest transition-colors">
+          {modoOscuro ? "☀️ Claro" : "🌙 Oscuro"}
+        </button>
       </div>
 
       {/* Tabs */}
