@@ -32,6 +32,8 @@ export default function PaginaHistorial() {
   const usuario = usarUsuario();
   const nombres = deducirNombresParticipantes(usuario.perfiles);
   const [mes, setMes] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
   const [filtroPersona, setFiltroPersona] = useState<"franco" | "fabiola" | null>(null);
   const [categoriaId, setCategoriaId] = useState("");
   const [etiquetaId, setEtiquetaId] = useState("");
@@ -41,11 +43,12 @@ export default function PaginaHistorial() {
   const ultimosMeses = generarUltimosMeses(6);
 
   const filtradas = filtrarComprasHistorial(compras.compras, {
-    mes, categoria_id: categoriaId, etiqueta_id: etiquetaId,
+    mes, fecha_desde: fechaDesde || undefined, fecha_hasta: fechaHasta || undefined,
+    categoria_id: categoriaId, etiqueta_id: etiquetaId,
     etiqueta_compra_id: etiquetaCompraId, persona: filtroPersona,
   });
   const serieTendencia = useMemo(() => calcularSerieGastoDiario(filtradas), [filtradas]);
-  const hayFiltrosActivos = Boolean(mes || categoriaId || etiquetaId || etiquetaCompraId || filtroPersona);
+  const hayFiltrosActivos = Boolean(mes || fechaDesde || fechaHasta || categoriaId || etiquetaId || etiquetaCompraId || filtroPersona);
   const modoVacio = !compras.compras.length && !hayFiltrosActivos ? "onboarding" : "filtros";
 
   async function eliminarCompra() {
@@ -53,6 +56,20 @@ export default function PaginaHistorial() {
     await compras.eliminarCompra(compraAEliminar);
     toast.success("Compra eliminada");
     setCompraAEliminar(null);
+  }
+
+  // Limpiar mes cuando se usa fecha exacta
+  function onFechaDesdeChange(v: string) {
+    setFechaDesde(v);
+    if (v) setMes("");
+  }
+  function onFechaHastaChange(v: string) {
+    setFechaHasta(v);
+    if (v) setMes("");
+  }
+  function onMesChange(v: string) {
+    setMes(v);
+    if (v) { setFechaDesde(""); setFechaHasta(""); }
   }
 
   return (
@@ -109,7 +126,7 @@ export default function PaginaHistorial() {
             <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
               <button
                 type="button"
-                onClick={() => setMes("")}
+                onClick={() => onMesChange("")}
                 className={combinarClases(
                   "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 shrink-0 transition-colors",
                   mes === "" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
@@ -121,7 +138,7 @@ export default function PaginaHistorial() {
                 <button
                   key={m.valor}
                   type="button"
-                  onClick={() => setMes(m.valor)}
+                  onClick={() => onMesChange(m.valor)}
                   className={combinarClases(
                     "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 shrink-0 transition-colors",
                     mes === m.valor ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
@@ -133,33 +150,56 @@ export default function PaginaHistorial() {
             </div>
           </div>
 
-          {/* View toggle + selects */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Date range */}
+          <div className="flex items-center gap-3 text-xs">
+            <span className="font-label text-[9px] uppercase tracking-wider text-outline shrink-0">Fechas</span>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setVista("tarjetas")}
-                className={combinarClases(
-                  "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
-                  vista === "tarjetas" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
-                )}
-              >
-                Tarjetas
-              </button>
-              <button
-                type="button"
-                onClick={() => setVista("hoja")}
-                className={combinarClases(
-                  "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
-                  vista === "hoja" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
-                )}
-              >
-                Hoja
-              </button>
+              <input
+                type="date" value={fechaDesde} onChange={e => onFechaDesdeChange(e.target.value)}
+                className="h-7 rounded bg-surface-container-low px-2 font-label text-xs tabular-nums text-on-surface outline-none"
+                placeholder="Desde"
+              />
+              <span className="text-on-surface-variant/40">→</span>
+              <input
+                type="date" value={fechaHasta} onChange={e => onFechaHastaChange(e.target.value)}
+                className="h-7 rounded bg-surface-container-low px-2 font-label text-xs tabular-nums text-on-surface outline-none"
+                placeholder="Hasta"
+              />
+              {(fechaDesde || fechaHasta) && (
+                <button type="button" onClick={() => { setFechaDesde(""); setFechaHasta(""); }}
+                  className="text-[9px] text-on-surface-variant hover:text-on-surface underline">
+                  Limpiar
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* View toggle */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setVista("tarjetas")}
+              className={combinarClases(
+                "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
+                vista === "tarjetas" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
+              )}
+            >
+              Tarjetas
+            </button>
+            <button
+              type="button"
+              onClick={() => setVista("hoja")}
+              className={combinarClases(
+                "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
+                vista === "hoja" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
+              )}
+            >
+              Hoja
+            </button>
+          </div>
+
+          {/* Category / Etiqueta selects */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Select
               etiqueta="Categoria"
               value={categoriaId}
@@ -185,8 +225,12 @@ export default function PaginaHistorial() {
         </div>
       </div>
 
-      {!compras.cargando && filtradas.length ? <GraficoTendenciaDiaria registros={serieTendencia} /> : null}
+      {/* Chart */}
+      {!compras.cargando && filtradas.length ? (
+        <GraficoTendenciaDiaria registros={serieTendencia} compras={filtradas} nombres={nombres} />
+      ) : null}
 
+      {/* List */}
       {vista === "hoja" && !compras.cargando && filtradas.length ? (
         <HojaCompras compras={filtradas} />
       ) : (
