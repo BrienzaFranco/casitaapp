@@ -85,6 +85,7 @@ export default function PaginaNuevaCompra() {
 
   const historia = compras.compras.map((c) => ({
     nombre_lugar: c.nombre_lugar,
+    fecha: c.fecha,
     items: c.items.map((i) => ({
       descripcion: i.descripcion,
       categoria_id: i.categoria_id,

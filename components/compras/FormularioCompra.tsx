@@ -19,7 +19,7 @@ interface Props {
   registradoPorDefecto: string;
   compraInicial?: CompraEditable | null;
   onGuardar: (compra: CompraEditable) => Promise<void> | void;
-  comprasHistoria?: Array<{ nombre_lugar: string; items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }> }>;
+  comprasHistoria?: Array<{ nombre_lugar: string; fecha?: string; items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }> }>;
   onCrearCategoria?: (nombre: string) => Promise<string | null>;
   onCrearEtiqueta?: (nombre: string) => Promise<string | null>;
 }
@@ -47,11 +47,13 @@ function itemVacio(pagador: CompraEditable["pagador_general"]): ItemEditable {
   return { id: genId(), descripcion: "", categoria_id: "", subcategoria_id: "", expresion_monto: "", monto_resuelto: 0, tipo_reparto: t, pago_franco: r.pago_franco, pago_fabiola: r.pago_fabiola, etiquetas_ids: [] };
 }
 
-function crearCompraInicial(def: string, inicial?: CompraEditable | null): CompraEditable {
+function crearCompraInicial(def: string, inicial?: CompraEditable | null, historia: Array<{ nombre_lugar: string; fecha?: string; items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }> }> = []): CompraEditable {
   if (inicial) { guardarRegistradoPor(inicial.registrado_por); return { ...inicial, estado: inicial.estado ?? "confirmada", pagador_general: inicial.pagador_general ?? "compartido", etiquetas_compra_ids: inicial.etiquetas_compra_ids ?? [], items: (inicial.items.length ? inicial.items : [itemVacio("compartido")]).map(i => ({ ...i, id: i.id ?? genId(), etiquetas_ids: i.etiquetas_ids ?? [] })) }; }
   const reg = obtenerRegistradoPor() || def;
   guardarRegistradoPor(reg);
-  return { fecha: hoy(), nombre_lugar: "", notas: "", registrado_por: reg, estado: "confirmada", pagador_general: "compartido", etiquetas_compra_ids: [], items: [itemVacio("compartido")] };
+  // Use the last purchase's date if available, otherwise today
+  const ultimaFecha = historia.length > 0 && historia[0].fecha ? historia[0].fecha : hoy();
+  return { fecha: ultimaFecha, nombre_lugar: "", notas: "", registrado_por: reg, estado: "confirmada", pagador_general: "compartido", etiquetas_compra_ids: [], items: [itemVacio("compartido")] };
 }
 
 function recalcular(item: ItemEditable) {
@@ -73,7 +75,7 @@ function itemsParaGuardar(items: ItemEditable[]) {
 }
 
 export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas, nombres, registradoPorDefecto, compraInicial, onGuardar, comprasHistoria = [], onCrearCategoria, onCrearEtiqueta }: Props) {
-  const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial));
+  const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial, comprasHistoria));
   const [notas, setNotas] = useState(compraInicial?.notas ?? "");
   const [mostrarNotas, setMostrarNotas] = useState(!!compraInicial?.notas);
   const [mostrarAvanzadas, setMostrarAvanzadas] = useState(false);
@@ -87,7 +89,8 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   const total = useMemo(() => compra.items.reduce((a, i) => a + i.monto_resuelto, 0), [compra.items]);
   const totalFranco = useMemo(() => compra.items.reduce((a, i) => a + i.pago_franco, 0), [compra.items]);
   const totalFabiola = useMemo(() => compra.items.reduce((a, i) => a + i.pago_fabiola, 0), [compra.items]);
-  const mapaLugares = useMemo(() => cargarMapaLugares(comprasHistoria), [comprasHistoria]);
+  const mapaLugaresMap = useMemo(() => cargarMapaLugares(comprasHistoria), [comprasHistoria]);
+  const mapaLugares = useMemo(() => [...mapaLugaresMap.keys()], [mapaLugaresMap]);
   const mapaDetalles = useMemo(() => cargarMapaDetalles(comprasHistoria), [comprasHistoria]);
 
   useEffect(() => { if (!compraInicial && registradoPorDefecto && !compra.registrado_por) { setCompra(a => ({ ...a, registrado_por: registradoPorDefecto })); guardarRegistradoPor(registradoPorDefecto); } }, [compra.registrado_por, compraInicial, registradoPorDefecto]);
@@ -206,12 +209,19 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
       <div className="mx-auto max-w-xl px-4 pt-4 space-y-3">
         {/* Header: Lugar + Fecha + Pago en linea */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-3">
+          {/* Lugar con sugerencias */}
           <input
             type="text" value={compra.nombre_lugar}
             onChange={e => set({ nombre_lugar: e.target.value })}
             placeholder="Comercio (ej: Coto Palermo)"
+            list="lugares-sugeridos"
             className="w-full bg-transparent border-b-2 border-dashed border-outline-variant/30 px-0 py-2 font-headline text-2xl font-bold tracking-tight text-on-surface outline-none placeholder:text-on-surface-variant/30 focus:border-primary"
           />
+          <datalist id="lugares-sugeridos">
+            {mapaLugares.length > 0 && [...mapaLugares].slice(0, 20).map(l => (
+              <option key={l} value={l} />
+            ))}
+          </datalist>
 
           {/* Fecha + Pago en misma linea */}
           <div className="flex items-center gap-3">
@@ -366,7 +376,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                       onChange={e => {
                         setItem(item.id ?? "", { descripcion: e.target.value });
                         if (!item.categoria_id && e.target.value.length >= 4) {
-                          const pred = predecirCategoria(e.target.value, mapaLugares, mapaDetalles);
+                          const pred = predecirCategoria(e.target.value, mapaLugaresMap, mapaDetalles);
                           if (pred) setItem(item.id ?? "", { categoria_id: pred.categoria_id, subcategoria_id: pred.subcategoria_id });
                         }
                       }}
