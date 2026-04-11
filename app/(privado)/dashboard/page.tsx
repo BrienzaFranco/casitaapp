@@ -22,8 +22,6 @@ import { DesgloseReparto } from "@/components/dashboard/DesgloseReparto";
 import { ComparativaPersonal } from "@/components/dashboard/ComparativaPersonal";
 import { HeatmapGasto } from "@/components/dashboard/HeatmapGasto";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   Cell,
@@ -462,35 +460,33 @@ function KPICard({
   subtitleColor?: string;
   borderTop?: string;
 }) {
-  const hasData = sparkline.some(d => d.value > 0);
+  const validData = sparkline.length >= 2 && sparkline.some(d => d.value > 0);
+  const maxVal = Math.max(...sparkline.map(d => d.value), 1);
+
+  // Build sparkline path
+  const pathD = validData
+    ? sparkline.map((d, i) => {
+        const x = (i / (sparkline.length - 1)) * 100;
+        const y = 20 - (d.value / maxVal) * 18;
+        return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+      }).join(" ")
+    : "";
+
+  const areaD = validData
+    ? `${pathD} L 100 20 L 0 20 Z`
+    : "";
 
   return (
     <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3" style={borderTop ? { borderTop: `3px solid ${borderTop}` } : {}}>
       <p className="font-label text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color }}>{label}</p>
       <p className="font-label text-lg font-bold tabular-nums" style={{ color }}>{value}</p>
 
-      {/* Sparkline */}
-      {hasData && (
-        <div className="h-8 mt-1 -mx-1">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={sparkline} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id={`grad-${label.replace(/\s/g, "")}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={sparklineColor} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={sparklineColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke={sparklineColor}
-                strokeWidth={1.5}
-                fill={`url(#grad-${label.replace(/\s/g, "")})`}
-                dot={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+      {/* Sparkline (pure SVG, no Recharts) */}
+      {validData && (
+        <svg viewBox="0 0 100 20" className="h-8 w-full mt-1" preserveAspectRatio="none">
+          <path d={areaD} fill={sparklineColor} fillOpacity={0.15} />
+          <path d={pathD} fill="none" stroke={sparklineColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       )}
 
       {subtitle && (
