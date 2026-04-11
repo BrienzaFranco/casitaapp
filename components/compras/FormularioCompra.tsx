@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Categoria, CompraEditable, Etiqueta, ItemEditable, Subcategoria, TipoReparto } from "@/types";
 import { calcularReparto, evaluarExpresion } from "@/lib/calculos";
@@ -22,6 +22,11 @@ interface Props {
   comprasHistoria?: Array<{ nombre_lugar: string; items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }> }>;
   onCrearCategoria?: (nombre: string) => Promise<string | null>;
   onCrearEtiqueta?: (nombre: string) => Promise<string | null>;
+}
+
+function obtenerColorPersona(nombre: string, fallback: string) {
+  if (typeof window === "undefined") return fallback;
+  return localStorage.getItem(`color_${nombre}`) || fallback;
 }
 
 function hoy() { return fechaLocalISO(); }
@@ -72,7 +77,8 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   const [notas, setNotas] = useState(compraInicial?.notas ?? "");
   const [mostrarNotas, setMostrarNotas] = useState(!!compraInicial?.notas);
   const [mostrarAvanzadas, setMostrarAvanzadas] = useState(false);
-  const [mostrarEtiquetas, setMostrarEtiquetas] = useState(false);
+  const [mostrarEtiquetasCompra, setMostrarEtiquetasCompra] = useState(false);
+  const [nuevaEtiquetaInput, setNuevaEtiquetaInput] = useState("");
   const [pegado, setPegado] = useState("");
   const [guardandoLocal, setGuardandoLocal] = useState(false);
   const [etiquetasAbiertas, setEtiquetasAbiertas] = useState<Record<string, boolean>>({});
@@ -87,6 +93,9 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   useEffect(() => { if (!compraInicial && registradoPorDefecto && !compra.registrado_por) { setCompra(a => ({ ...a, registrado_por: registradoPorDefecto })); guardarRegistradoPor(registradoPorDefecto); } }, [compra.registrado_por, compraInicial, registradoPorDefecto]);
 
   const subsPorCat = useMemo(() => { const m = new Map<string, Subcategoria[]>(); for (const s of subcategorias) { const a = m.get(s.categoria_id) ?? []; a.push(s); m.set(s.categoria_id, a); } return m; }, [subcategorias]);
+
+  const colorFran = obtenerColorPersona("franco", "#3b82f6");
+  const colorFabi = obtenerColorPersona("fabiola", "#10b981");
 
   // Frequency tracking: count how often each category/subcategory is used in compra.items
   const frecuenciaCategorias = useMemo(() => {
@@ -233,22 +242,96 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
               className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-2 font-headline text-sm text-on-surface outline-none resize-none placeholder:text-on-surface-variant/50 focus:border-b-primary" rows={2} />
           )}
 
-          {/* Etiquetas toggle (colapsable como Notas) */}
+          {/* Etiquetas de compra - Colapsable */}
           <div className="pt-1 border-t border-outline-variant/10">
-            <button type="button" onClick={() => setMostrarEtiquetas(!mostrarEtiquetas)}
-              className="flex items-center gap-1.5 text-on-surface-variant hover:text-on-surface transition-colors w-full py-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-3.5 w-3.5 transition-transform ${mostrarEtiquetas ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6"></path></svg>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"></path><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"></circle></svg>
+            <button
+              type="button"
+              onClick={() => setMostrarEtiquetasCompra(!mostrarEtiquetasCompra)}
+              className="flex items-center gap-1.5 text-on-surface-variant hover:text-on-surface transition-colors w-full"
+            >
+              <ChevronRight className={`h-3.5 w-3.5 transition-transform ${mostrarEtiquetasCompra ? "rotate-90" : ""}`} />
+              <Tag className="h-3 w-3" />
               <span className="font-label text-[10px] font-bold uppercase tracking-wider">Etiquetas</span>
+              {compra.etiquetas_compra_ids.length > 0 && (
+                <span className="ml-auto font-label text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-on-secondary">
+                  {compra.etiquetas_compra_ids.length}
+                </span>
+              )}
             </button>
-            {mostrarEtiquetas && (
-              <div className="flex flex-wrap gap-1 pb-1">
-                {etiquetas.map(etq => (
-                  <button key={etq.id} type="button" onClick={() => toggleEtqCompra(etq.id)}
-                    className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${compra.etiquetas_compra_ids.includes(etq.id) ? "bg-secondary text-on-secondary" : "bg-surface-variant text-on-surface-variant"}`}>
-                    #{etq.nombre}
-                  </button>
-                ))}
+
+            {/* Etiquetas seleccionadas preview (cuando esta cerrado) */}
+            {!mostrarEtiquetasCompra && compra.etiquetas_compra_ids.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5 pl-5">
+                {compra.etiquetas_compra_ids.map(id => {
+                  const etq = etiquetas.find(e => e.id === id);
+                  if (!etq) return null;
+                  return (
+                    <span key={etq.id} className="font-label text-[8px] px-1.5 py-0.5 rounded-full bg-secondary/20 text-secondary">
+                      #{etq.nombre}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Panel expandido */}
+            {mostrarEtiquetasCompra && (
+              <div className="mt-2 pl-5 space-y-2">
+                {/* Etiquetas existentes */}
+                <div className="flex flex-wrap gap-1">
+                  {etiquetas.map(etq => (
+                    <button
+                      key={etq.id}
+                      type="button"
+                      onClick={() => toggleEtqCompra(etq.id)}
+                      className={`font-label text-[9px] px-2 py-1 rounded-full transition-colors ${
+                        compra.etiquetas_compra_ids.includes(etq.id)
+                          ? "bg-secondary text-on-secondary"
+                          : "bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                      }`}
+                    >
+                      #{etq.nombre}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Agregar nueva etiqueta */}
+                {onCrearEtiqueta && (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={nuevaEtiquetaInput}
+                      onChange={e => setNuevaEtiquetaInput(e.target.value.toUpperCase())}
+                      onKeyDown={async e => {
+                        if (e.key === "Enter" && nuevaEtiquetaInput.trim()) {
+                          e.preventDefault();
+                          const nuevoId = await onCrearEtiqueta(nuevaEtiquetaInput.trim());
+                          if (nuevoId) {
+                            toggleEtqCompra(nuevoId);
+                            setNuevaEtiquetaInput("");
+                          }
+                        }
+                      }}
+                      placeholder="Nueva etiqueta..."
+                      className="flex-1 h-7 bg-surface-container-low rounded px-2 font-label text-[10px] text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:ring-1 focus:ring-secondary"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (nuevaEtiquetaInput.trim()) {
+                          const nuevoId = await onCrearEtiqueta(nuevaEtiquetaInput.trim());
+                          if (nuevoId) {
+                            toggleEtqCompra(nuevoId);
+                            setNuevaEtiquetaInput("");
+                          }
+                        }
+                      }}
+                      className="h-7 px-2 rounded bg-secondary/20 text-secondary font-label text-[9px] font-bold hover:bg-secondary/30 transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -311,63 +394,88 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                   </div>
                 </div>
 
-                {/* Detail compacto */}
-                <div className="px-3 pb-2.5 space-y-1.5 border-t border-outline-variant/10 pt-1.5">
-                  {/* Categoria + Subcategoria con SelectBuscable */}
-                  <div className="flex gap-1.5">
-                    <SelectBuscable
-                      opciones={opcionesCategorias}
-                      valor={item.categoria_id}
-                      onChange={(catId) => setItem(item.id ?? "", { categoria_id: catId, subcategoria_id: "" })}
-                      placeholder="Categoria"
-                      onCreateNuevo={onCrearCategoria}
-                      labelNuevo="+ Categoria"
-                    />
-                    <SelectBuscable
-                      opciones={subOpciones}
-                      valor={item.subcategoria_id}
-                      onChange={(subId) => setItem(item.id ?? "", { subcategoria_id: subId })}
-                      placeholder="Subcat"
-                      disabled={!item.categoria_id || !subOpciones.length}
-                    />
+                {/* Seccion inferior: Categoria y Corresponde */}
+                <div className="px-3 pb-2.5 space-y-2 border-t border-outline-variant/10 pt-2">
+                  {/* Categoria + Subcategoria con jerarquia visual */}
+                  <div className="flex items-center gap-1">
+                    <div className="flex-1">
+                      <SelectBuscable
+                        opciones={opcionesCategorias}
+                        valor={item.categoria_id}
+                        onChange={(catId) => setItem(item.id ?? "", { categoria_id: catId, subcategoria_id: "" })}
+                        placeholder="Categoria"
+                        onCreateNuevo={onCrearCategoria}
+                        labelNuevo="+ Categoria"
+                      />
+                    </div>
+                    {item.categoria_id && subOpciones.length > 0 && (
+                      <>
+                        <ChevronRight className="h-3 w-3 text-on-surface-variant/40 shrink-0" />
+                        <div className="flex-1">
+                          <SelectBuscable
+                            opciones={subOpciones}
+                            valor={item.subcategoria_id}
+                            onChange={(subId) => setItem(item.id ?? "", { subcategoria_id: subId })}
+                            placeholder="Subcat"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  {/* Monto expresion */}
-                  <div className="flex items-center gap-2">
-                    <span className="font-label text-sm font-bold tabular-nums text-primary shrink-0 w-20 text-right">{formatearPeso(item.monto_resuelto)}</span>
-                    <input type="text" inputMode="decimal" value={item.expresion_monto}
-                      onChange={e => setItem(item.id ?? "", { expresion_monto: e.target.value })}
-                      onBlur={() => setItem(item.id ?? "", {}, true)}
-                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-                      placeholder="200+200"
-                      className="flex-1 bg-transparent border-b border-outline/20 px-0 py-1 font-label text-[10px] tabular-nums text-on-surface-variant outline-none placeholder:text-on-surface-variant/40 focus:border-b-primary" />
-                  </div>
-
-                  {/* Reparto: pill buttons */}
+                  {/* Corresponde a: Chips de seleccion */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       <span className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant/50 shrink-0">Corresp:</span>
                       <div className="inline-flex rounded-full bg-surface-container p-0.5 gap-0.5">
-                        <button type="button" onClick={() => setItem(item.id ?? "", { tipo_reparto: "solo_franco" }, true)}
-                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${item.tipo_reparto === "solo_franco" ? "bg-secondary text-on-secondary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
+                        <button
+                          type="button"
+                          onClick={() => setItem(item.id ?? "", { tipo_reparto: "solo_franco" }, true)}
+                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${
+                            item.tipo_reparto === "solo_franco"
+                              ? "text-on-primary shadow-sm"
+                              : "text-on-surface-variant hover:bg-surface-container-high"
+                          }`}
+                          style={item.tipo_reparto === "solo_franco" ? { backgroundColor: colorFran } : {}}
+                        >
                           {nombres.franco}
                         </button>
-                        <button type="button" onClick={() => setItem(item.id ?? "", { tipo_reparto: "50/50" }, true)}
-                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${item.tipo_reparto === "50/50" ? "bg-secondary text-on-secondary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
+                        <button
+                          type="button"
+                          onClick={() => setItem(item.id ?? "", { tipo_reparto: "50/50" }, true)}
+                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${
+                            item.tipo_reparto === "50/50"
+                              ? "bg-secondary text-on-secondary shadow-sm"
+                              : "text-on-surface-variant hover:bg-surface-container-high"
+                          }`}
+                        >
                           50/50
                         </button>
-                        <button type="button" onClick={() => setItem(item.id ?? "", { tipo_reparto: "solo_fabiola" }, true)}
-                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${item.tipo_reparto === "solo_fabiola" ? "bg-secondary text-on-secondary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
+                        <button
+                          type="button"
+                          onClick={() => setItem(item.id ?? "", { tipo_reparto: "solo_fabiola" }, true)}
+                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${
+                            item.tipo_reparto === "solo_fabiola"
+                              ? "text-on-primary shadow-sm"
+                              : "text-on-surface-variant hover:bg-surface-container-high"
+                          }`}
+                          style={item.tipo_reparto === "solo_fabiola" ? { backgroundColor: colorFabi } : {}}
+                        >
                           {nombres.fabiola}
                         </button>
                       </div>
                     </div>
+
                     {/* Etiquetas toggle */}
                     <button type="button" onClick={() => setEtiquetasAbiertas(a => ({ ...a, [item.id ?? ""]: !a[item.id ?? ""] }))}
-                      className="flex items-center gap-1 h-6 px-2 rounded-full font-label text-[9px] transition-colors shrink-0 bg-surface-container text-on-surface-variant hover:bg-surface-container-high">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"></path><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"></circle></svg>
+                      className={`flex items-center gap-1 h-6 px-2 rounded-full font-label text-[9px] transition-colors shrink-0 ${
+                        etqSeleccionadas.length > 0
+                          ? "bg-tertiary/15 text-tertiary"
+                          : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+                      }`}>
+                      <Tag className="h-3 w-3" />
                       {etqSeleccionadas.length > 0 && (
-                        <span className="text-[8px] px-0.5 rounded-full bg-secondary/20 text-secondary">{etqSeleccionadas.length}</span>
+                        <span className="font-bold">{etqSeleccionadas.length}</span>
                       )}
                     </button>
                   </div>

@@ -1,12 +1,12 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
-import { Download, Upload, Trash2 } from "lucide-react";
+import { Download, Upload, Trash2, Star } from "lucide-react";
 import { toast } from "sonner";
 import { BotonInstalarApp } from "@/components/pwa/BotonInstalarApp";
-import type { CompraEditable, DatosImportados, TipoReparto } from "@/types";
+import type { Compra, CompraEditable, DatosImportados, TipoReparto } from "@/types";
 import { Badge } from "@/components/ui/Badge";
 import { Boton } from "@/components/ui/Boton";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -14,31 +14,7 @@ import { fechaLocalISO } from "@/lib/utiles";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 
-function ColorPersona({ persona, label, defaultColor }: { persona: string; label: string; defaultColor: string }) {
-  const colorKey = `color_${persona}`;
-  const [color, setColor] = useState(() => {
-    if (typeof window === "undefined") return defaultColor;
-    return localStorage.getItem(colorKey) || defaultColor;
-  });
-
-  return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-container-low">
-      <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: color }} />
-      <span className="font-headline text-sm font-semibold text-on-surface">{label}</span>
-      <input
-        type="color"
-        value={color}
-        onChange={e => {
-          setColor(e.target.value);
-          localStorage.setItem(colorKey, e.target.value);
-        }}
-        className="h-8 w-12 cursor-pointer rounded bg-transparent border-none p-0 outline-none"
-      />
-    </div>
-  );
-}
-
-type Tab = "categorias" | "subcategorias" | "etiquetas" | "personas" | "importar" | "instalar";
+type Tab = "categorias" | "subcategorias" | "etiquetas" | "lugares" | "importar" | "instalar";
 
 function normalizarCabecera(cabecera: string) {
   return cabecera
@@ -86,10 +62,62 @@ const TABS: { valor: Tab; etiqueta: string }[] = [
   { valor: "categorias", etiqueta: "Categorias" },
   { valor: "subcategorias", etiqueta: "Subcategorias" },
   { valor: "etiquetas", etiqueta: "Etiquetas" },
-  { valor: "personas", etiqueta: "Personas" },
+  { valor: "lugares", etiqueta: "Lugares" },
   { valor: "importar", etiqueta: "Importar" },
   { valor: "instalar", etiqueta: "Instalar" },
 ];
+
+function LugaresManager({ compras }: { compras: Compra[] }) {
+  const [favoritos, setFavoritos] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem("lugares_favoritos");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const lugaresConteo = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const c of compras) {
+      if (c.nombre_lugar) {
+        mapa.set(c.nombre_lugar, (mapa.get(c.nombre_lugar) ?? 0) + 1);
+      }
+    }
+    return [...mapa.entries()].sort((a, b) => b[1] - a[1]);
+  }, [compras]);
+
+  function toggleFavorito(lugar: string) {
+    setFavoritos(prev => {
+      const next = new Set(prev);
+      if (next.has(lugar)) next.delete(lugar); else next.add(lugar);
+      localStorage.setItem("lugares_favoritos", JSON.stringify([...next]));
+      return next;
+    });
+  }
+
+  return (
+    <div className="space-y-0.5">
+      {lugaresConteo.length > 0 ? lugaresConteo.map(([lugar, cantidad]) => {
+        const esFav = favoritos.has(lugar);
+        return (
+          <div key={lugar} className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
+            <button
+              type="button"
+              onClick={() => toggleFavorito(lugar)}
+              className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${esFav ? "text-secondary" : "text-on-surface-variant/30 hover:text-on-surface-variant"}`}
+            >
+              <Star className={`h-4 w-4 ${esFav ? "fill-current" : ""}`} />
+            </button>
+            <span className="flex-1 font-headline text-sm text-on-surface">{lugar}</span>
+            <span className="font-label text-xs tabular-nums text-on-surface-variant">{cantidad} {cantidad === 1 ? "compra" : "compras"}</span>
+          </div>
+        );
+      }) : (
+        <p className="font-body text-sm text-on-surface-variant px-3 py-4">No hay lugares registrados todavia.</p>
+      )}
+    </div>
+  );
+}
 
 export default function PaginaConfiguracion() {
   const categorias = usarCategorias();
@@ -108,10 +136,7 @@ export default function PaginaConfiguracion() {
 
   async function importarExcel(event: ChangeEvent<HTMLInputElement>) {
     const archivo = event.target.files?.[0];
-    if (!archivo) {
-      return;
-    }
-
+    if (!archivo) return;
     const buffer = await archivo.arrayBuffer();
     const libro = XLSX.read(buffer);
     const primeraHoja = libro.SheetNames[0] ? libro.Sheets[libro.SheetNames[0]] : null;
@@ -121,12 +146,8 @@ export default function PaginaConfiguracion() {
   }
 
   async function confirmarImportacion() {
-    if (!datosImportados.length) {
-      return;
-    }
-
+    if (!datosImportados.length) return;
     const comprasAgrupadas = new Map<string, CompraEditable>();
-
     for (const fila of datosImportados) {
       const categoria = categorias.categorias.find((item) => item.nombre === fila.categoria);
       const subcategoria = categorias.subcategorias.find((item) => item.nombre === fila.subcategoria);
@@ -135,35 +156,20 @@ export default function PaginaConfiguracion() {
         .map((item) => item.id);
       const clave = `${fila.fecha}-${fila.nombre_lugar || "sin-lugar"}`;
       const compra = comprasAgrupadas.get(clave) ?? {
-        fecha: fila.fecha,
-        nombre_lugar: fila.nombre_lugar,
-        notas: "Importado desde Excel",
-        registrado_por: "Importacion",
-        pagador_general: "compartido",
-        estado: "confirmada",
-        etiquetas_compra_ids: [],
-        items: [],
+        fecha: fila.fecha, nombre_lugar: fila.nombre_lugar, notas: "Importado desde Excel",
+        registrado_por: "Importacion", pagador_general: "compartido", estado: "confirmada",
+        etiquetas_compra_ids: [], items: [],
       };
-
       compra.items.push({
-        descripcion: fila.descripcion,
-        categoria_id: categoria?.id ?? "",
-        subcategoria_id: subcategoria?.id ?? "",
-        expresion_monto: fila.expresion_monto,
-        monto_resuelto: fila.monto,
-        tipo_reparto: fila.tipo_reparto,
-        pago_franco: fila.pago_franco,
-        pago_fabiola: fila.pago_fabiola,
-        etiquetas_ids: etiquetas,
+        descripcion: fila.descripcion, categoria_id: categoria?.id ?? "", subcategoria_id: subcategoria?.id ?? "",
+        expresion_monto: fila.expresion_monto, monto_resuelto: fila.monto, tipo_reparto: fila.tipo_reparto,
+        pago_franco: fila.pago_franco, pago_fabiola: fila.pago_fabiola, etiquetas_ids: etiquetas,
       });
-
       comprasAgrupadas.set(clave, compra);
     }
-
     for (const compra of comprasAgrupadas.values()) {
       await compras.guardarCompra(compra);
     }
-
     toast.success("Importacion terminada");
     setDatosImportados([]);
   }
@@ -185,19 +191,11 @@ export default function PaginaConfiguracion() {
         <p className="font-body text-sm text-on-surface-variant">Categorias, subcategorias, etiquetas e importacion.</p>
       </div>
 
-      {/* Tabs - scrollable horizontal en mobile */}
+      {/* Tabs */}
       <div className="flex gap-3 overflow-x-auto scrollbar-hide border-b border-outline-variant/15 -mx-4 px-4">
         {TABS.map(({ valor, etiqueta }) => (
-          <button
-            key={valor}
-            type="button"
-            onClick={() => setTab(valor)}
-            className={`text-xs font-medium pb-1 whitespace-nowrap border-b-2 transition-colors ${
-              tab === valor
-                ? "border-secondary text-secondary"
-                : "border-transparent text-on-surface-variant hover:text-on-surface"
-            }`}
-          >
+          <button key={valor} type="button" onClick={() => setTab(valor)}
+            className={`text-xs font-medium pb-1 whitespace-nowrap border-b-2 transition-colors ${tab === valor ? "border-secondary text-secondary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}>
             {etiqueta}
           </button>
         ))}
@@ -207,97 +205,63 @@ export default function PaginaConfiguracion() {
       <div className="rounded-lg border border-outline-variant/15 bg-surface-container-lowest shadow-sm">
         {tab === "categorias" && (
           <section className="space-y-4 p-4">
-            {/* Form */}
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Nombre</label>
-                  <input
-                    className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  <input className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                     value={nuevaCategoria.nombre}
                     onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, nombre: event.target.value }))}
-                    placeholder="Nombre de la categoria"
-                  />
+                    placeholder="Nombre de la categoria" />
                 </div>
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Color</label>
-                  <input
-                    className="h-8 w-full cursor-pointer rounded bg-transparent border-none p-0 outline-none"
-                    type="color"
-                    value={nuevaCategoria.color}
-                    onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, color: event.target.value }))}
-                  />
+                  <input className="h-8 w-full cursor-pointer rounded bg-transparent border-none p-0 outline-none"
+                    type="color" value={nuevaCategoria.color}
+                    onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, color: event.target.value }))} />
                 </div>
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Limite mensual</label>
-                  <input
-                    className="w-full bg-transparent border-none p-0 text-sm text-on-surface tabular-nums outline-none placeholder:text-on-surface-variant"
-                    type="number"
-                    value={nuevaCategoria.limite_mensual}
-                    onChange={(event) =>
-                      setNuevaCategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))
-                    }
-                    placeholder="Sin limite"
-                  />
+                  <input className="w-full bg-transparent border-none p-0 text-sm text-on-surface tabular-nums outline-none placeholder:text-on-surface-variant"
+                    type="number" value={nuevaCategoria.limite_mensual}
+                    onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))}
+                    placeholder="Sin limite" />
                 </div>
               </div>
-              <Boton
-                anchoCompleto
-                onClick={async () => {
-                  await categorias.crearCategoria({
-                    nombre: nuevaCategoria.nombre,
-                    color: nuevaCategoria.color,
-                    limite_mensual: nuevaCategoria.limite_mensual ? Number(nuevaCategoria.limite_mensual) : null,
-                  });
-                  setNuevaCategoria({ nombre: "", color: "#6366f1", limite_mensual: "" });
-                  toast.success("Categoria creada");
-                }}
-              >
+              <Boton anchoCompleto onClick={async () => {
+                await categorias.crearCategoria({
+                  nombre: nuevaCategoria.nombre, color: nuevaCategoria.color,
+                  limite_mensual: nuevaCategoria.limite_mensual ? Number(nuevaCategoria.limite_mensual) : null,
+                });
+                setNuevaCategoria({ nombre: "", color: "#6366f1", limite_mensual: "" });
+                toast.success("Categoria creada");
+              }}>
                 Agregar nueva categoria
               </Boton>
             </div>
 
-            {/* List */}
             <div className="space-y-0.5">
               <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
                 Categorias existentes
               </p>
               {categorias.categorias.map((categoria) => (
-                <div
-                  key={categoria.id}
-                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors"
-                >
-                  <span
-                    className="h-2.5 w-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: categoria.color }}
-                  />
-                  <input
-                    className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
+                <div key={categoria.id}
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
+                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: categoria.color }} />
+                  <input className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
                     defaultValue={categoria.nombre}
-                    onBlur={(event) =>
-                      void categorias.actualizarCategoria(categoria.id, { nombre: event.target.value })
-                    }
-                  />
-                  <input
-                    className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
+                    onBlur={(event) => void categorias.actualizarCategoria(categoria.id, { nombre: event.target.value })} />
+                  <input className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
                     defaultValue={String(categoria.limite_mensual ?? "")}
-                    onBlur={(event) =>
-                      void categorias.actualizarCategoria(categoria.id, {
-                        limite_mensual: event.target.value ? Number(event.target.value) : null,
-                      })
-                    }
-                    placeholder="Sin limite"
-                  />
-                  <button
-                    type="button"
-                    className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
-                    onClick={() =>
-                      void categorias.eliminarCategoria(categoria.id).catch(() => {
-                        toast.error("No se puede eliminar si tiene items asociados");
-                      })
-                    }
-                    title="Eliminar"
-                  >
+                    onBlur={(event) => void categorias.actualizarCategoria(categoria.id, {
+                      limite_mensual: event.target.value ? Number(event.target.value) : null,
+                    })}
+                    placeholder="Sin limite" />
+                  <button type="button" className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
+                    onClick={() => void categorias.eliminarCategoria(categoria.id).catch(() => {
+                      toast.error("No se puede eliminar si tiene items asociados");
+                    })}
+                    title="Eliminar">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -310,11 +274,8 @@ export default function PaginaConfiguracion() {
           <section className="space-y-4 p-4">
             <div className="space-y-1">
               <label className="font-label text-[10px] uppercase tracking-wider text-outline">Filtrar por categoria</label>
-              <select
-                className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
-                value={filtroCategoria}
-                onChange={(event) => setFiltroCategoria(event.target.value)}
-              >
+              <select className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
+                value={filtroCategoria} onChange={(event) => setFiltroCategoria(event.target.value)}>
                 <option value="">Todas</option>
                 {categorias.categorias.map((categoria) => (
                   <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
@@ -322,18 +283,13 @@ export default function PaginaConfiguracion() {
               </select>
             </div>
 
-            {/* Form */}
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Categoria</label>
-                  <select
-                    className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
+                  <select className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
                     value={nuevaSubcategoria.categoria_id}
-                    onChange={(event) =>
-                      setNuevaSubcategoria((anterior) => ({ ...anterior, categoria_id: event.target.value }))
-                    }
-                  >
+                    onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, categoria_id: event.target.value }))}>
                     <option value="">Seleccionar</option>
                     {categorias.categorias.map((categoria) => (
                       <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
@@ -342,83 +298,52 @@ export default function PaginaConfiguracion() {
                 </div>
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Nombre</label>
-                  <input
-                    className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  <input className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                     value={nuevaSubcategoria.nombre}
-                    onChange={(event) =>
-                      setNuevaSubcategoria((anterior) => ({ ...anterior, nombre: event.target.value }))
-                    }
-                    placeholder="Nombre de la subcategoria"
-                  />
+                    onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, nombre: event.target.value }))}
+                    placeholder="Nombre de la subcategoria" />
                 </div>
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Limite mensual</label>
-                  <input
-                    className="w-full bg-transparent border-none p-0 text-sm text-on-surface tabular-nums outline-none placeholder:text-on-surface-variant"
-                    type="number"
-                    value={nuevaSubcategoria.limite_mensual}
-                    onChange={(event) =>
-                      setNuevaSubcategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))
-                    }
-                    placeholder="Sin limite"
-                  />
+                  <input className="w-full bg-transparent border-none p-0 text-sm text-on-surface tabular-nums outline-none placeholder:text-on-surface-variant"
+                    type="number" value={nuevaSubcategoria.limite_mensual}
+                    onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))}
+                    placeholder="Sin limite" />
                 </div>
               </div>
-              <Boton
-                anchoCompleto
-                onClick={async () => {
-                  await categorias.crearSubcategoria({
-                    categoria_id: nuevaSubcategoria.categoria_id,
-                    nombre: nuevaSubcategoria.nombre,
-                    limite_mensual: nuevaSubcategoria.limite_mensual
-                      ? Number(nuevaSubcategoria.limite_mensual)
-                      : null,
-                  });
-                  setNuevaSubcategoria({ categoria_id: "", nombre: "", limite_mensual: "" });
-                  toast.success("Subcategoria creada");
-                }}
-              >
+              <Boton anchoCompleto onClick={async () => {
+                await categorias.crearSubcategoria({
+                  categoria_id: nuevaSubcategoria.categoria_id, nombre: nuevaSubcategoria.nombre,
+                  limite_mensual: nuevaSubcategoria.limite_mensual ? Number(nuevaSubcategoria.limite_mensual) : null,
+                });
+                setNuevaSubcategoria({ categoria_id: "", nombre: "", limite_mensual: "" });
+                toast.success("Subcategoria creada");
+              }}>
                 Agregar subcategoria
               </Boton>
             </div>
 
-            {/* List */}
             <div className="space-y-0.5">
               <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
                 Subcategorias existentes
               </p>
               {subcategoriasFiltradas.map((subcategoria) => (
-                <div
-                  key={subcategoria.id}
-                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors"
-                >
-                  <input
-                    className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
+                <div key={subcategoria.id}
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
+                  <input className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
                     defaultValue={subcategoria.nombre}
-                    onBlur={(event) =>
-                      void categorias.actualizarSubcategoria(subcategoria.id, { nombre: event.target.value })
-                    }
-                  />
-                  <input
-                    className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
+                    onBlur={(event) => void categorias.actualizarSubcategoria(subcategoria.id, { nombre: event.target.value })} />
+                  <input className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
                     defaultValue={String(subcategoria.limite_mensual ?? "")}
-                    onBlur={(event) =>
-                      void categorias.actualizarSubcategoria(subcategoria.id, {
-                        limite_mensual: event.target.value ? Number(event.target.value) : null,
-                      })
-                    }
-                    placeholder="Sin limite"
-                  />
-                  <button
-                    type="button"
-                    className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
-                    onClick={() =>
-                      void categorias.eliminarSubcategoria(subcategoria.id).catch(() => {
-                        toast.error("No se puede eliminar si tiene items asociados");
-                      })
-                    }
-                    title="Eliminar"
-                  >
+                    onBlur={(event) => void categorias.actualizarSubcategoria(subcategoria.id, {
+                      limite_mensual: event.target.value ? Number(event.target.value) : null,
+                    })}
+                    placeholder="Sin limite" />
+                  <button type="button" className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
+                    onClick={() => void categorias.eliminarSubcategoria(subcategoria.id).catch(() => {
+                      toast.error("No se puede eliminar si tiene items asociados");
+                    })}
+                    title="Eliminar">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -429,80 +354,50 @@ export default function PaginaConfiguracion() {
 
         {tab === "etiquetas" && (
           <section className="space-y-4 p-4">
-            {/* Form */}
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Nombre</label>
-                  <input
-                    className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                  <input className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
                     value={nuevaEtiqueta.nombre}
-                    onChange={(event) =>
-                      setNuevaEtiqueta((anterior) => ({ ...anterior, nombre: event.target.value }))
-                    }
-                    placeholder="Nombre de la etiqueta"
-                  />
+                    onChange={(event) => setNuevaEtiqueta((anterior) => ({ ...anterior, nombre: event.target.value }))}
+                    placeholder="Nombre de la etiqueta" />
                 </div>
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Color</label>
-                  <input
-                    className="h-8 w-full cursor-pointer rounded bg-transparent border-none p-0 outline-none"
-                    type="color"
-                    value={nuevaEtiqueta.color}
-                    onChange={(event) =>
-                      setNuevaEtiqueta((anterior) => ({ ...anterior, color: event.target.value }))
-                    }
-                  />
+                  <input className="h-8 w-full cursor-pointer rounded bg-transparent border-none p-0 outline-none"
+                    type="color" value={nuevaEtiqueta.color}
+                    onChange={(event) => setNuevaEtiqueta((anterior) => ({ ...anterior, color: event.target.value }))} />
                 </div>
               </div>
-              <Boton
-                anchoCompleto
-                onClick={async () => {
-                  await categorias.crearEtiqueta(nuevaEtiqueta);
-                  setNuevaEtiqueta({ nombre: "", color: "#f59e0b" });
-                  toast.success("Etiqueta creada");
-                }}
-              >
+              <Boton anchoCompleto onClick={async () => {
+                await categorias.crearEtiqueta(nuevaEtiqueta);
+                setNuevaEtiqueta({ nombre: "", color: "#f59e0b" });
+                toast.success("Etiqueta creada");
+              }}>
                 Agregar etiqueta
               </Boton>
             </div>
 
-            {/* List */}
             <div className="space-y-0.5">
               <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
                 Etiquetas existentes
               </p>
               {categorias.etiquetas.map((etiqueta) => (
-                <div
-                  key={etiqueta.id}
-                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors"
-                >
+                <div key={etiqueta.id}
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
                   <Badge color={etiqueta.color}>{etiqueta.nombre}</Badge>
-                  <input
-                    className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
+                  <input className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
                     defaultValue={etiqueta.nombre}
-                    onBlur={(event) =>
-                      void categorias.actualizarEtiqueta(etiqueta.id, { nombre: event.target.value })
-                    }
-                  />
-                  <input
-                    type="color"
-                    className="h-6 w-6 cursor-pointer rounded bg-transparent border-none p-0 outline-none"
+                    onBlur={(event) => void categorias.actualizarEtiqueta(etiqueta.id, { nombre: event.target.value })} />
+                  <input type="color" className="h-6 w-6 cursor-pointer rounded bg-transparent border-none p-0 outline-none"
                     defaultValue={etiqueta.color}
-                    onBlur={(event) =>
-                      void categorias.actualizarEtiqueta(etiqueta.id, { color: event.target.value })
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
-                    onClick={() =>
-                      void categorias.eliminarEtiqueta(etiqueta.id).catch(() => {
-                        toast.error("No se puede eliminar si esta usada");
-                      })
-                    }
-                    title="Eliminar"
-                  >
+                    onBlur={(event) => void categorias.actualizarEtiqueta(etiqueta.id, { color: event.target.value })} />
+                  <button type="button" className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
+                    onClick={() => void categorias.eliminarEtiqueta(etiqueta.id).catch(() => {
+                      toast.error("No se puede eliminar si esta usada");
+                    })}
+                    title="Eliminar">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -511,22 +406,20 @@ export default function PaginaConfiguracion() {
           </section>
         )}
 
-        {tab === "personas" && (
+        {tab === "lugares" && (
           <section className="space-y-4 p-4">
             <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-              Colores de cada persona
+              Lugares frecuentes
             </p>
             <p className="font-body text-xs text-on-surface-variant">
-              Estos colores se usan en el reparto y los resúmenes para identificar rapidamente quien pago que.
+              Tocá la estrella para marcar favoritos. Los mas usados aparecen primero.
             </p>
-            <ColorPersona persona="franco" label="Franco" defaultColor="#3b82f6" />
-            <ColorPersona persona="fabiola" label="Fabiola" defaultColor="#10b981" />
+            <LugaresManager compras={compras.compras} />
           </section>
         )}
 
         {tab === "importar" && (
           <section className="space-y-4 p-4">
-            {/* Upload area */}
             <label className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed border-outline-variant rounded-lg text-center transition-colors duration-150 hover:bg-surface-container-low">
               <Upload className="h-5 w-5 text-secondary" />
               <span className="font-headline text-sm font-semibold text-on-surface">Seleccionar .xlsx</span>
@@ -538,16 +431,13 @@ export default function PaginaConfiguracion() {
 
             {previewImportacion.length ? (
               <>
-                {/* Preview list */}
                 <div className="space-y-1">
                   <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
                     Vista previa ({previewImportacion.length} registros)
                   </p>
                   {previewImportacion.map((fila, indice) => (
-                    <div
-                      key={`${fila.fecha}-${indice}`}
-                      className="py-2 px-3 bg-surface-container-low rounded-lg transition-all duration-150"
-                    >
+                    <div key={`${fila.fecha}-${indice}`}
+                      className="py-2 px-3 bg-surface-container-low rounded-lg transition-all duration-150">
                       <p className="tabular-nums font-headline text-sm font-semibold text-on-surface">
                         {fila.fecha}{" "}
                         <span className="text-on-surface-variant/60">·</span>{" "}
@@ -559,11 +449,7 @@ export default function PaginaConfiguracion() {
                     </div>
                   ))}
                 </div>
-                <Boton
-                  variante="secundario"
-                  anchoCompleto
-                  onClick={() => void confirmarImportacion()}
-                >
+                <Boton variante="secundario" anchoCompleto onClick={() => void confirmarImportacion()}>
                   Confirmar importacion
                 </Boton>
               </>
@@ -589,7 +475,6 @@ export default function PaginaConfiguracion() {
                 </p>
               </div>
             </div>
-
             <BotonInstalarApp />
           </section>
         )}

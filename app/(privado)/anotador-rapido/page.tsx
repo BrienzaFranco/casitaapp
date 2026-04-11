@@ -29,16 +29,15 @@ export default function PaginaAnotadorRapido() {
   const usuario = usarUsuario();
   const { guardarConFallback } = usarOffline(compras.guardarCompra);
 
+  const [detalle, setDetalle] = useState("");
+  const [monto, setMonto] = useState("");
   const [lugar, setLugar] = useState("");
   const [lugarNuevo, setLugarNuevo] = useState("");
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
-  const [monto, setMonto] = useState("");
-  const [detalle, setDetalle] = useState("");
   const [pagador, setPagador] = useState<PagadorCompra>("compartido");
   const [guardando, setGuardando] = useState(false);
 
   const montoCalculado = evaluarMonto(monto);
-
   const nombrePagador = usuario.perfil?.nombre ?? "";
 
   const lugaresPasados = useMemo(() => {
@@ -56,25 +55,14 @@ export default function PaginaAnotadorRapido() {
   function crearBorrador(): CompraEditable {
     const lugarFinal = mostrarNuevo ? lugarNuevo.trim() : lugar.trim();
     return {
-      id: generarIdTemporal(),
-      fecha: hoy(),
-      nombre_lugar: lugarFinal,
-      notas: "",
-      registrado_por: nombrePagador,
-      pagador_general: pagador,
-      estado: "borrador",
-      etiquetas_compra_ids: [],
+      id: generarIdTemporal(), fecha: hoy(), nombre_lugar: lugarFinal,
+      notas: "", registrado_por: nombrePagador, pagador_general: pagador,
+      estado: "borrador", etiquetas_compra_ids: [],
       items: [{
-        id: generarIdTemporal(),
-        descripcion: detalle.trim(),
-        categoria_id: "",
-        subcategoria_id: "",
-        expresion_monto: monto.trim(),
-        monto_resuelto: montoCalculado,
-        tipo_reparto: "50/50",
-        pago_franco: montoCalculado / 2,
-        pago_fabiola: montoCalculado / 2,
-        etiquetas_ids: [],
+        id: generarIdTemporal(), descripcion: detalle.trim(),
+        categoria_id: "", subcategoria_id: "", expresion_monto: monto.trim(),
+        monto_resuelto: montoCalculado, tipo_reparto: "50/50",
+        pago_franco: montoCalculado / 2, pago_fabiola: montoCalculado / 2, etiquetas_ids: [],
       }],
     };
   }
@@ -90,7 +78,7 @@ export default function PaginaAnotadorRapido() {
       if (resultado.pendiente) toast.success("Borrador guardado (sin conexion)");
       else toast.success("Borrador guardado");
       vibrarExito();
-      setLugar(""); setLugarNuevo(""); setMonto(""); setDetalle("");
+      setDetalle(""); setLugar(""); setLugarNuevo(""); setMonto("");
       setMostrarNuevo(false);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "No se pudo guardar";
@@ -107,27 +95,50 @@ export default function PaginaAnotadorRapido() {
           <p className="font-body text-xs text-on-surface-variant">Anota lo basico y completalo despues.</p>
         </div>
 
+        {/* 1. Detalle primero */}
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
+          <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Detalle</label>
+          <input
+            type="text" inputMode="text" value={detalle} onChange={e => setDetalle(e.target.value)}
+            placeholder="ej: Yerba, Leche, Pan..."
+            className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-3 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-b-primary"
+            autoFocus
+          />
+        </div>
+
+        {/* 2. Monto */}
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
+          <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Monto</label>
+          <input
+            type="text" inputMode="decimal" value={monto} onChange={e => setMonto(e.target.value)}
+            placeholder="ej: 4500 o 2000+500"
+            className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-3 font-label text-2xl font-bold tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/30 focus:border-b-primary focus:bg-surface-container-highest transition-all"
+          />
+          {montoCalculado > 0 && monto !== String(montoCalculado) && (
+            <p className="font-label text-xs text-tertiary tabular-nums">
+              = {formatearPeso(montoCalculado)}
+            </p>
+          )}
+        </div>
+
+        {/* 3. Lugar */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
           <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Lugar</label>
           {!mostrarNuevo ? (
-            <div className="space-y-1.5">
-              <select
-                value={lugar}
-                onChange={e => { if (e.target.value === "__nuevo__") { setMostrarNuevo(true); setLugarNuevo(""); } else { setLugar(e.target.value); } }}
-                className="w-full h-10 rounded bg-surface-container-low px-3 font-headline text-sm text-on-surface outline-none"
-              >
-                <option value="">Seleccionar lugar...</option>
-                {lugaresPasados.map(l => <option key={l} value={l}>{l}</option>)}
-                <option value="__nuevo__">+ Otro (nuevo)</option>
-              </select>
-            </div>
+            <select
+              value={lugar}
+              onChange={e => { if (e.target.value === "__nuevo__") { setMostrarNuevo(true); setLugarNuevo(""); } else { setLugar(e.target.value); } }}
+              className="w-full h-10 rounded bg-surface-container-low px-3 font-headline text-sm text-on-surface outline-none"
+            >
+              <option value="">Seleccionar lugar...</option>
+              {lugaresPasados.map(l => <option key={l} value={l}>{l}</option>)}
+              <option value="__nuevo__">+ Otro (nuevo)</option>
+            </select>
           ) : (
             <div className="space-y-1.5">
-              <input
-                type="text" value={lugarNuevo} onChange={e => setLugarNuevo(e.target.value)}
+              <input type="text" value={lugarNuevo} onChange={e => setLugarNuevo(e.target.value)}
                 placeholder="Nombre del lugar"
                 className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-2.5 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-b-primary"
-                autoFocus
               />
               <button type="button" onClick={() => { setMostrarNuevo(false); setLugarNuevo(""); }}
                 className="font-label text-[10px] text-on-surface-variant hover:text-on-surface underline">
@@ -137,6 +148,7 @@ export default function PaginaAnotadorRapido() {
           )}
         </div>
 
+        {/* 4. Quien pago */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
           <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Quien pago</label>
           <div className="grid grid-cols-3 gap-2">
@@ -156,29 +168,6 @@ export default function PaginaAnotadorRapido() {
             ))}
           </div>
         </div>
-
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
-          <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Monto</label>
-          <input
-            type="text" inputMode="decimal" value={monto} onChange={e => setMonto(e.target.value)}
-            placeholder="ej: 4500 o 2000+500"
-            className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-3 font-label text-2xl font-bold tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/30 focus:border-b-primary focus:bg-surface-container-highest transition-all"
-          />
-          {montoCalculado > 0 && monto !== String(montoCalculado) && (
-            <p className="font-label text-xs text-tertiary tabular-nums">
-              = {formatearPeso(montoCalculado)}
-            </p>
-          )}
-        </div>
-
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
-          <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Detalle</label>
-          <input
-            type="text" inputMode="text" value={detalle} onChange={e => setDetalle(e.target.value)}
-            placeholder="ej: Yerba, Leche, Pan..."
-            className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-2.5 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-b-primary"
-          />
-        </div>
       </div>
 
       <footer className="fixed bottom-[72px] left-0 right-0 z-20 bg-surface border-t border-outline-variant/15 px-4 py-3">
@@ -189,12 +178,8 @@ export default function PaginaAnotadorRapido() {
               <span className="font-label text-2xl font-bold tracking-tight tabular-nums text-primary">{formatearPeso(montoCalculado)}</span>
             </div>
           )}
-          <button
-            type="button"
-            onClick={guardarBorrador}
-            disabled={guardando || !monto.trim()}
-            className="w-full h-12 rounded bg-secondary font-headline text-base font-bold text-on-secondary disabled:opacity-50 hover:bg-secondary/90 active:scale-[0.98] transition-all shadow-lg shadow-secondary/20"
-          >
+          <button type="button" onClick={guardarBorrador} disabled={guardando || !monto.trim()}
+            className="w-full h-12 rounded bg-secondary font-headline text-base font-bold text-on-secondary disabled:opacity-50 hover:bg-secondary/90 active:scale-[0.98] transition-all shadow-lg shadow-secondary/20">
             {guardando ? "Guardando..." : "Guardar borrador"}
           </button>
         </div>
