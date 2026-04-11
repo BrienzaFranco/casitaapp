@@ -22,12 +22,14 @@ export function ResumenDeuda({ compras, nombres, onQuedarAMano }: Props) {
   let totalFrancoDebe = 0;
   let totalFabiolaDebe = 0;
   for (const cat of deuda) {
-    totalFrancoDebe += cat.totalFrancoDebe;
-    totalFabiolaDebe += cat.totalFabiolaDebe;
+    totalFrancoDebe += cat.totalFrancoDebe; // Cuanto le debe Franco a Fabiola
+    totalFabiolaDebe += cat.totalFabiolaDebe; // Cuanto le debe Fabiola a Franco
   }
   const neto = totalFabiolaDebe - totalFrancoDebe;
-  const debeFabiola = neto > 0.01;
-  const debeFranco = neto < -0.01;
+  // neto > 0: Fabiola debe mas → debe transferir a Franco
+  // neto < 0: Franco debe mas → debe transferir a Fabiola
+  const debeTransferirFabiola = neto > 0.01;
+  const debeTransferirFranco = neto < -0.01;
   const montoNeto = Math.abs(neto);
 
   if (!deuda.length) {
@@ -44,17 +46,17 @@ export function ResumenDeuda({ compras, nombres, onQuedarAMano }: Props) {
       {/* Header */}
       <div className="px-4 py-3 border-b border-outline-variant/10">
         <p className="font-label text-[10px] uppercase tracking-widest text-outline">Resumen de deuda</p>
-        {debeFabiola && (
+        {debeTransferirFabiola && (
           <p className="font-label text-sm font-bold text-secondary mt-0.5">
-            {nombres.fabiola} le debe {formatearPeso(montoNeto)} a {nombres.franco}
+            {nombres.fabiola} debe transferir {formatearPeso(montoNeto)} a {nombres.franco}
           </p>
         )}
-        {debeFranco && (
+        {debeTransferirFranco && (
           <p className="font-label text-sm font-bold text-secondary mt-0.5">
-            {nombres.franco} le debe {formatearPeso(montoNeto)} a {nombres.fabiola}
+            {nombres.franco} debe transferir {formatearPeso(montoNeto)} a {nombres.fabiola}
           </p>
         )}
-        {!debeFabiola && !debeFranco && (
+        {!debeTransferirFabiola && !debeTransferirFranco && (
           <p className="font-label text-sm text-tertiary mt-0.5">A mano</p>
         )}
         {onQuedarAMano && (
@@ -102,10 +104,10 @@ export function ResumenDeuda({ compras, nombres, onQuedarAMano }: Props) {
                       <span className="font-label text-[10px] text-on-surface-variant pl-5">{sub.nombre}</span>
                       <div className="flex items-center gap-2">
                         {sub.francoDebe > 0.01 && (
-                          <span className="font-label text-[10px] tabular-nums text-secondary">{nombres.franco} debe {formatearPeso(sub.francoDebe)}</span>
+                          <span className="font-label text-[10px] tabular-nums text-secondary">{nombres.franco} le debe {formatearPeso(sub.francoDebe)} a {nombres.fabiola}</span>
                         )}
                         {sub.fabiolaDebe > 0.01 && (
-                          <span className="font-label text-[10px] tabular-nums text-tertiary">{nombres.fabiola} debe {formatearPeso(sub.fabiolaDebe)}</span>
+                          <span className="font-label text-[10px] tabular-nums text-tertiary">{nombres.fabiola} le debe {formatearPeso(sub.fabiolaDebe)} a {nombres.franco}</span>
                         )}
                       </div>
                     </div>

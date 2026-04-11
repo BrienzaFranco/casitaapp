@@ -414,12 +414,66 @@ export interface DeudaPorCategoria {
   compras: Array<{ id: string; fecha: string; lugar: string; items: Array<{ descripcion: string; monto: number }> }>;
 }
 
+/**
+ * Calcula la deuda de un item segun quien pago vs a quien corresponde.
+ *
+ * pagador_general = quien EFECTIVAMENTE puso la plata
+ * tipo_reparto = a quien CORRESPONDE pagar
+ *
+ * Franco pago + corresponde a Fabiola → Fabiola le debe a Franco
+ * Fabiola pago + corresponde a Franco → Franco le debe a Fabiola
+ * Compartido + corresponde a Franco → Franco ya puso mitad, debe la otra mitad a Fabiola
+ */
+function calcularDeudaItem(
+  pagador: "franco" | "fabiola" | "compartido",
+  tipoReparto: TipoReparto,
+  monto: number,
+  pagoFranco: number,
+  pagoFabiola: number,
+): { francoLeDebeAFabiola: number; fabiolaLeDebeAFranco: number } {
+  let francoLeDebeAFabiola = 0;
+  let fabiolaLeDebeAFranco = 0;
+
+  if (pagador === "franco") {
+    // Franco puso la plata
+    if (tipoReparto === "solo_fabiola") {
+      fabiolaLeDebeAFranco = monto; // Fabiola deberia pagar todo
+    } else if (tipoReparto === "50/50") {
+      fabiolaLeDebeAFranco = pagoFabiola; // Fabiola deberia pagar su mitad
+    }
+    // solo_franco: Franco puso, es para Franco → nadie debe
+  } else if (pagador === "fabiola") {
+    // Fabiola puso la plata
+    if (tipoReparto === "solo_franco") {
+      francoLeDebeAFabiola = monto; // Franco deberia pagar todo
+    } else if (tipoReparto === "50/50") {
+      francoLeDebeAFabiola = pagoFranco; // Franco deberia pagar su mitad
+    }
+    // solo_fabiola: Fabiola puso, es para Fabiola → nadie debe
+  } else {
+    // compartido: ambos pusieron la mitad del total
+    // Cada uno ya pago el 50% de cada item
+    if (tipoReparto === "solo_franco") {
+      // Franco deberia pagar todo pero solo puso la mitad → debe la otra mitad a Fabiola
+      francoLeDebeAFabiola = monto * 0.5;
+    } else if (tipoReparto === "solo_fabiola") {
+      // Fabiola deberia pagar todo pero solo puso la mitad → debe la otra mitad a Franco
+      fabiolaLeDebeAFranco = monto * 0.5;
+    }
+    // 50/50 + compartido: ambos pusieron mitad, ambos deben mitad → balancea
+  }
+
+  return { francoLeDebeAFabiola, fabiolaLeDebeAFranco };
+}
+
 export function analizarDeudaPorCategoria(
   compras: Compra[],
 ): DeudaPorCategoria[] {
   const mapa = new Map<string, DeudaPorCategoria>();
 
   for (const compra of compras) {
+    if (compra.estado === "borrador") continue;
+
     for (const item of compra.items) {
       const catNombre = item.categoria?.nombre ?? "Sin categoria";
       const catColor = item.categoria?.color ?? "#6b7280";
@@ -437,36 +491,23 @@ export function analizarDeudaPorCategoria(
       }
 
       const cat = mapa.get(catNombre)!;
+      const deuda = calcularDeudaItem(
+        compra.pagador_general,
+        item.tipo_reparto,
+        item.monto_resuelto,
+        item.pago_franco,
+        item.pago_fabiola,
+      );
 
-      // Franco debe si Fabiola pago y corresponde a Franco (o ambos)
-      let francoDebe = 0;
-      let fabiolaDebe = 0;
-
-      if (compra.pagador_general === "fabiola") {
-        // Fabiola pago → Franco debe su parte
-        if (item.tipo_reparto === "solo_franco") francoDebe = item.monto_resuelto;
-        else if (item.tipo_reparto === "50/50") francoDebe = item.pago_franco;
-      } else if (compra.pagador_general === "franco") {
-        // Franco pago → Fabiola debe su parte
-        if (item.tipo_reparto === "solo_fabiola") fabiolaDebe = item.monto_resuelto;
-        else if (item.tipo_reparto === "50/50") fabiolaDebe = item.pago_fabiola;
-      } else {
-        // Ambos pagaron (compartido) → se divide segun el reparto
-        // En este caso, si es 50/50 ambos pagaron su parte, nadie debe
-        // Si es solo_franco, Fabiola le debe a Franco (porque Franco puso todo)
-        if (item.tipo_reparto === "solo_franco") fabiolaDebe = 0; // Franco puso su parte
-        if (item.tipo_reparto === "solo_fabiola") francoDebe = 0;
-      }
-
-      cat.totalFrancoDebe += francoDebe;
-      cat.totalFabiolaDebe += fabiolaDebe;
+      cat.totalFrancoDebe += deuda.francoLeDebeAFabiola;
+      cat.totalFabiolaDebe += deuda.fabiolaLeDebeAFranco;
 
       const sub = cat.subcategorias.find(s => s.nombre === subNombre);
       if (sub) {
-        sub.francoDebe += francoDebe;
-        sub.fabiolaDebe += fabiolaDebe;
+        sub.francoDebe += deuda.francoLeDebeAFabiola;
+        sub.fabiolaDebe += deuda.fabiolaLeDebeAFranco;
       } else if (subNombre) {
-        cat.subcategorias.push({ nombre: subNombre, francoDebe, fabiolaDebe });
+        cat.subcategorias.push({ nombre: subNombre, francoDebe: deuda.francoLeDebeAFabiola, fabiolaDebe: deuda.fabiolaLeDebeAFranco });
       }
 
       const compraExistente = cat.compras.find(c => c.id === compra.id);
