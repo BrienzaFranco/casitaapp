@@ -198,9 +198,6 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
     finally { setGuardandoLocal(false); }
   }
 
-  const franCorto = nombres.franco.slice(0, 6);
-  const fabiCorto = nombres.fabiola.slice(0, 6);
-
   // Quien pago mas del otro
   const debeFrancoAFabiola = totalFabiola > totalFranco ? totalFabiola - totalFranco : 0;
   const debeFabiolaAFranco = totalFranco > totalFabiola ? totalFranco - totalFabiola : 0;
@@ -234,10 +231,10 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                 className="h-7 rounded bg-surface-container-low px-2 font-label text-xs tabular-nums text-on-surface outline-none" />
             </label>
             <label className="flex items-center gap-1.5 shrink-0">
-              <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Pago</span>
+              <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Quien pago</span>
               <select value={compra.pagador_general} onChange={e => set({ pagador_general: e.target.value as "franco" | "fabiola" | "compartido" })}
                 className="h-7 rounded bg-surface-container-low px-2 font-label text-xs text-on-surface outline-none">
-                <option value="compartido">50/50</option>
+                <option value="compartido">Ambos</option>
                 <option value="franco">{nombres.franco}</option>
                 <option value="fabiola">{nombres.fabiola}</option>
               </select>
@@ -362,14 +359,15 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                       className="flex-1 bg-transparent border-b border-outline/20 px-0 py-1 font-label text-[10px] tabular-nums text-on-surface-variant outline-none placeholder:text-on-surface-variant/40 focus:border-b-primary" />
                   </div>
 
-                  {/* Reparto dropdown + Etiquetas toggle juntos */}
+                  {/* Corresponde a + Etiquetas toggle juntos */}
                   <div className="flex items-center gap-1">
+                    <span className="font-label text-[8px] uppercase tracking-wider text-on-surface-variant/60 shrink-0">Corresp</span>
                     <select value={item.tipo_reparto} onChange={e => setItem(item.id ?? "", { tipo_reparto: e.target.value as TipoReparto }, true)}
                       className="h-6 rounded bg-surface-container px-1.5 font-label text-[9px] font-bold text-on-surface outline-none shrink-0"
-                      style={{ width: `${Math.max(48, (item.tipo_reparto === "solo_franco" ? franCorto : item.tipo_reparto === "solo_fabiola" ? fabiCorto : "50/50").length * 7 + 28)}px` }}>
-                      <option value="50/50">50/50</option>
-                      <option value="solo_franco">{franCorto}</option>
-                      <option value="solo_fabiola">{fabiCorto}</option>
+                      style={{ width: `${Math.max(48, (item.tipo_reparto === "solo_franco" ? nombres.franco : item.tipo_reparto === "solo_fabiola" ? nombres.fabiola : "Ambos").length * 7 + 28)}px` }}>
+                      <option value="50/50">Ambos</option>
+                      <option value="solo_franco">{nombres.franco}</option>
+                      <option value="solo_fabiola">{nombres.fabiola}</option>
                     </select>
 
                     {item.tipo_reparto === "50/50" && (
@@ -491,10 +489,18 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
             <span className="font-label text-2xl font-bold tracking-tight tabular-nums text-primary">{formatearPeso(total)}</span>
           </div>
 
-          {/* Quien pago cuanto */}
-          <div className="flex items-center justify-between">
-            <span className="font-label tabular-nums" style={{ color: colorFran }}>{nombres.franco} pago {formatearPeso(totalFranco)}</span>
-            <span className="font-label tabular-nums" style={{ color: colorFabi }}>{nombres.fabiola} pago {formatearPeso(totalFabiola)}</span>
+          {/* Quien pago (segun dropdown) vs Corresponde */}
+          <div className="flex items-center justify-between text-xs mb-0.5">
+            <span className="font-label text-[10px] text-on-surface-variant">
+              {compra.pagador_general === "franco"
+                ? `${nombres.franco} pago todo`
+                : compra.pagador_general === "fabiola"
+                  ? `${nombres.fabiola} pago todo`
+                  : "Ambos pagaron"}
+            </span>
+            <span className="font-label text-[10px] text-on-surface-variant">
+              Corresp: {nombres.franco} {formatearPeso(totalFranco)} / {nombres.fabiola} {formatearPeso(totalFabiola)}
+            </span>
           </div>
 
           {/* Deuda clara */}

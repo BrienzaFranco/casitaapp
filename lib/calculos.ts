@@ -68,26 +68,40 @@ export function totalCompra(compra: Compra) {
 
 export function calcularBalance(compras: Compra[], nombres = { franco: "Franco", fabiola: "Fabiola" }): ResumenBalance {
   let total = 0;
-  let francoPago = 0;
-  let fabiolaPago = 0;
+  let francoPagoReal = 0;
+  let fabiolaPagoReal = 0;
+  let francoCorresponde = 0;
+  let fabiolaCorresponde = 0;
 
   for (const compra of compras) {
     for (const item of compra.items) {
       total += item.monto_resuelto;
-      francoPago += item.pago_franco;
-      fabiolaPago += item.pago_fabiola;
+      // A quien le corresponde (segun tipo_reparto del item)
+      francoCorresponde += item.pago_franco;
+      fabiolaCorresponde += item.pago_fabiola;
+
+      // Quien pago realmente (segun pagador_general de la compra)
+      if (compra.pagador_general === "franco") {
+        francoPagoReal += item.monto_resuelto;
+      } else if (compra.pagador_general === "fabiola") {
+        fabiolaPagoReal += item.monto_resuelto;
+      } else {
+        // compartido: se divide segun el reparto del item
+        francoPagoReal += item.pago_franco;
+        fabiolaPagoReal += item.pago_fabiola;
+      }
     }
   }
 
-  const francoCorresponde = total / 2;
-  const fabiolaCorresponde = total / 2;
-  const balance = Number((francoPago - francoCorresponde).toFixed(2));
+  // Balance: lo que Franco pago menos lo que le corresponde
+  const balance = Number((francoPagoReal - francoCorresponde).toFixed(2));
 
-  if (balance > 0) {
+  if (balance > 0.01) {
+    // Franco pago de mas → Fabiola le debe
     return {
       total,
-      franco_pago: francoPago,
-      fabiola_pago: fabiolaPago,
+      franco_pago: francoPagoReal,
+      fabiola_pago: fabiolaPagoReal,
       franco_corresponde: francoCorresponde,
       fabiola_corresponde: fabiolaCorresponde,
       balance,
@@ -96,11 +110,12 @@ export function calcularBalance(compras: Compra[], nombres = { franco: "Franco",
     };
   }
 
-  if (balance < 0) {
+  if (balance < -0.01) {
+    // Franco pago de menos → Franco le debe
     return {
       total,
-      franco_pago: francoPago,
-      fabiola_pago: fabiolaPago,
+      franco_pago: francoPagoReal,
+      fabiola_pago: fabiolaPagoReal,
       franco_corresponde: francoCorresponde,
       fabiola_corresponde: fabiolaCorresponde,
       balance,
@@ -111,11 +126,11 @@ export function calcularBalance(compras: Compra[], nombres = { franco: "Franco",
 
   return {
     total,
-    franco_pago: francoPago,
-    fabiola_pago: fabiolaPago,
+    franco_pago: francoPagoReal,
+    fabiola_pago: fabiolaPagoReal,
     franco_corresponde: francoCorresponde,
     fabiola_corresponde: fabiolaCorresponde,
-    balance,
+    balance: 0,
     deudor: null,
     acreedor: null,
   };
