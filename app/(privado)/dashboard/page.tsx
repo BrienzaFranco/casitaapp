@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar, X, Tag, PieChart, TrendingUp } from "lucide-react";
+import { Calendar, X, Tag, PieChart, TrendingUp, Download } from "lucide-react";
+import { toast } from "sonner";
 import type { Categoria, CategoriaBalance, Compra, EtiquetaBalance } from "@/types";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearFecha, formatearPeso } from "@/lib/formatear";
 import { mesClave } from "@/lib/utiles";
+import { exportarExcel } from "@/lib/exportar";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { obtenerMesAnterior } from "@/lib/calculos";
@@ -451,6 +453,11 @@ export default function PaginaDashboard() {
     return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
   }
 
+  function exportar() {
+    exportarExcel(balance.comprasMes, balance.resumenMes, balance.resumenHistorico, balance.categoriasMes, balance.etiquetasMes, balance.mesSeleccionado);
+    toast.success(`Dashboard exportado: ${balance.mesSeleccionado} (${balance.comprasMes.length} compras)`);
+  }
+
   if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando) {
     return (
       <div className="space-y-3">
@@ -477,25 +484,89 @@ export default function PaginaDashboard() {
     );
   }
 
+  // KPI values
+  const totalMes = balance.resumenMes.total;
+  const francoMes = balance.resumenMes.franco_pago;
+  const fabiolaMes = balance.resumenMes.fabiola_pago;
+  const variacion = balance.variacionMensual;
+  const tieneVariacion = variacion.porcentaje !== null && isFinite(variacion.porcentaje);
+
   return (
     <section className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header with month picker + export */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <p className="font-label text-[10px] uppercase tracking-widest text-outline">Dashboard</p>
           <h2 className="font-headline text-xl font-bold tracking-tight text-on-surface">Dashboard de gastos</h2>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 h-8 px-3 rounded bg-surface-container-high font-label text-[10px] text-on-surface-variant">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>{formatearMesLabel(balance.mesSeleccionado)}</span>
-          </div>
+          <input
+            type="month"
+            value={balance.mesSeleccionado}
+            onChange={(e) => balance.setMesSeleccionado(e.target.value)}
+            className="h-8 rounded bg-surface-container-low border-b border-outline/20 px-2 font-label text-xs tabular-nums outline-none text-on-surface"
+          />
+          <button
+            type="button"
+            onClick={exportar}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded bg-surface-container-high font-label text-[10px] font-bold uppercase tracking-wider text-on-surface hover:bg-surface-container-highest transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" /> Exportar
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {/* Total */}
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3">
+          <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">Total mes</p>
+          <p className="font-label text-lg font-bold tabular-nums text-primary">{formatearPeso(totalMes)}</p>
+          {tieneVariacion && (
+            <p className={`font-label text-[9px] tabular-nums ${variacion.diferencia > 0 ? "text-error" : "text-success"}`}>
+              {variacion.diferencia > 0 ? "↑" : "↓"} {Math.abs(variacion.porcentaje!)}% vs mes anterior
+            </p>
+          )}
+        </div>
+        {/* Franco */}
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3" style={{ borderTop: `3px solid ${colorFran}` }}>
+          <p className="font-label text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color: colorFran }}>{balance.nombres.franco}</p>
+          <p className="font-label text-lg font-bold tabular-nums" style={{ color: colorFran }}>{formatearPeso(francoMes)}</p>
+          <p className="font-label text-[9px] text-on-surface-variant">
+            {totalMes > 0 ? ((francoMes / totalMes) * 100).toFixed(0) : 0}% del total
+          </p>
+        </div>
+        {/* Fabiola */}
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3" style={{ borderTop: `3px solid ${colorFabi}` }}>
+          <p className="font-label text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color: colorFabi }}>{balance.nombres.fabiola}</p>
+          <p className="font-label text-lg font-bold tabular-nums" style={{ color: colorFabi }}>{formatearPeso(fabiolaMes)}</p>
+          <p className="font-label text-[9px] text-on-surface-variant">
+            {totalMes > 0 ? ((fabiolaMes / totalMes) * 100).toFixed(0) : 0}% del total
+          </p>
+        </div>
+        {/* Balance */}
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3">
+          <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">Balance</p>
+          {balance.resumenMes.deudor ? (
+            <>
+              <p className="font-label text-sm font-bold tabular-nums" style={{ color: colorFabi }}>
+                {balance.resumenMes.deudor}
+              </p>
+              <p className="font-label text-[9px] text-on-surface-variant">
+                debe {formatearPeso(Math.abs(balance.resumenMes.balance))} a {balance.resumenMes.acreedor}
+              </p>
+            </>
+          ) : (
+            <p className="font-label text-sm font-bold text-success">Al día ✓</p>
+          )}
         </div>
       </div>
 
       {/* Row 1: Category donut + Labels bar */}
-      <GraficoCategoriaInteractivo registros={balance.categoriasMes} comprasMes={balance.comprasMes} />
-      <GraficoEtiquetasInteractivo registros={balance.etiquetasMes} comprasMes={balance.comprasMes} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <GraficoCategoriaInteractivo registros={balance.categoriasMes} comprasMes={balance.comprasMes} />
+        <GraficoEtiquetasInteractivo registros={balance.etiquetasMes} comprasMes={balance.comprasMes} />
+      </div>
 
       {/* Row 2: Burn rate chart */}
       <GraficoRitmoGasto
