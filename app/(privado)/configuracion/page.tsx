@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import { Download, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { BotonInstalarApp } from "@/components/pwa/BotonInstalarApp";
+import { Modal } from "@/components/ui/Modal";
 import type { Compra, CompraEditable, DatosImportados, TipoReparto } from "@/types";
 import { Badge } from "@/components/ui/Badge";
 import { Boton } from "@/components/ui/Boton";
@@ -93,6 +94,115 @@ function parsearImportacion(datos: Array<Record<string, unknown>>) {
         .filter(Boolean),
     } satisfies DatosImportados;
   });
+}
+
+/**
+ * Inline editable category row with color picker modal.
+ */
+function CategoriaEditable({
+  categoria,
+  onUpdate,
+  onDelete,
+}: {
+  categoria: { id: string; nombre: string; color: string; limite_mensual: number | null };
+  onUpdate: (cambios: { nombre?: string; color?: string; limite_mensual?: number | null }) => void;
+  onDelete: () => void;
+}) {
+  const [nombre, setNombre] = useState(categoria.nombre);
+  const [colorAbierto, setColorAbierto] = useState(false);
+  const [colorPreview, setColorPreview] = useState(categoria.color);
+
+  // Reset if categoria changes
+  useEffect(() => {
+    setNombre(categoria.nombre);
+    setColorPreview(categoria.color);
+  }, [categoria.nombre, categoria.color]);
+
+  const nombreCambiado = nombre !== categoria.nombre;
+  const colorCambiado = colorPreview !== categoria.color;
+
+  return (
+    <>
+      <div className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
+        {/* Color swatch — clickable */}
+        <button
+          type="button"
+          onClick={() => setColorAbierto(true)}
+          className="h-7 w-7 rounded-full shrink-0 ring-1 ring-outline-variant/20 transition-transform hover:scale-110"
+          style={{ backgroundColor: colorPreview }}
+          title="Cambiar color"
+        />
+        {colorCambiado && (
+          <button
+            type="button"
+            onClick={() => { onUpdate({ color: colorPreview }); toast.success("Color actualizado"); }}
+            className="h-5 px-1.5 rounded bg-primary text-on-primary text-[8px] font-bold font-label shrink-0"
+          >
+            Guardar color
+          </button>
+        )}
+
+        {/* Name input */}
+        <input
+          className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          onBlur={() => {
+            if (nombreCambiado && nombre.trim()) {
+              onUpdate({ nombre: nombre.trim() });
+            } else {
+              setNombre(categoria.nombre);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && nombreCambiado && nombre.trim()) {
+              onUpdate({ nombre: nombre.trim() });
+              (e.target as HTMLInputElement).blur();
+            }
+            if (e.key === "Escape") {
+              setNombre(categoria.nombre);
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+        />
+
+        {/* Limit input */}
+        <input
+          className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
+          type="number"
+          defaultValue={String(categoria.limite_mensual ?? "")}
+          onBlur={(event) => {
+            const val = event.target.value;
+            onUpdate({ limite_mensual: val ? Number(val) : null });
+          }}
+          placeholder="Sin limite"
+        />
+
+        {/* Delete */}
+        <button
+          type="button"
+          className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container shrink-0"
+          onClick={onDelete}
+          title="Eliminar"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Color picker modal */}
+      <Modal
+        abierto={colorAbierto}
+        titulo="Color de categoria"
+        descripcion={`Elige un color para "${categoria.nombre}"`}
+        confirmacion="Listo"
+        cancelacion="Cancelar"
+        onConfirmar={() => { onUpdate({ color: colorPreview }); toast.success("Color actualizado"); setColorAbierto(false); }}
+        onCancelar={() => { setColorAbierto(false); setColorPreview(categoria.color); }}
+      >
+        <SelectorColor color={colorPreview} onChange={setColorPreview} />
+      </Modal>
+    </>
+  );
 }
 
 const TABS: { valor: Tab; etiqueta: string }[] = [
@@ -468,26 +578,14 @@ export default function PaginaConfiguracion() {
                 Categorias existentes
               </p>
               {categorias.categorias.map((categoria) => (
-                <div key={categoria.id}
-                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
-                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: categoria.color }} />
-                  <input className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
-                    defaultValue={categoria.nombre}
-                    onBlur={(event) => void categorias.actualizarCategoria(categoria.id, { nombre: event.target.value })} />
-                  <input className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
-                    defaultValue={String(categoria.limite_mensual ?? "")}
-                    onBlur={(event) => void categorias.actualizarCategoria(categoria.id, {
-                      limite_mensual: event.target.value ? Number(event.target.value) : null,
-                    })}
-                    placeholder="Sin limite" />
-                  <button type="button" className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
-                    onClick={() => void categorias.eliminarCategoria(categoria.id).catch(() => {
-                      toast.error("No se puede eliminar si tiene items asociados");
-                    })}
-                    title="Eliminar">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                <CategoriaEditable
+                  key={categoria.id}
+                  categoria={categoria}
+                  onUpdate={(cambios) => void categorias.actualizarCategoria(categoria.id, cambios)}
+                  onDelete={() => void categorias.eliminarCategoria(categoria.id).catch(() => {
+                    toast.error("No se puede eliminar si tiene items asociados");
+                  })}
+                />
               ))}
             </div>
           </section>
