@@ -11,10 +11,16 @@ import { exportarExcel } from "@/lib/exportar";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { obtenerMesAnterior } from "@/lib/calculos";
+import { fechaLocalISO } from "@/lib/utiles";
 import { GraficoRitmoGasto } from "@/components/dashboard/GraficoRitmoGasto";
 import { GraficoAportesMensuales } from "@/components/dashboard/GraficoAportesMensuales";
 import { EstadoPresupuestos } from "@/components/dashboard/EstadoPresupuestos";
 import { TreemapSubcategorias } from "@/components/dashboard/TreemapSubcategorias";
+import { TarjetaSaldoAbierto } from "@/components/dashboard/TarjetaSaldoAbierto";
+import { TopDiasGasto } from "@/components/dashboard/TopDiasGasto";
+import { DesgloseReparto } from "@/components/dashboard/DesgloseReparto";
+import { ComparativaPersonal } from "@/components/dashboard/ComparativaPersonal";
+import { HeatmapGasto } from "@/components/dashboard/HeatmapGasto";
 import {
   Bar,
   BarChart,
@@ -447,15 +453,9 @@ export default function PaginaDashboard() {
     ? balance.compras.compras.filter((c) => mesClave(c.fecha) === mesAnterior)
     : [];
 
-  function formatearMesLabel(mes: string): string {
-    const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-    const [anio, mesNum] = mes.split("-");
-    return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
-  }
-
   function exportar() {
     exportarExcel(balance.comprasMes, balance.resumenMes, balance.resumenHistorico, balance.categoriasMes, balance.etiquetasMes, balance.mesSeleccionado);
-    toast.success(`Dashboard exportado: ${balance.mesSeleccionado} (${balance.comprasMes.length} compras)`);
+    toast.success(`Dashboard exportado: ${formatearMesLabel(balance.mesSeleccionado)} (${balance.comprasMes.length} compras)`);
   }
 
   if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando) {
@@ -490,6 +490,27 @@ export default function PaginaDashboard() {
   const fabiolaMes = balance.resumenMes.fabiola_pago;
   const variacion = balance.variacionMensual;
   const tieneVariacion = variacion.porcentaje !== null && isFinite(variacion.porcentaje);
+
+  async function quedarAMano() {
+    try {
+      const hoy = fechaLocalISO();
+      const resumen = balance.saldoAbierto.deudor
+        ? `${balance.saldoAbierto.deudor} debia ${formatearPeso(Math.abs(balance.saldoAbierto.balance))} a ${balance.saldoAbierto.acreedor}`
+        : "sin deuda";
+
+      await balance.cortes.crearCorte({
+        fecha_corte: hoy,
+        nota: `Quedaron a mano (${hoy}): ${resumen}. Franco pago ${formatearPeso(balance.saldoAbierto.franco_pago)}, Fabiola pago ${formatearPeso(balance.saldoAbierto.fabiola_pago)}.`,
+        hogar_id: balance.compras.compras[0]?.hogar_id ?? null,
+        actualizado_por: balance.usuario.perfil?.nombre ?? "Sistema",
+      });
+
+      toast.success("Listo: quedaron a mano.");
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "No se pudo marcar el corte.";
+      toast.error(msg);
+    }
+  }
 
   return (
     <section className="space-y-4">
@@ -568,7 +589,21 @@ export default function PaginaDashboard() {
         <GraficoEtiquetasInteractivo registros={balance.etiquetasMes} comprasMes={balance.comprasMes} />
       </div>
 
-      {/* Row 2: Burn rate chart */}
+      {/* Row 2: Open balance card + Top spending days */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <TarjetaSaldoAbierto
+          saldoAbierto={balance.saldoAbierto}
+          comprasAbiertas={balance.comprasAbiertas}
+          corteActivo={balance.cortes.corteActivo}
+          nombres={balance.nombres}
+          colorFabi={colorFabi}
+          onQuedarAMano={quedarAMano}
+          guardando={balance.cortes.guardando}
+        />
+        <TopDiasGasto diasMasGasto={balance.diasMasGasto} comprasMes={balance.comprasMes} />
+      </div>
+
+      {/* Row 3: Burn rate chart */}
       <GraficoRitmoGasto
         comprasMesActual={balance.comprasMes}
         comprasMesAnterior={comprasMesAnterior}
@@ -576,7 +611,13 @@ export default function PaginaDashboard() {
         mesAnterior={mesAnterior || "—"}
       />
 
-      {/* Row 3: Monthly contributions + Budget progress */}
+      {/* Row 4: Heatmap + Reparto breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <HeatmapGasto tendenciaDiariaMes={balance.tendenciaDiariaMes} mesLabel={formatearMesLabel(balance.mesSeleccionado)} />
+        <DesgloseReparto comprasMes={balance.comprasMes} nombres={balance.nombres} />
+      </div>
+
+      {/* Row 5: Monthly contributions + Budget progress */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <GraficoAportesMensuales
           historico={balance.resumenHistorico}
@@ -587,10 +628,19 @@ export default function PaginaDashboard() {
         <EstadoPresupuestos categoriasMes={balance.categoriasMes} />
       </div>
 
-      {/* Row 4: Treemap */}
-      <TreemapSubcategorias categoriasMes={balance.categoriasMes} />
+      {/* Row 6: Personal comparison + Treemap */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ComparativaPersonal
+          comprasMes={balance.comprasMes}
+          categorias={balance.categorias.categorias}
+          nombres={balance.nombres}
+          colorFran={colorFran}
+          colorFabi={colorFabi}
+        />
+        <TreemapSubcategorias categoriasMes={balance.categoriasMes} />
+      </div>
 
-      {/* Row 5: Monthly bar chart */}
+      {/* Row 7: Monthly bar chart */}
       <GraficoMensual compras={balance.compras.compras} />
     </section>
   );

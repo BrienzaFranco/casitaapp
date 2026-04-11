@@ -1,6 +1,6 @@
 "use client";
 
-import { Wallet } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown } from "lucide-react";
 import type { CategoriaBalance } from "@/types";
 import { formatearPeso, formatearPorcentaje } from "@/lib/formatear";
 
@@ -8,14 +8,20 @@ interface Props {
   categoriasMes: CategoriaBalance[];
 }
 
-function colorBarra(porcentaje: number | null): string {
-  if (porcentaje === null) return "bg-gray-300";
-  if (porcentaje < 60) return "bg-green-500";
-  if (porcentaje <= 80) return "bg-amber-500";
+function colorBarra(porcentaje: number | null, proyeccion?: number | null): string {
+  const pct = proyeccion ?? porcentaje ?? 0;
+  if (pct === null) return "bg-gray-300";
+  if (pct < 80) return "bg-green-500";
+  if (pct <= 100) return "bg-amber-500";
   return "bg-red-500";
 }
 
 export function EstadoPresupuestos({ categoriasMes }: Props) {
+  const hoy = new Date();
+  const diaDelMes = hoy.getDate();
+  const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+  const factorProyeccion = diaDelMes > 0 ? diasEnMes / diaDelMes : 1;
+
   const conLimite = categoriasMes.filter(
     (c) => c.categoria.limite_mensual && c.categoria.limite_mensual > 0,
   );
@@ -34,7 +40,7 @@ export function EstadoPresupuestos({ categoriasMes }: Props) {
           </h2>
         </div>
         <p className="font-label text-[10px] text-on-surface-variant">
-          Gasto vs. límite configurado por categoria
+          Gasto vs. límite · Proyección a fin de mes (día {diaDelMes}/{diasEnMes})
         </p>
       </div>
 
@@ -46,6 +52,12 @@ export function EstadoPresupuestos({ categoriasMes }: Props) {
           const restante = limite - gastado;
           const excedido = porcentaje > 100;
 
+          // Projection: if we keep this pace, what will we hit by end of month?
+          const proyectado = Math.round(gastado * factorProyeccion * 100) / 100;
+          const pctProyectado = (proyectado / limite) * 100;
+          const vaExceder = pctProyectado > 100 && !excedido;
+          const vaBien = pctProyectado <= 100 && !excedido;
+
           return (
             <div key={cat.categoria.id} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
@@ -55,7 +67,7 @@ export function EstadoPresupuestos({ categoriasMes }: Props) {
                     {cat.categoria.nombre}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
+                <div className="flex items-center gap-1.5 shrink-0 ml-2">
                   <span className={`font-label text-[10px] font-bold tabular-nums ${excedido ? "text-red-500" : "text-on-surface"}`}>
                     {formatearPeso(gastado)} / {formatearPeso(limite)}
                   </span>
@@ -67,17 +79,31 @@ export function EstadoPresupuestos({ categoriasMes }: Props) {
 
               <div className="h-2 rounded-full bg-surface-container-lowest overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-300 ${colorBarra(porcentaje)}`}
+                  className={`h-full rounded-full transition-all duration-300 ${colorBarra(porcentaje, pctProyectado)}`}
                   style={{ width: `${Math.min(porcentaje, 100)}%` }}
                 />
               </div>
 
-              {excedido && (
+              {/* Status line */}
+              {excedido ? (
                 <p className="font-label text-[9px] text-red-500">
                   Excedido por {formatearPeso(Math.abs(restante))}
                 </p>
-              )}
-              {!excedido && restante > 0.01 && (
+              ) : vaExceder ? (
+                <div className="flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3 text-amber-500" />
+                  <p className="font-label text-[9px] text-amber-500">
+                    Proyección: {formatearPorcentaje(pctProyectado)} — vas a exceder el límite
+                  </p>
+                </div>
+              ) : vaBien && diaDelMes < diasEnMes ? (
+                <div className="flex items-center gap-1">
+                  <TrendingDown className="h-3 w-3 text-green-500" />
+                  <p className="font-label text-[9px] text-green-500">
+                    Proyección: {formatearPorcentaje(pctProyectado)} — vas bien
+                  </p>
+                </div>
+              ) : (
                 <p className="font-label text-[9px] text-on-surface-variant">
                   Restan {formatearPeso(restante)}
                 </p>
