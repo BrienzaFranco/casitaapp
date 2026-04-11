@@ -9,6 +9,8 @@ interface Props {
   registros: PuntoTendenciaDiaria[];
   compras?: Compra[];
   nombres?: { franco: string; fabiola: string };
+  colorFranco?: string;
+  colorFabiola?: string;
 }
 
 function etiquetaFechaCorta(fechaIso: string) {
@@ -16,7 +18,7 @@ function etiquetaFechaCorta(fechaIso: string) {
   return fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }
 
-export function GraficoTendenciaDiaria({ registros, compras, nombres }: Props) {
+export function GraficoTendenciaDiaria({ registros, compras, nombres, colorFranco = "#10b981", colorFabiola = "#a83900" }: Props) {
   // Calcular dominancia por dia: quien pago mas ese dia
   const dominanciaPorDia = useMemo(() => {
     if (!compras) return {} as Record<string, number>;
@@ -67,12 +69,12 @@ export function GraficoTendenciaDiaria({ registros, compras, nombres }: Props) {
             <AreaChart data={datos} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
               <defs>
                 <linearGradient id="gradFranco" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--tertiary)" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="var(--tertiary)" stopOpacity={0.03} />
+                  <stop offset="0%" stopColor={colorFranco} stopOpacity={0.4} />
+                  <stop offset="100%" stopColor={colorFranco} stopOpacity={0.03} />
                 </linearGradient>
                 <linearGradient id="gradFabiola" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--secondary)" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="var(--secondary)" stopOpacity={0.03} />
+                  <stop offset="0%" stopColor={colorFabiola} stopOpacity={0.4} />
+                  <stop offset="100%" stopColor={colorFabiola} stopOpacity={0.03} />
                 </linearGradient>
               </defs>
               <XAxis dataKey="etiqueta" tick={{ fontSize: 10, fill: "var(--chart-axis-color, #6b7280)" }} tickLine={false} axisLine={false} />
@@ -95,9 +97,9 @@ export function GraficoTendenciaDiaria({ registros, compras, nombres }: Props) {
                 }}
               />
               {/* Area de fondo - Franco domina */}
-              <Area type="monotone" dataKey="total" stroke="var(--tertiary)" strokeWidth={2} fill="url(#gradFranco)" opacity={0.3} />
+              <Area type="monotone" dataKey="total" stroke={colorFranco} strokeWidth={2} fill="url(#gradFranco)" opacity={0.3} />
               {/* Area de fondo - Fabiola domina */}
-              <Area type="monotone" dataKey="total" stroke="var(--secondary)" strokeWidth={2} fill="url(#gradFabiola)" opacity={0.3} />
+              <Area type="monotone" dataKey="total" stroke={colorFabiola} strokeWidth={2} fill="url(#gradFabiola)" opacity={0.3} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -106,11 +108,11 @@ export function GraficoTendenciaDiaria({ registros, compras, nombres }: Props) {
         {nombres && (
           <div className="flex items-center justify-between mt-2 px-1">
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-1 rounded-full bg-tertiary" />
+              <span className="w-3 h-1 rounded-full" style={{ backgroundColor: colorFranco }} />
               <span className="font-label text-[9px] text-on-surface-variant">{nombres.franco} pago mas</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-3 h-1 rounded-full bg-secondary" />
+              <span className="w-3 h-1 rounded-full" style={{ backgroundColor: colorFabiola }} />
               <span className="font-label text-[9px] text-on-surface-variant">{nombres.fabiola} pago mas</span>
             </div>
           </div>

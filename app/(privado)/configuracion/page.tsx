@@ -9,6 +9,7 @@ import type { Compra, CompraEditable, DatosImportados, TipoReparto } from "@/typ
 import { Badge } from "@/components/ui/Badge";
 import { Boton } from "@/components/ui/Boton";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { SelectorColor } from "@/components/ui/SelectorColor";
 import { formatearPeso } from "@/lib/formatear";
 import { fechaLocalISO, normalizarTexto } from "@/lib/utiles";
 import { guardarColor, ocultarLugar, mostrarLugar } from "@/lib/configuracion";
@@ -624,25 +625,24 @@ export default function PaginaConfiguracion() {
               Colores de cada persona
             </p>
             <p className="font-body text-xs text-on-surface-variant">
-              Estos colores se usan en el reparto y se comparten entre todos los dispositivos.
+              Estos colores se usan en el reparto, graficos y toda la app. Se comparten entre todos los dispositivos.
             </p>
 
             {(["franco", "fabiola"] as const).map((persona) => {
               const color = config.colores[persona];
               const label = persona === "franco" ? balance.nombres.franco : balance.nombres.fabiola;
               return (
-                <div key={persona} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-container-low">
-                  <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                  <span className="font-headline text-sm font-semibold text-on-surface flex-1">{label}</span>
-                  <input
-                    type="color"
-                    value={color}
-                    onChange={async e => {
-                      const nuevoColor = e.target.value;
+                <div key={persona} className="space-y-2 p-3 rounded-lg bg-surface-container-low">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: color, boxShadow: `0 0 0 2px var(--color-surface-container-low, #1e1d1b), 0 0 0 3px ${color}` }} />
+                    <span className="font-headline text-sm font-semibold text-on-surface flex-1">{label}</span>
+                  </div>
+                  <SelectorColor
+                    color={color}
+                    onChange={async (nuevoColor) => {
                       config.setColores({ ...config.colores, [persona]: nuevoColor });
                       await guardarColor(persona, nuevoColor, config.nombreUsuario);
                     }}
-                    className="h-8 w-12 cursor-pointer rounded bg-transparent border-none p-0 outline-none"
                   />
                 </div>
               );

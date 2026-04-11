@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearFecha, formatearPeso } from "@/lib/formatear";
 import { fechaLocalISO } from "@/lib/utiles";
 import { usarBalance } from "@/hooks/usarBalance";
+import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 
 function hoyIso() { return fechaLocalISO(); }
 
@@ -32,6 +33,9 @@ interface ItemDeuda {
 
 export default function PaginaBalance() {
   const balance = usarBalance();
+  const config = usarConfiguracion();
+  const colorFran = config.colores.franco;
+  const colorFabi = config.colores.fabiola;
   const [mostrarAnalisis, setMostrarAnalisis] = useState(false);
   const [itemsChecked, setItemsChecked] = useState<Set<string>>(new Set());
   const [historialExpandido, setHistorialExpandido] = useState<Record<string, boolean>>({});
@@ -198,7 +202,7 @@ export default function PaginaBalance() {
       </div>
 
       {/* Deuda actual */}
-      <div className={`rounded-lg border p-4 ${itemsDeuda.length === 0 ? "bg-surface-container-low border-outline-variant/10" : "bg-secondary/10 border-secondary/20"}`}>
+      <div className={`rounded-lg border p-4 ${itemsDeuda.length === 0 ? "bg-surface-container-low border-outline-variant/10" : "border-outline-variant/10"}`} style={itemsDeuda.length > 0 ? { backgroundColor: `${colorFabi}18` } : {}}>
         <div className="flex items-baseline justify-between mb-2">
           <span className="font-label text-[10px] uppercase tracking-wider text-outline">Este periodo</span>
           <span className="font-label text-[10px] text-on-surface-variant">
@@ -217,7 +221,7 @@ export default function PaginaBalance() {
 
         {debeFabiola && (
           <div className="space-y-0.5">
-            <p className="font-label text-base font-bold text-secondary">
+            <p className="font-label text-base font-bold" style={{ color: colorFabi }}>
               {balance.nombres.fabiola} debe {formatearPeso(montoDeuda)}
             </p>
             <p className="font-label text-xs text-on-surface-variant">
@@ -227,7 +231,7 @@ export default function PaginaBalance() {
         )}
         {debeFranco && (
           <div className="space-y-0.5">
-            <p className="font-label text-base font-bold text-secondary">
+            <p className="font-label text-base font-bold" style={{ color: colorFran }}>
               {balance.nombres.franco} debe {formatearPeso(montoDeuda)}
             </p>
             <p className="font-label text-xs text-on-surface-variant">
@@ -236,12 +240,12 @@ export default function PaginaBalance() {
           </div>
         )}
         {!debeFabiola && !debeFranco && fechaDesde && (
-          <p className="font-label text-sm text-tertiary">
+          <p className="font-label text-sm" style={{ color: colorFabi }}>
             Deuda saldada. Ambos deben $0 desde {formatearFecha(fechaDesde)}
           </p>
         )}
         {!debeFabiola && !debeFranco && !fechaDesde && (
-          <p className="font-label text-sm text-tertiary">
+          <p className="font-label text-sm" style={{ color: colorFabi }}>
             Sin registros de deuda. Ambos deben $0.
           </p>
         )}
@@ -258,7 +262,8 @@ export default function PaginaBalance() {
                 <Eye className="h-3.5 w-3.5" /> Analizar items
               </button>
               <button type="button" onClick={quedarAManoHoy} disabled={balance.cortes.guardando}
-                className="h-8 px-4 rounded bg-tertiary font-label text-[10px] font-bold uppercase tracking-wider text-on-tertiary hover:bg-tertiary/90 disabled:opacity-50 transition-colors">
+                className="h-8 px-4 rounded font-label text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-colors hover:opacity-90"
+                style={{ backgroundColor: colorFabi, color: colorFabi === "#10b981" ? "#003909" : "#ffffff" }}>
                 Quedar a mano
               </button>
             </>
@@ -322,10 +327,10 @@ export default function PaginaBalance() {
                           <div className="text-right shrink-0">
                             <p className="font-label text-xs tabular-nums font-bold text-on-surface">{formatearPeso(item.itemMonto)}</p>
                             {item.francoDebe > 0.01 && (
-                              <p className="font-label text-[9px] tabular-nums text-secondary">{balance.nombres.franco} debe {formatearPeso(item.francoDebe)}</p>
+                              <p className="font-label text-[9px] tabular-nums" style={{ color: colorFran }}>{balance.nombres.franco} debe {formatearPeso(item.francoDebe)}</p>
                             )}
                             {item.fabiolaDebe > 0.01 && (
-                              <p className="font-label text-[9px] tabular-nums text-tertiary">{balance.nombres.fabiola} debe {formatearPeso(item.fabiolaDebe)}</p>
+                              <p className="font-label text-[9px] tabular-nums" style={{ color: colorFabi }}>{balance.nombres.fabiola} debe {formatearPeso(item.fabiolaDebe)}</p>
                             )}
                           </div>
                         </label>
@@ -341,20 +346,21 @@ export default function PaginaBalance() {
               <div className="flex items-center justify-between text-sm">
                 <span className="font-label text-[10px] text-on-surface-variant">Items seleccionados: {itemsChecked.size}/{itemsDeuda.length}</span>
                 {checkedDebeFabiola && (
-                  <span className="font-label text-sm font-bold text-secondary">{balance.nombres.fabiola} debe {formatearPeso(checkedMontoDeuda)} a {balance.nombres.franco}</span>
+                  <span className="font-label text-sm font-bold" style={{ color: colorFabi }}>{balance.nombres.fabiola} debe {formatearPeso(checkedMontoDeuda)} a {balance.nombres.franco}</span>
                 )}
                 {checkedDebeFranco && (
-                  <span className="font-label text-sm font-bold text-secondary">{balance.nombres.franco} debe {formatearPeso(checkedMontoDeuda)} a {balance.nombres.fabiola}</span>
+                  <span className="font-label text-sm font-bold" style={{ color: colorFran }}>{balance.nombres.franco} debe {formatearPeso(checkedMontoDeuda)} a {balance.nombres.fabiola}</span>
                 )}
                 {!checkedDebeFabiola && !checkedDebeFranco && (
-                  <span className="font-label text-sm font-semibold text-tertiary">A mano</span>
+                  <span className="font-label text-sm font-semibold" style={{ color: colorFabi }}>A mano</span>
                 )}
               </div>
               <button type="button" onClick={() => {
                 setMostrarAnalisis(false);
                 quedarAManoHoy();
               }}
-                className="w-full h-10 rounded bg-tertiary font-label text-[10px] font-bold uppercase tracking-wider text-on-tertiary hover:bg-tertiary/90 transition-colors">
+                className="w-full h-10 rounded font-label text-[10px] font-bold uppercase tracking-wider transition-colors hover:opacity-90"
+                style={{ backgroundColor: colorFabi, color: colorFabi === "#10b981" ? "#003909" : "#ffffff" }}>
                 Confirmar y quedar a mano
               </button>
             </div>

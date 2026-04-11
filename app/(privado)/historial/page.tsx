@@ -12,6 +12,7 @@ import { combinarClases } from "@/lib/utiles";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarUsuario } from "@/hooks/usarUsuario";
+import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 
 function generarUltimosMeses(cantidad: number) {
   const meses: Array<{ valor: string; etiqueta: string }> = [];
@@ -30,6 +31,7 @@ export default function PaginaHistorial() {
   const compras = usarCompras();
   const categorias = usarCategorias();
   const usuario = usarUsuario();
+  const config = usarConfiguracion();
   const nombres = deducirNombresParticipantes(usuario.perfiles);
   const [mes, setMes] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
@@ -227,7 +229,7 @@ export default function PaginaHistorial() {
 
       {/* Chart */}
       {!compras.cargando && filtradas.length ? (
-        <GraficoTendenciaDiaria registros={serieTendencia} compras={filtradas} nombres={nombres} />
+        <GraficoTendenciaDiaria registros={serieTendencia} compras={filtradas} nombres={nombres} colorFranco={config.colores.franco} colorFabiola={config.colores.fabiola} />
       ) : null}
 
       {/* List */}
