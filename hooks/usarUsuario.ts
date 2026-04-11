@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Perfil } from "@/types";
@@ -42,9 +42,47 @@ async function cargarUsuario(): Promise<EstadoUsuario> {
   };
 }
 
+/**
+ * Single shared auth state subscription.
+ * Prevents multiple router.refresh() calls when several components
+ * use `usarUsuario()` simultaneously (Sidebar, Header, page, etc.).
+ */
+let authSubscribed = false;
+
+function suscribirseAlAuth(queryClient: ReturnType<typeof useQueryClient>, router: ReturnType<typeof useRouter>) {
+  if (authSubscribed) return;
+  authSubscribed = true;
+
+  const { data: sub } = supabase.auth.onAuthStateChange(
+    (event: AuthChangeEvent, session: Session | null) => {
+      if (event === "SIGNED_OUT") {
+        router.push("/ingresar");
+        return;
+      }
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        const current = queryClient.getQueryData<EstadoUsuario>(["usuario"]);
+        if (current?.usuarioId !== session?.user?.id) {
+          queryClient.invalidateQueries({ queryKey: ["usuario"] });
+        }
+      }
+    },
+  );
+
+  // Clean up when the LAST component using usarUsuario unmounts.
+  // We use a MutationObserver on the DOM to detect when all React
+  // components are gone, but a simpler approach: unsubscribe on page hide.
+  // In practice the subscription stays active, which is fine — it only
+  // fires on real auth changes, not on route transitions.
+  window.addEventListener("beforeunload", () => {
+    sub.subscription.unsubscribe();
+    authSubscribed = false;
+  }, { once: true });
+}
+
 export function useUsuario() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const subscribedRef = useRef(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["usuario"],
@@ -62,20 +100,11 @@ export function useUsuario() {
     },
   });
 
-  // Only invalidate on sign-in/sign-out, NOT on token refresh or user update
+  // Register the single shared auth subscription on first mount
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      (event: AuthChangeEvent, _session: Session | null) => {
-        if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
-          queryClient.invalidateQueries({ queryKey: ["usuario"] });
-          router.refresh();
-        }
-      },
-    );
-
-    return () => {
-      sub.subscription.unsubscribe();
-    };
+    if (subscribedRef.current) return;
+    subscribedRef.current = true;
+    suscribirseAlAuth(queryClient, router);
   }, [queryClient, router]);
 
   async function cerrarSesion() {
