@@ -3,7 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
-import { Download, Upload, Trash2, Star } from "lucide-react";
+import { Download, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { BotonInstalarApp } from "@/components/pwa/BotonInstalarApp";
 import type { Compra, CompraEditable, DatosImportados, TipoReparto } from "@/types";
@@ -11,10 +11,12 @@ import { Badge } from "@/components/ui/Badge";
 import { Boton } from "@/components/ui/Boton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { fechaLocalISO } from "@/lib/utiles";
+import { ocultarLugar, mostrarLugar } from "@/lib/configuracion";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
+import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 
-type Tab = "categorias" | "subcategorias" | "etiquetas" | "lugares" | "importar" | "instalar";
+type Tab = "categorias" | "subcategorias" | "etiquetas" | "colores" | "lugares" | "importar" | "instalar";
 
 function normalizarCabecera(cabecera: string) {
   return cabecera
@@ -62,58 +64,77 @@ const TABS: { valor: Tab; etiqueta: string }[] = [
   { valor: "categorias", etiqueta: "Categorias" },
   { valor: "subcategorias", etiqueta: "Subcategorias" },
   { valor: "etiquetas", etiqueta: "Etiquetas" },
+  { valor: "colores", etiqueta: "Colores" },
   { valor: "lugares", etiqueta: "Lugares" },
   { valor: "importar", etiqueta: "Importar" },
   { valor: "instalar", etiqueta: "Instalar" },
 ];
 
 function LugaresManager({ compras }: { compras: Compra[] }) {
-  const [favoritos, setFavoritos] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try {
-      const raw = localStorage.getItem("lugares_favoritos");
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch { return new Set(); }
-  });
+  const config = usarConfiguracion();
+  const nombreUsuario = config.nombreUsuario;
 
   const lugaresConteo = useMemo(() => {
     const mapa = new Map<string, number>();
     for (const c of compras) {
-      if (c.nombre_lugar) {
+      if (c.nombre_lugar && !config.lugaresOcultos.includes(c.nombre_lugar)) {
         mapa.set(c.nombre_lugar, (mapa.get(c.nombre_lugar) ?? 0) + 1);
       }
     }
     return [...mapa.entries()].sort((a, b) => b[1] - a[1]);
-  }, [compras]);
+  }, [compras, config.lugaresOcultos]);
 
-  function toggleFavorito(lugar: string) {
-    setFavoritos(prev => {
-      const next = new Set(prev);
-      if (next.has(lugar)) next.delete(lugar); else next.add(lugar);
-      localStorage.setItem("lugares_favoritos", JSON.stringify([...next]));
-      return next;
-    });
+  async function ocultar(lugar: string) {
+    await ocultarLugar(lugar, nombreUsuario);
+    // Refresh local state
+    const nuevos = [...config.lugaresOcultos, lugar];
+    config.setLugaresOcultos(nuevos);
+    toast.success(`"${lugar}" oculto`);
+  }
+
+  async function mostrar(lugar: string) {
+    await mostrarLugar(lugar, nombreUsuario);
+    const nuevos = config.lugaresOcultos.filter(l => l !== lugar);
+    config.setLugaresOcultos(nuevos);
   }
 
   return (
     <div className="space-y-0.5">
-      {lugaresConteo.length > 0 ? lugaresConteo.map(([lugar, cantidad]) => {
-        const esFav = favoritos.has(lugar);
-        return (
-          <div key={lugar} className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
-            <button
-              type="button"
-              onClick={() => toggleFavorito(lugar)}
-              className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${esFav ? "text-secondary" : "text-on-surface-variant/30 hover:text-on-surface-variant"}`}
-            >
-              <Star className={`h-4 w-4 ${esFav ? "fill-current" : ""}`} />
-            </button>
-            <span className="flex-1 font-headline text-sm text-on-surface">{lugar}</span>
-            <span className="font-label text-xs tabular-nums text-on-surface-variant">{cantidad} {cantidad === 1 ? "compra" : "compras"}</span>
-          </div>
-        );
-      }) : (
+      {lugaresConteo.length > 0 ? lugaresConteo.map(([lugar, cantidad]) => (
+        <div key={lugar} className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
+          <span className="flex-1 font-headline text-sm text-on-surface">{lugar}</span>
+          <span className="font-label text-xs tabular-nums text-on-surface-variant">{cantidad} {cantidad === 1 ? "compra" : "compras"}</span>
+          <button
+            type="button"
+            onClick={() => ocultar(lugar)}
+            className="w-8 h-8 flex items-center justify-center rounded text-on-surface-variant/40 hover:text-error hover:bg-error-container/30 transition-colors"
+            title="Ocultar lugar"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      )) : (
         <p className="font-body text-sm text-on-surface-variant px-3 py-4">No hay lugares registrados todavia.</p>
+      )}
+
+      {/* Lugares ocultos */}
+      {config.lugaresOcultos.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-outline-variant/10">
+          <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2 px-3">Ocultos</p>
+          {config.lugaresOcultos.map(lugar => (
+            <div key={`oculto-${lugar}`} className="flex items-center gap-3 px-3 py-2 opacity-60">
+              <span className="flex-1 font-headline text-sm text-on-surface-variant line-through">{lugar}</span>
+              <button
+                type="button"
+                onClick={() => mostrar(lugar)}
+                className="w-8 h-8 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+                title="Mostrar lugar"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -122,6 +143,8 @@ function LugaresManager({ compras }: { compras: Compra[] }) {
 export default function PaginaConfiguracion() {
   const categorias = usarCategorias();
   const compras = usarCompras();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const config = usarConfiguracion();
   const [tab, setTab] = useState<Tab>("categorias");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [nuevaCategoria, setNuevaCategoria] = useState({ nombre: "", color: "#6366f1", limite_mensual: "" });

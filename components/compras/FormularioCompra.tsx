@@ -12,6 +12,7 @@ import { cargarMapaLugares, cargarMapaDetalles, predecirCategoria } from "@/lib/
 import { parsearTextoLibre } from "@/lib/parseoRapido";
 import { verificarLimites } from "@/lib/presupuesto";
 import { registrarSyncPendiente } from "@/lib/sync";
+import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { SelectBuscable } from "@/components/ui/SelectBuscable";
 
 interface Props {
@@ -25,11 +26,6 @@ interface Props {
   comprasHistoria?: Array<{ nombre_lugar: string; fecha?: string; items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }> }>;
   onCrearCategoria?: (nombre: string) => Promise<string | null>;
   onCrearEtiqueta?: (nombre: string) => Promise<string | null>;
-}
-
-function obtenerColorPersona(nombre: string, fallback: string) {
-  if (typeof window === "undefined") return fallback;
-  return localStorage.getItem(`color_${nombre}`) || fallback;
 }
 
 function hoy() { return fechaLocalISO(); }
@@ -78,6 +74,7 @@ function itemsParaGuardar(items: ItemEditable[]) {
 }
 
 export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas, nombres, registradoPorDefecto, compraInicial, onGuardar, comprasHistoria = [], onCrearCategoria, onCrearEtiqueta }: Props) {
+  const config = usarConfiguracion();
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial, comprasHistoria));
   const [notas, setNotas] = useState(compraInicial?.notas ?? "");
   const [mostrarNotas, setMostrarNotas] = useState(!!compraInicial?.notas);
@@ -102,8 +99,8 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
   const subsPorCat = useMemo(() => { const m = new Map<string, Subcategoria[]>(); for (const s of subcategorias) { const a = m.get(s.categoria_id) ?? []; a.push(s); m.set(s.categoria_id, a); } return m; }, [subcategorias]);
 
-  const colorFran = obtenerColorPersona("franco", "#3b82f6");
-  const colorFabi = obtenerColorPersona("fabiola", "#10b981");
+  const colorFran = config.colores.franco;
+  const colorFabi = config.colores.fabiola;
 
   // Frequency tracking: count how often each category/subcategory is used in compra.items
   const frecuenciaCategorias = useMemo(() => {
