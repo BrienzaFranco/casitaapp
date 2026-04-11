@@ -7,7 +7,6 @@ import { GraficoCategoriasDonut } from "@/components/balance/GraficoCategoriasDo
 import { GraficoEtiquetas } from "@/components/balance/GraficoEtiquetas";
 import { ResumenDeuda } from "@/components/balance/ResumenDeuda";
 import { TablaBalance } from "@/components/balance/TablaBalance";
-import { Boton } from "@/components/ui/Boton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearFecha, formatearPeso, formatearPorcentaje } from "@/lib/formatear";
 import { fechaLocalISO } from "@/lib/utiles";
@@ -20,10 +19,6 @@ export default function PaginaBalance() {
   const [fechaCorte, setFechaCorte] = useState("");
   const [notaCorte, setNotaCorte] = useState("");
   const fechaCorteEditable = fechaCorte || balance.cortes.corteActivo?.fecha_corte || hoyIso();
-
-  const detalleSaldo = balance.saldoAbierto.deudor
-    ? `${balance.saldoAbierto.deudor} debe ${formatearPeso(Math.abs(balance.saldoAbierto.balance))} a ${balance.saldoAbierto.acreedor}`
-    : "No hay deuda abierta.";
 
   const deudaHistorica = balance.acumulado.deudor
     ? `${balance.acumulado.deudor} le debe ${formatearPeso(Math.abs(balance.acumulado.balance))} a ${balance.acumulado.acreedor}`
@@ -103,107 +98,99 @@ export default function PaginaBalance() {
 
   return (
     <section className="space-y-4">
-      {/* Header */}
-      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="font-label text-[10px] uppercase tracking-widest text-outline">Balance</p>
-            <h2 className="mt-0.5 font-headline text-2xl font-semibold tracking-tight text-on-surface">
-              Balance y deuda
-            </h2>
-            <p className="text-sm text-on-surface-variant">Control por tramo abierto y cierre manual.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="month"
-              value={balance.mesSeleccionado}
-              onChange={(e) => balance.setMesSeleccionado(e.target.value)}
-              className="h-9 rounded bg-surface-container-low border-b border-outline/20 px-2 font-label text-xs tabular-nums outline-none focus:border-b-primary transition-colors"
-            />
-            <Boton variante="secundario" onClick={balance.exportar} icono={<Download className="h-3.5 w-3.5" />}
-              className="h-9 px-2.5 text-[10px] font-label font-bold uppercase tracking-wider rounded">
-              Exportar
-            </Boton>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats row - responsive grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <div className="bg-surface-container-low rounded-lg border border-outline-variant/10 p-3">
-          <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">Total mes</p>
-          <p className="font-label text-lg font-bold tabular-nums text-on-surface">{formatearPeso(balance.resumenMes.total)}</p>
-          <p className="font-label text-[10px] text-on-surface-variant mt-0.5">{detalleVariacion}</p>
-        </div>
-        <div className="bg-surface-container-low rounded-lg border border-outline-variant/10 p-3">
-          <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">Saldo abierto</p>
-          <p className="font-label text-xs tabular-nums text-secondary font-medium">{detalleSaldo}</p>
-          {balance.cortes.corteActivo && (
-            <p className="font-label text-[10px] text-on-surface-variant mt-0.5">
-              Corte hasta {formatearFecha(balance.cortes.corteActivo.fecha_corte)}
-            </p>
-          )}
-        </div>
-        <div className="bg-surface-container-low rounded-lg border border-outline-variant/10 p-3">
-          <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">Acumulado</p>
-          <p className="font-label text-xs tabular-nums text-on-surface font-medium">{deudaHistorica}</p>
-        </div>
-      </div>
-
-      {/* Corte section */}
-      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4">
-        <p className="font-label text-[10px] uppercase tracking-widest font-bold text-outline mb-3">Marcar corte de cuentas</p>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1">
-            <span className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">Fecha</span>
-            <input
-              type="date"
-              value={fechaCorteEditable}
-              onChange={(e) => setFechaCorte(e.target.value)}
-              className="h-9 rounded bg-surface-container-low border-b border-outline/20 px-2 font-label text-xs outline-none focus:border-b-primary transition-colors"
-            />
-          </label>
-          <label className="flex flex-col gap-1 flex-1 min-w-[120px]">
-            <span className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">Nota</span>
-            <input
-              type="text"
-              value={notaCorte}
-              onChange={(e) => setNotaCorte(e.target.value)}
-              placeholder="Ej: transferencia del periodo"
-              className="h-9 rounded bg-surface-container-low border-b border-outline/20 px-2 font-label text-xs outline-none focus:border-b-primary transition-colors placeholder:text-on-surface-variant/50"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => void marcarCorte()}
-            disabled={balance.cortes.guardando}
-            className="h-9 rounded bg-primary px-3 text-[10px] font-label font-bold uppercase tracking-wider text-on-primary hover:bg-primary/90 disabled:opacity-50 transition-colors"
-          >
-            {balance.cortes.guardando ? "Guardando..." : "Guardar"}
-          </button>
+      {/* Deuda actual - prominente */}
+      {balance.saldoAbierto.deudor ? (
+        <div className="bg-secondary/10 rounded-lg border border-secondary/20 p-5">
+          <p className="font-label text-[10px] uppercase tracking-widest text-secondary mb-1">Deuda actual</p>
+          <p className="font-label text-2xl font-bold text-secondary">
+            {balance.saldoAbierto.deudor} le debe {formatearPeso(Math.abs(balance.saldoAbierto.balance))}
+          </p>
+          <p className="font-label text-xs text-on-surface-variant mt-0.5">
+            a {balance.saldoAbierto.acreedor}
+          </p>
           <button
             type="button"
             onClick={() => void quedarAManoHoy()}
             disabled={balance.cortes.guardando}
-            className="h-9 rounded border border-tertiary/30 bg-tertiary-fixed/20 px-3 text-[10px] font-label font-bold uppercase tracking-wider text-tertiary hover:bg-tertiary-fixed/40 disabled:opacity-50 transition-colors"
+            className="mt-3 h-8 px-4 rounded bg-tertiary font-label text-[10px] font-bold uppercase tracking-wider text-on-tertiary hover:bg-tertiary/90 disabled:opacity-50 transition-colors"
           >
             Quedar a mano
           </button>
         </div>
+      ) : (
+        <div className="bg-surface-container-low rounded-lg p-5 text-center">
+          <p className="font-label text-[10px] uppercase tracking-widest text-tertiary mb-1">Deuda actual</p>
+          <p className="font-label text-2xl font-bold text-tertiary">A mano</p>
+          <p className="font-label text-xs text-on-surface-variant mt-0.5">Nadie debe nada.</p>
+        </div>
+      )}
 
+      {/* Total del mes + quien pago */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-surface-container-lowest rounded-lg p-3">
+          <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">Total mes</p>
+          <p className="font-label text-xl font-bold tabular-nums text-on-surface">{formatearPeso(balance.resumenMes.total)}</p>
+          <p className="font-label text-[10px] text-on-surface-variant mt-0.5">{detalleVariacion}</p>
+        </div>
+        <div className="bg-surface-container-lowest rounded-lg p-3">
+          <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">Deuda acumulada</p>
+          {balance.acumulado.deudor ? (
+            <p className="font-label text-sm tabular-nums text-secondary">
+              {balance.acumulado.deudor} le debe {formatearPeso(Math.abs(balance.acumulado.balance))} a {balance.acumulado.acreedor}
+            </p>
+          ) : (
+            <p className="font-label text-sm text-tertiary">Sin deuda</p>
+          )}
+        </div>
+      </div>
+
+      {/* Mes selector + exportar */}
+      <div className="flex items-center justify-between">
+        <input
+          type="month"
+          value={balance.mesSeleccionado}
+          onChange={(e) => balance.setMesSeleccionado(e.target.value)}
+          className="h-8 rounded bg-surface-container-low border-b border-outline/20 px-2 font-label text-xs tabular-nums outline-none"
+        />
+        <button
+          type="button"
+          onClick={balance.exportar}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded bg-surface-container-high font-label text-[10px] font-bold uppercase tracking-wider text-on-surface hover:bg-surface-container-highest transition-colors"
+        >
+          <Download className="h-3.5 w-3.5" /> Exportar
+        </button>
+      </div>
+
+      {/* Corte de cuentas */}
+      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4">
+        <p className="font-label text-[10px] uppercase tracking-widest text-outline mb-2">Corte de cuentas</p>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1">
+            <span className="font-label text-[9px] text-on-surface-variant">Fecha</span>
+            <input type="date" value={fechaCorteEditable} onChange={(e) => setFechaCorte(e.target.value)}
+              className="h-8 rounded bg-surface-container-low border-b border-outline/20 px-2 font-label text-xs outline-none" />
+          </label>
+          <label className="flex flex-col gap-1 flex-1 min-w-[100px]">
+            <span className="font-label text-[9px] text-on-surface-variant">Nota</span>
+            <input type="text" value={notaCorte} onChange={(e) => setNotaCorte(e.target.value)}
+              placeholder="Ej: transferencia..."
+              className="h-8 rounded bg-surface-container-low border-b border-outline/20 px-2 font-label text-xs outline-none placeholder:text-on-surface-variant/50" />
+          </label>
+          <button type="button" onClick={() => void marcarCorte()} disabled={balance.cortes.guardando}
+            className="h-8 rounded bg-primary px-3 font-label text-[10px] font-bold uppercase tracking-wider text-on-primary disabled:opacity-50 transition-colors">
+            {balance.cortes.guardando ? "..." : "Guardar"}
+          </button>
+        </div>
         {cortesLog.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-outline-variant/15">
-            <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1.5">Ultimos cortes</p>
-            <div className="space-y-0 divide-y divide-outline-variant/10">
-              {cortesLog.map((corte) => (
-                <div key={corte.id} className="flex items-center justify-between py-1.5">
-                  <span className="font-label text-xs tabular-nums text-on-surface-variant">
-                    {formatearFecha(corte.fecha_corte)}{corte.activo ? " (activo)" : ""}
-                  </span>
-                  <span className="font-label text-xs text-on-surface-variant">{corte.nota || "Sin nota"}</span>
-                </div>
-              ))}
-            </div>
+          <div className="mt-2 pt-2 border-t border-outline-variant/10">
+            {cortesLog.slice(0, 3).map((corte) => (
+              <div key={corte.id} className="flex items-center justify-between py-1">
+                <span className="font-label text-xs tabular-nums text-on-surface-variant">
+                  {formatearFecha(corte.fecha_corte)}{corte.activo ? " (activo)" : ""}
+                </span>
+                <span className="font-label text-xs text-on-surface-variant truncate ml-2">{corte.nota || "Sin nota"}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>

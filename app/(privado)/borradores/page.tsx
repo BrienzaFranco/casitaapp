@@ -10,7 +10,7 @@ import { usarUsuario } from "@/hooks/usarUsuario";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function PaginaBorradores() {
-  const compras = usarCompras();
+  const compras = usarCompras({ cargarInicial: true, incluirBorradores: true });
   const usuario = usarUsuario();
   const nombres = deducirNombresParticipantes(usuario.perfiles);
   const borradores = compras.compras.filter(c => c.estado === "borrador");
