@@ -46,7 +46,9 @@ export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
       return;
     }
 
-    void recargar();
+    // Stagger initial load to avoid auth lock contention with other hooks
+    const timer = setTimeout(() => { void recargar(); }, 250);
+    return () => clearTimeout(timer);
   }, [cargarInicial, recargar]);
 
   const corteActivo = useMemo(

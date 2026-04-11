@@ -142,7 +142,9 @@ export function useCompras(opciones: OpcionesCompras = {}) {
       return;
     }
 
-    void recargar();
+    // Stagger initial load to avoid auth lock contention with other hooks
+    const timer = setTimeout(() => { void recargar(); }, 150);
+    return () => clearTimeout(timer);
   }, [cargarInicial, recargar]);
 
   async function guardarCompra(compra: CompraEditable) {

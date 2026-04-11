@@ -123,8 +123,9 @@ export function useCategorias() {
   }, [actualizarEstado]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void recargar();
+    // Stagger initial load to avoid auth lock contention with other hooks
+    const timer = setTimeout(() => { void recargar(); }, 200);
+    return () => clearTimeout(timer);
   }, [recargar]);
 
   async function crearCategoria(input: Pick<Categoria, "nombre" | "color" | "limite_mensual">) {

@@ -15,6 +15,28 @@ interface EstadoUsuario {
   cargando: boolean;
 }
 
+/**
+ * Retry wrapper around getUser() to handle Supabase auth lock contention.
+ * The gotrue-js lock can break under concurrent requests; this retries up to 3 times.
+ */
+async function getUserConReintentos(cliente: ReturnType<typeof crearClienteSupabase>, intentos = 3) {
+  let ultimoError: Error | null = null;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      return await cliente.auth.getUser();
+    } catch (error) {
+      ultimoError = error as Error;
+      // Only retry on lock/abort errors
+      if (error instanceof Error && (error.message.includes("Lock") || error.message.includes("Abort"))) {
+        await new Promise(r => setTimeout(r, 300 * (i + 1)));
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw ultimoError;
+}
+
 export function useUsuario() {
   const router = useRouter();
   const [estado, setEstado] = useState<EstadoUsuario>({
@@ -30,8 +52,8 @@ export function useUsuario() {
     const cliente = crearClienteSupabase();
 
     async function cargar() {
-      const [{ data: datosUsuario }, { data: perfiles, error }] = await Promise.all([
-        cliente.auth.getUser(),
+      const [datosUsuario, { data: perfiles, error }] = await Promise.all([
+        getUserConReintentos(cliente),
         cliente.from("perfiles").select("*").order("creado_en", { ascending: true }),
       ]);
 
@@ -40,7 +62,7 @@ export function useUsuario() {
         return;
       }
 
-      const usuario = datosUsuario.user;
+      const usuario = datosUsuario.data.user;
       const perfilesRaw = (perfiles ?? []) as Perfil[];
       // Normalizar nombres en TODOS los perfiles
       const perfilesNormalizados = perfilesRaw.map(p => ({
