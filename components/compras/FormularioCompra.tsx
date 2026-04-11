@@ -78,6 +78,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   const [notas, setNotas] = useState(compraInicial?.notas ?? "");
   const [mostrarNotas, setMostrarNotas] = useState(!!compraInicial?.notas);
   const [mostrarAvanzadas, setMostrarAvanzadas] = useState(false);
+  const [mostrarEtiquetas, setMostrarEtiquetas] = useState(false);
   const [pegado, setPegado] = useState("");
   const [guardandoLocal, setGuardandoLocal] = useState(false);
   const [etiquetasAbiertas, setEtiquetasAbiertas] = useState<Record<string, boolean>>({});
@@ -204,7 +205,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   }, [etiquetas]);
 
   return (
-    <div className="min-h-screen bg-surface pb-32">
+    <div className="min-h-screen bg-surface pb-32 md:pb-8">
       <div className="mx-auto max-w-xl px-4 pt-4 space-y-3">
         {/* Header: Lugar + Fecha + Pago en linea */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-3">
@@ -244,14 +245,26 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
               className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-2 font-headline text-sm text-on-surface outline-none resize-none placeholder:text-on-surface-variant/50 focus:border-b-primary" rows={2} />
           )}
 
-          {/* Etiquetas de compra */}
-          <div className="flex flex-wrap gap-1 pt-1 border-t border-outline-variant/10">
-            {etiquetas.map(etq => (
-              <button key={etq.id} type="button" onClick={() => toggleEtqCompra(etq.id)}
-                className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${compra.etiquetas_compra_ids.includes(etq.id) ? "bg-secondary text-on-secondary" : "bg-surface-variant text-on-surface-variant"}`}>
-                #{etq.nombre}
-              </button>
-            ))}
+          {/* Etiquetas toggle (colapsable como Notas) */}
+          <div className="border-t border-outline-variant/10 pt-1">
+            <button type="button" onClick={() => setMostrarEtiquetas(!mostrarEtiquetas)}
+              className="flex items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors py-1">
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mostrarEtiquetas ? "rotate-180" : ""}`} />
+              <span className="font-label text-[10px] font-bold uppercase tracking-wider">Etiquetas</span>
+              {compra.etiquetas_compra_ids.length > 0 && (
+                <span className="font-label text-[9px] bg-secondary/20 text-secondary px-1.5 py-0 rounded-full">{compra.etiquetas_compra_ids.length}</span>
+              )}
+            </button>
+            {mostrarEtiquetas && (
+              <div className="flex flex-wrap gap-1 pb-1">
+                {etiquetas.map(etq => (
+                  <button key={etq.id} type="button" onClick={() => toggleEtqCompra(etq.id)}
+                    className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${compra.etiquetas_compra_ids.includes(etq.id) ? "bg-secondary text-on-secondary" : "bg-surface-variant text-on-surface-variant"}`}>
+                    #{etq.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -473,8 +486,8 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
         )}
       </div>
 
-      {/* Footer fijo con total y deuda clara */}
-      <footer className="fixed bottom-[72px] left-0 right-0 z-20 bg-surface border-t border-outline-variant/15 px-4 py-3">
+      {/* Footer con total y deuda */}
+      <footer className="sticky bottom-0 md:relative md:bottom-auto bg-surface border-t border-outline-variant/15 md:border md:rounded-lg px-4 py-3 md:shadow-sm">
         <div className="mx-auto max-w-xl">
           <div className="flex items-baseline justify-between mb-1">
             <span className="font-label text-[10px] uppercase tracking-wider text-outline">Total</span>
