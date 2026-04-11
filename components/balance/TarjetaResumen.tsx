@@ -1,13 +1,10 @@
-import type { ReactNode } from "react";
-
 interface Props {
   titulo: string;
   valor: string;
   detalle?: string;
-  icono?: ReactNode;
 }
 
-export function TarjetaResumen({ titulo, valor, detalle, icono }: Props) {
+export function TarjetaResumen({ titulo, valor, detalle }: Props) {
   return (
     <div className="bg-surface-container-low rounded-lg border border-outline-variant/10 p-4 shadow-sm">
       <p className="font-label text-[10px] uppercase tracking-wider font-bold text-outline mb-1.5">

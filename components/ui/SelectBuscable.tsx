@@ -136,7 +136,7 @@ export function SelectBuscable({
                 className="w-full flex items-center gap-2 px-2 py-1.5 text-left text-xs text-secondary hover:bg-surface-container transition-colors"
               >
                 <Plus className="h-3 w-3" />
-                <span className="flex-1 truncate">{labelNuevo} "{busqueda.trim()}"</span>
+                <span className="flex-1 truncate">{labelNuevo} &ldquo;{busqueda.trim()}&rdquo;</span>
                 {creando && <span className="text-[8px] text-on-surface-variant">...</span>}
               </button>
             )}

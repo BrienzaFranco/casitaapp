@@ -100,7 +100,6 @@ export default function PaginaNuevaCompra() {
       nombres={nombres}
       registradoPorDefecto={usuario.perfil?.nombre ?? ""}
       compraInicial={compraInicial}
-      guardando={compras.guardando}
       etiquetas={categorias.etiquetas}
       onGuardar={guardar}
       comprasHistoria={historia}

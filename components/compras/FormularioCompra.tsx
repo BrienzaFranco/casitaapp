@@ -18,7 +18,6 @@ interface Props {
   nombres: { franco: string; fabiola: string };
   registradoPorDefecto: string;
   compraInicial?: CompraEditable | null;
-  guardando?: boolean;
   onGuardar: (compra: CompraEditable) => Promise<void> | void;
   comprasHistoria?: Array<{ nombre_lugar: string; items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }> }>;
   onCrearCategoria?: (nombre: string) => Promise<string | null>;
@@ -74,14 +73,7 @@ function itemsParaGuardar(items: ItemEditable[]) {
   });
 }
 
-function nombreCorto(nombre: string) {
-  const n = nombre.toLowerCase();
-  if (n.includes("franco")) return "Fran";
-  if (n.includes("fabiola")) return "Fabi";
-  return nombre.slice(0, 4);
-}
-
-export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas, nombres, registradoPorDefecto, compraInicial, guardando = false, onGuardar, comprasHistoria = [], onCrearCategoria, onCrearEtiqueta }: Props) {
+export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas, nombres, registradoPorDefecto, compraInicial, onGuardar, comprasHistoria = [], onCrearCategoria, onCrearEtiqueta }: Props) {
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial));
   const [notas, setNotas] = useState(compraInicial?.notas ?? "");
   const [mostrarNotas, setMostrarNotas] = useState(!!compraInicial?.notas);

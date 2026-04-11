@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { CompraEditable, PagadorCompra } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
@@ -26,7 +25,6 @@ function evaluarMonto(expresion: string): number {
 }
 
 export default function PaginaAnotadorRapido() {
-  const router = useRouter();
   const compras = usarCompras();
   const usuario = usarUsuario();
   const { guardarConFallback } = usarOffline(compras.guardarCompra);
@@ -41,7 +39,8 @@ export default function PaginaAnotadorRapido() {
 
   const montoCalculado = evaluarMonto(monto);
 
-  // Lugares pasados unicos
+  const nombrePagador = usuario.perfil?.nombre ?? "";
+
   const lugaresPasados = useMemo(() => {
     const vistos = new Set<string>();
     const resultado: string[] = [];
@@ -53,8 +52,6 @@ export default function PaginaAnotadorRapido() {
     }
     return resultado.slice(0, 30);
   }, [compras.compras]);
-
-  const nombrePagador = usuario.perfil?.nombre ?? "";
 
   function crearBorrador(): CompraEditable {
     const lugarFinal = mostrarNuevo ? lugarNuevo.trim() : lugar.trim();
@@ -104,14 +101,12 @@ export default function PaginaAnotadorRapido() {
   return (
     <div className="min-h-screen bg-surface pb-28">
       <div className="mx-auto max-w-xl px-4 pt-4 space-y-4">
-        {/* Header */}
         <div className="space-y-0.5">
           <p className="font-label text-[10px] uppercase tracking-widest text-outline">Registro Rapido</p>
           <h1 className="font-headline text-2xl font-bold tracking-tight text-on-surface">Anotador rapido</h1>
           <p className="font-body text-xs text-on-surface-variant">Anota lo basico y completalo despues.</p>
         </div>
 
-        {/* Lugar - dropdown o nuevo */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
           <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Lugar</label>
           {!mostrarNuevo ? (
@@ -136,13 +131,12 @@ export default function PaginaAnotadorRapido() {
               />
               <button type="button" onClick={() => { setMostrarNuevo(false); setLugarNuevo(""); }}
                 className="font-label text-[10px] text-on-surface-variant hover:text-on-surface underline">
-                ← Volver a la lista
+                Volver a la lista
               </button>
             </div>
           )}
         </div>
 
-        {/* QUIEN PAGO - botones grandes y claros */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
           <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Quien pago</label>
           <div className="grid grid-cols-3 gap-2">
@@ -163,14 +157,12 @@ export default function PaginaAnotadorRapido() {
           </div>
         </div>
 
-        {/* Monto */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
           <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Monto</label>
           <input
             type="text" inputMode="decimal" value={monto} onChange={e => setMonto(e.target.value)}
             placeholder="ej: 4500 o 2000+500"
             className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-3 font-label text-2xl font-bold tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/30 focus:border-b-primary focus:bg-surface-container-highest transition-all"
-            autoFocus={!mostrarNuevo && !lugar}
           />
           {montoCalculado > 0 && monto !== String(montoCalculado) && (
             <p className="font-label text-xs text-tertiary tabular-nums">
@@ -179,7 +171,6 @@ export default function PaginaAnotadorRapido() {
           )}
         </div>
 
-        {/* Detalle */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
           <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Detalle</label>
           <input
@@ -190,7 +181,6 @@ export default function PaginaAnotadorRapido() {
         </div>
       </div>
 
-      {/* Footer: Boton guardar */}
       <footer className="fixed bottom-[72px] left-0 right-0 z-20 bg-surface border-t border-outline-variant/15 px-4 py-3">
         <div className="mx-auto max-w-xl">
           {montoCalculado > 0 && (
