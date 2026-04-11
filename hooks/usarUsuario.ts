@@ -46,11 +46,13 @@ export function useUsuario() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["usuario"],
     queryFn: cargarUsuario,
     staleTime: 1000 * 60 * 5, // 5 min
+    gcTime: 1000 * 60 * 30, // 30 min — survive page transitions
     refetchOnWindowFocus: false,
+    refetchOnMount: false, // Don't refetch on every mount
     retry: (count, error) => {
       const msg = error instanceof Error ? error.message : "";
       if (msg.includes("Lock") || msg.includes("Abort") || msg.includes("steal")) {
@@ -58,19 +60,16 @@ export function useUsuario() {
       }
       return false;
     },
-    refetchInterval: (query) => {
-      // Refetch after auth state changes
-      if (query.state.data?.usuarioId) return false;
-      return 1000;
-    },
   });
 
-  // Escuchar cambios de auth para invalidar el cache
+  // Only invalidate on sign-in/sign-out, NOT on token refresh or user update
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, _session: Session | null) => {
-        queryClient.invalidateQueries({ queryKey: ["usuario"] });
-        router.refresh();
+      (event: AuthChangeEvent, _session: Session | null) => {
+        if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+          queryClient.invalidateQueries({ queryKey: ["usuario"] });
+          router.refresh();
+        }
       },
     );
 
@@ -96,7 +95,7 @@ export function useUsuario() {
 
   return {
     ...estado,
-    cargando: isLoading || isFetching,
+    cargando: isLoading,
     cerrarSesion,
   };
 }

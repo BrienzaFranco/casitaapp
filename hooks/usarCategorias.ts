@@ -27,7 +27,9 @@ export function useCategorias() {
     },
     enabled: !!(queryClient.getQueryData(["usuario"]) as { usuarioId: string | null } | undefined)?.usuarioId,
     staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
     retry: (count, error) => {
       const msg = error instanceof Error ? error.message : "";
       if (msg.includes("Lock") || msg.includes("Abort") || msg.includes("steal")) return count < 2;
@@ -44,7 +46,9 @@ export function useCategorias() {
     },
     enabled: !!(queryClient.getQueryData(["usuario"]) as { usuarioId: string | null } | undefined)?.usuarioId,
     staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
     retry: (count, error) => {
       const msg = error instanceof Error ? error.message : "";
       if (msg.includes("Lock") || msg.includes("Abort") || msg.includes("steal")) return count < 2;
@@ -61,7 +65,9 @@ export function useCategorias() {
     },
     enabled: !!(queryClient.getQueryData(["usuario"]) as { usuarioId: string | null } | undefined)?.usuarioId,
     staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
     retry: (count, error) => {
       const msg = error instanceof Error ? error.message : "";
       if (msg.includes("Lock") || msg.includes("Abort") || msg.includes("steal")) return count < 2;

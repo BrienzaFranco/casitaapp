@@ -112,7 +112,7 @@ export function useCompras(opciones: OpcionesCompras = {}) {
   const queryClient = useQueryClient();
   const [guardando, setGuardando] = useState(false);
 
-  const { data: compras = [], isLoading, isFetching, refetch } = useQuery<Compra[]>({
+  const { data: compras = [], isLoading } = useQuery<Compra[]>({
     queryKey: ["compras", incluirBorradores],
     queryFn: async () => {
       let consulta = supabase.from("compras").select(seleccionCompras).order("fecha", {
@@ -131,7 +131,9 @@ export function useCompras(opciones: OpcionesCompras = {}) {
     },
     enabled: cargarInicial && !!(queryClient.getQueryData(["usuario"]) as { usuarioId: string | null } | undefined)?.usuarioId,
     staleTime: 1000 * 60 * 2, // 2 min — compras change frequently
+    gcTime: 1000 * 60 * 30, // 30 min — survive page transitions
     refetchOnWindowFocus: false,
+    refetchOnMount: false, // Show cached data instantly
     retry: (count, error) => {
       const msg = error instanceof Error ? error.message : "";
       if (msg.includes("Lock") || msg.includes("Abort") || msg.includes("steal")) return count < 2;
@@ -194,7 +196,7 @@ export function useCompras(opciones: OpcionesCompras = {}) {
 
   return {
     compras,
-    cargando: isLoading || isFetching,
+    cargando: isLoading,
     guardando,
     recargar,
     guardarCompra,

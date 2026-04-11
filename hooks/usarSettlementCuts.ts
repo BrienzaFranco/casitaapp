@@ -21,7 +21,7 @@ export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
   const queryClient = useQueryClient();
   const [guardando, setGuardando] = useState(false);
 
-  const { data: cortes = [], isLoading, isFetching, refetch } = useQuery<SettlementCut[]>({
+  const { data: cortes = [], isLoading } = useQuery<SettlementCut[]>({
     queryKey: ["settlement_cuts"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -34,7 +34,9 @@ export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
     },
     enabled: cargarInicial && !!(queryClient.getQueryData(["usuario"]) as { usuarioId: string | null } | undefined)?.usuarioId,
     staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
     retry: (count, error) => {
       const msg = error instanceof Error ? error.message : "";
       if (msg.includes("Lock") || msg.includes("Abort") || msg.includes("steal")) return count < 2;
@@ -87,7 +89,7 @@ export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
   return {
     cortes,
     corteActivo,
-    cargando: isLoading || isFetching,
+    cargando: isLoading,
     guardando,
     recargar,
     crearCorte,
