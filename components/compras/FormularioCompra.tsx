@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Categoria, CompraEditable, Etiqueta, ItemEditable, Subcategoria, TipoReparto } from "@/types";
 import { calcularReparto, evaluarExpresion } from "@/lib/calculos";
@@ -78,6 +78,8 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   const [notas, setNotas] = useState(compraInicial?.notas ?? "");
   const [mostrarNotas, setMostrarNotas] = useState(!!compraInicial?.notas);
   const [mostrarAvanzadas, setMostrarAvanzadas] = useState(false);
+  const [mostrarEtiquetasCompra, setMostrarEtiquetasCompra] = useState(false);
+  const [nuevaEtiquetaInput, setNuevaEtiquetaInput] = useState("");
   const [pegado, setPegado] = useState("");
   const [guardandoLocal, setGuardandoLocal] = useState(false);
   const [etiquetasAbiertas, setEtiquetasAbiertas] = useState<Record<string, boolean>>({});
@@ -244,14 +246,98 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
               className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-2 font-headline text-sm text-on-surface outline-none resize-none placeholder:text-on-surface-variant/50 focus:border-b-primary" rows={2} />
           )}
 
-          {/* Etiquetas de compra */}
-          <div className="flex flex-wrap gap-1 pt-1 border-t border-outline-variant/10">
-            {etiquetas.map(etq => (
-              <button key={etq.id} type="button" onClick={() => toggleEtqCompra(etq.id)}
-                className={`font-label text-[9px] px-2 py-0.5 rounded-full transition-colors ${compra.etiquetas_compra_ids.includes(etq.id) ? "bg-secondary text-on-secondary" : "bg-surface-variant text-on-surface-variant"}`}>
-                #{etq.nombre}
-              </button>
-            ))}
+          {/* Etiquetas de compra - Colapsable */}
+          <div className="pt-1 border-t border-outline-variant/10">
+            <button 
+              type="button" 
+              onClick={() => setMostrarEtiquetasCompra(!mostrarEtiquetasCompra)}
+              className="flex items-center gap-1.5 text-on-surface-variant hover:text-on-surface transition-colors w-full"
+            >
+              <ChevronRight className={`h-3.5 w-3.5 transition-transform ${mostrarEtiquetasCompra ? "rotate-90" : ""}`} />
+              <Tag className="h-3 w-3" />
+              <span className="font-label text-[10px] font-bold uppercase tracking-wider">Etiquetas</span>
+              {compra.etiquetas_compra_ids.length > 0 && (
+                <span className="ml-auto font-label text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-on-secondary">
+                  {compra.etiquetas_compra_ids.length}
+                </span>
+              )}
+            </button>
+            
+            {/* Etiquetas seleccionadas preview (cuando está cerrado) */}
+            {!mostrarEtiquetasCompra && compra.etiquetas_compra_ids.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5 pl-5">
+                {compra.etiquetas_compra_ids.map(id => {
+                  const etq = etiquetas.find(e => e.id === id);
+                  if (!etq) return null;
+                  return (
+                    <span key={etq.id} className="font-label text-[8px] px-1.5 py-0.5 rounded-full bg-secondary/20 text-secondary">
+                      #{etq.nombre}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            
+            {/* Panel expandido */}
+            {mostrarEtiquetasCompra && (
+              <div className="mt-2 pl-5 space-y-2">
+                {/* Etiquetas existentes */}
+                <div className="flex flex-wrap gap-1">
+                  {etiquetas.map(etq => (
+                    <button 
+                      key={etq.id} 
+                      type="button" 
+                      onClick={() => toggleEtqCompra(etq.id)}
+                      className={`font-label text-[9px] px-2 py-1 rounded-full transition-colors ${
+                        compra.etiquetas_compra_ids.includes(etq.id) 
+                          ? "bg-secondary text-on-secondary" 
+                          : "bg-surface-variant text-on-surface-variant hover:bg-surface-container-high"
+                      }`}
+                    >
+                      #{etq.nombre}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Agregar nueva etiqueta */}
+                {onCrearEtiqueta && (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={nuevaEtiquetaInput}
+                      onChange={e => setNuevaEtiquetaInput(e.target.value.toUpperCase())}
+                      onKeyDown={async e => {
+                        if (e.key === "Enter" && nuevaEtiquetaInput.trim()) {
+                          e.preventDefault();
+                          const nuevoId = await onCrearEtiqueta(nuevaEtiquetaInput.trim());
+                          if (nuevoId) {
+                            toggleEtqCompra(nuevoId);
+                            setNuevaEtiquetaInput("");
+                          }
+                        }
+                      }}
+                      placeholder="Nueva etiqueta..."
+                      className="flex-1 h-7 bg-surface-container-low rounded px-2 font-label text-[10px] text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:ring-1 focus:ring-secondary"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (nuevaEtiquetaInput.trim()) {
+                          const nuevoId = await onCrearEtiqueta(nuevaEtiquetaInput.trim());
+                          if (nuevoId) {
+                            toggleEtqCompra(nuevoId);
+                            setNuevaEtiquetaInput("");
+                          }
+                        }
+                      }}
+                      className="h-7 px-2 rounded bg-secondary/20 text-secondary font-label text-[9px] font-bold hover:bg-secondary/30 transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -273,12 +359,13 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
             return (
               <div key={item.id} className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 overflow-hidden">
-                {/* Header: Item badge + descripcion editable + monto + eliminar */}
-                <div className="flex items-center px-3 py-2 gap-2">
-                  <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-surface-variant font-label text-[9px] font-bold text-on-surface-variant shrink-0">
-                    Item {index + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
+                {/* Header compacto: Badge + Descripcion + Precio + Eliminar */}
+                <div className="px-3 py-2 space-y-1.5">
+                  {/* Fila 1: Badge, Descripcion, Eliminar */}
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-surface-variant font-label text-[9px] font-bold text-on-surface-variant shrink-0">
+                      {index + 1}
+                    </span>
                     <input
                       ref={el => { if (el && !item.descripcion) ref.current.set(item.id ?? "", el); }}
                       type="text" value={item.descripcion}
@@ -291,93 +378,110 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                       }}
                       onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
                       placeholder="Que compraste?"
-                      className="w-full bg-transparent border-none px-0 py-0 font-headline text-xs font-semibold text-on-surface outline-none placeholder:text-on-surface-variant/40"
+                      className="flex-1 min-w-0 bg-transparent border-none px-0 py-0 font-headline text-sm font-semibold text-on-surface outline-none placeholder:text-on-surface-variant/40"
                     />
-                    {item.categoria_id && (
-                      <p className="font-label text-[8px] text-on-surface-variant truncate">
-                        {categorias.find(c => c.id === item.categoria_id)?.nombre}
-                        {item.subcategoria_id ? ` \u203A ${subs.find(s => s.id === item.subcategoria_id)?.nombre}` : ""}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Monto + Eliminar */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <div className="text-right">
-                      <p className="font-label text-sm font-bold tabular-nums text-primary">{formatearPeso(item.monto_resuelto)}</p>
-                      {item.tipo_reparto !== "50/50" && (
-                        <p className="font-label text-[8px]" style={{ color: item.tipo_reparto === "solo_franco" ? colorFran : colorFabi }}>
-                          {item.tipo_reparto === "solo_franco" ? nombres.franco : nombres.fabiola}
-                        </p>
-                      )}
-                    </div>
                     <button type="button" onClick={() => del(item.id ?? "")}
-                      className="w-7 h-7 flex items-center justify-center rounded text-error hover:bg-error-container transition-colors"
-                      title="Eliminar item">
-                      <X className="h-4 w-4" />
+                      className="w-6 h-6 flex items-center justify-center rounded text-on-surface-variant/40 hover:text-error hover:bg-error-container/30 transition-colors shrink-0"
+                      title="Eliminar">
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                </div>
-
-                {/* Detail compacto */}
-                <div className="px-3 pb-2.5 space-y-1.5 border-t border-outline-variant/10 pt-1.5">
-                  {/* Categoria + Subcategoria con SelectBuscable */}
-                  <div className="flex gap-1.5">
-                    <SelectBuscable
-                      opciones={opcionesCategorias}
-                      valor={item.categoria_id}
-                      onChange={(catId) => setItem(item.id ?? "", { categoria_id: catId, subcategoria_id: "" })}
-                      placeholder="Categoria"
-                      onCreateNuevo={onCrearCategoria}
-                      labelNuevo="+ Categoria"
-                    />
-                    <SelectBuscable
-                      opciones={subOpciones}
-                      valor={item.subcategoria_id}
-                      onChange={(subId) => setItem(item.id ?? "", { subcategoria_id: subId })}
-                      placeholder="Subcat"
-                      disabled={!item.categoria_id || !subOpciones.length}
-                    />
-                  </div>
-
-                  {/* Monto expresion */}
-                  <div className="flex items-center gap-2">
-                    <span className="font-label text-sm font-bold tabular-nums text-primary shrink-0 w-20 text-right">{formatearPeso(item.monto_resuelto)}</span>
+                  
+                  {/* Fila 2: Monto expresion + Resultado */}
+                  <div className="flex items-center gap-2 pl-7">
+                    <span className="font-label text-[10px] text-on-surface-variant/60 shrink-0">$</span>
                     <input type="text" inputMode="decimal" value={item.expresion_monto}
                       onChange={e => setItem(item.id ?? "", { expresion_monto: e.target.value })}
                       onBlur={() => setItem(item.id ?? "", {}, true)}
                       onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
                       placeholder="200+200"
-                      className="flex-1 bg-transparent border-b border-outline/20 px-0 py-1 font-label text-[10px] tabular-nums text-on-surface-variant outline-none placeholder:text-on-surface-variant/40 focus:border-b-primary" />
+                      className="flex-1 bg-transparent border-b border-outline/20 px-0 py-0.5 font-label text-xs tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/40 focus:border-b-primary" />
+                    <span className="font-label text-base font-bold tabular-nums text-primary shrink-0">{formatearPeso(item.monto_resuelto)}</span>
+                  </div>
+                </div>
+
+                {/* Seccion inferior: Categoria y Corresponde */}
+                <div className="px-3 pb-2.5 space-y-2 border-t border-outline-variant/10 pt-2">
+                  {/* Categoria + Subcategoria con jerarquia visual */}
+                  <div className="flex items-center gap-1">
+                    <div className="flex-1">
+                      <SelectBuscable
+                        opciones={opcionesCategorias}
+                        valor={item.categoria_id}
+                        onChange={(catId) => setItem(item.id ?? "", { categoria_id: catId, subcategoria_id: "" })}
+                        placeholder="Categoria"
+                        onCreateNuevo={onCrearCategoria}
+                        labelNuevo="+ Categoria"
+                      />
+                    </div>
+                    {item.categoria_id && subOpciones.length > 0 && (
+                      <>
+                        <ChevronRight className="h-3 w-3 text-on-surface-variant/40 shrink-0" />
+                        <div className="flex-1">
+                          <SelectBuscable
+                            opciones={subOpciones}
+                            valor={item.subcategoria_id}
+                            onChange={(subId) => setItem(item.id ?? "", { subcategoria_id: subId })}
+                            placeholder="Subcat"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  {/* Corresponde a + Etiquetas toggle juntos */}
-                  <div className="flex items-center gap-1">
-                    <span className="font-label text-[8px] uppercase tracking-wider text-on-surface-variant/60 shrink-0">Corresp</span>
-                    <select value={item.tipo_reparto} onChange={e => setItem(item.id ?? "", { tipo_reparto: e.target.value as TipoReparto }, true)}
-                      className="h-6 rounded bg-surface-container px-1.5 font-label text-[9px] font-bold text-on-surface outline-none shrink-0"
-                      style={{ width: `${Math.max(48, (item.tipo_reparto === "solo_franco" ? nombres.franco : item.tipo_reparto === "solo_fabiola" ? nombres.fabiola : "Ambos").length * 7 + 28)}px` }}>
-                      <option value="50/50">Ambos</option>
-                      <option value="solo_franco">{nombres.franco}</option>
-                      <option value="solo_fabiola">{nombres.fabiola}</option>
-                    </select>
-
-                    {item.tipo_reparto === "50/50" && (
-                      <span className="font-label text-[8px] tabular-nums" style={{ color: colorFran }}>{formatearPeso(item.pago_franco)}</span>
-                    )}
-                    {item.tipo_reparto === "solo_franco" && (
-                      <span className="font-label text-[8px] tabular-nums" style={{ color: colorFran }}>{formatearPeso(item.monto_resuelto)}</span>
-                    )}
-                    {item.tipo_reparto === "solo_fabiola" && (
-                      <span className="font-label text-[8px] tabular-nums" style={{ color: colorFabi }}>{formatearPeso(item.monto_resuelto)}</span>
-                    )}
-
+                  {/* Corresponde a: Chips de seleccion */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <span className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant/50 shrink-0">Corresp:</span>
+                      <div className="inline-flex rounded-full bg-surface-container p-0.5 gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setItem(item.id ?? "", { tipo_reparto: "solo_franco" }, true)}
+                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${
+                            item.tipo_reparto === "solo_franco"
+                              ? "text-on-primary shadow-sm"
+                              : "text-on-surface-variant hover:bg-surface-container-high"
+                          }`}
+                          style={item.tipo_reparto === "solo_franco" ? { backgroundColor: colorFran } : {}}
+                        >
+                          {nombres.franco}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setItem(item.id ?? "", { tipo_reparto: "50/50" }, true)}
+                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${
+                            item.tipo_reparto === "50/50"
+                              ? "bg-secondary text-on-secondary shadow-sm"
+                              : "text-on-surface-variant hover:bg-surface-container-high"
+                          }`}
+                        >
+                          50/50
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setItem(item.id ?? "", { tipo_reparto: "solo_fabiola" }, true)}
+                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${
+                            item.tipo_reparto === "solo_fabiola"
+                              ? "text-on-primary shadow-sm"
+                              : "text-on-surface-variant hover:bg-surface-container-high"
+                          }`}
+                          style={item.tipo_reparto === "solo_fabiola" ? { backgroundColor: colorFabi } : {}}
+                        >
+                          {nombres.fabiola}
+                        </button>
+                      </div>
+                    </div>
+                    
                     {/* Etiquetas toggle */}
                     <button type="button" onClick={() => setEtiquetasAbiertas(a => ({ ...a, [item.id ?? ""]: !a[item.id ?? ""] }))}
-                      className="flex items-center gap-0.5 h-6 px-1.5 rounded bg-surface-container font-label text-[9px] text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0">
-                      <span>Etq</span>
+                      className={`flex items-center gap-1 h-6 px-2 rounded-full font-label text-[9px] transition-colors shrink-0 ${
+                        etqSeleccionadas.length > 0 
+                          ? "bg-tertiary/15 text-tertiary" 
+                          : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+                      }`}>
+                      <Tag className="h-3 w-3" />
                       {etqSeleccionadas.length > 0 && (
-                        <span className="text-[8px] px-0.5 rounded-full" style={{ color: colorFabi }}>{etqSeleccionadas.length}</span>
+                        <span className="font-bold">{etqSeleccionadas.length}</span>
                       )}
                     </button>
                   </div>
