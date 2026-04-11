@@ -7,6 +7,12 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearFecha, formatearPeso } from "@/lib/formatear";
 import { mesClave } from "@/lib/utiles";
 import { usarBalance } from "@/hooks/usarBalance";
+import { usarConfiguracion } from "@/hooks/usarConfiguracion";
+import { obtenerMesAnterior } from "@/lib/calculos";
+import { GraficoRitmoGasto } from "@/components/dashboard/GraficoRitmoGasto";
+import { GraficoAportesMensuales } from "@/components/dashboard/GraficoAportesMensuales";
+import { EstadoPresupuestos } from "@/components/dashboard/EstadoPresupuestos";
+import { TreemapSubcategorias } from "@/components/dashboard/TreemapSubcategorias";
 import {
   Bar,
   BarChart,
@@ -429,6 +435,21 @@ function GraficoMensual({ compras }: { compras: Compra[] }) {
 /* ── Pagina principal ── */
 export default function PaginaDashboard() {
   const balance = usarBalance();
+  const config = usarConfiguracion();
+  const colorFran = config.colores.franco;
+  const colorFabi = config.colores.fabiola;
+
+  // Get previous month's purchases for burn rate chart
+  const mesAnterior = obtenerMesAnterior(balance.mesSeleccionado);
+  const comprasMesAnterior = mesAnterior
+    ? balance.compras.compras.filter((c) => mesClave(c.fecha) === mesAnterior)
+    : [];
+
+  function formatearMesLabel(mes: string): string {
+    const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const [anio, mesNum] = mes.split("-");
+    return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
+  }
 
   if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando) {
     return (
@@ -467,14 +488,38 @@ export default function PaginaDashboard() {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 h-8 px-3 rounded bg-surface-container-high font-label text-[10px] text-on-surface-variant">
             <Calendar className="h-3.5 w-3.5" />
-            <span>{balance.mesSeleccionado || "Todos"}</span>
+            <span>{formatearMesLabel(balance.mesSeleccionado)}</span>
           </div>
         </div>
       </div>
 
-      {/* Charts */}
+      {/* Row 1: Category donut + Labels bar */}
       <GraficoCategoriaInteractivo registros={balance.categoriasMes} comprasMes={balance.comprasMes} />
       <GraficoEtiquetasInteractivo registros={balance.etiquetasMes} comprasMes={balance.comprasMes} />
+
+      {/* Row 2: Burn rate chart */}
+      <GraficoRitmoGasto
+        comprasMesActual={balance.comprasMes}
+        comprasMesAnterior={comprasMesAnterior}
+        mesActual={balance.mesSeleccionado}
+        mesAnterior={mesAnterior || "—"}
+      />
+
+      {/* Row 3: Monthly contributions + Budget progress */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <GraficoAportesMensuales
+          historico={balance.resumenHistorico}
+          nombres={balance.nombres}
+          colorFran={colorFran}
+          colorFabi={colorFabi}
+        />
+        <EstadoPresupuestos categoriasMes={balance.categoriasMes} />
+      </div>
+
+      {/* Row 4: Treemap */}
+      <TreemapSubcategorias categoriasMes={balance.categoriasMes} />
+
+      {/* Row 5: Monthly bar chart */}
       <GraficoMensual compras={balance.compras.compras} />
     </section>
   );

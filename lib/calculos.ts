@@ -328,6 +328,49 @@ export function calcularSerieGastoDiario(compras: Compra[]) {
     .sort((a, b) => a.fecha.localeCompare(b.fecha)) as PuntoTendenciaDiaria[];
 }
 
+/**
+ * Calculates cumulative (running total) spending by day of month for two months.
+ * Returns an array of 31 entries (one per day), each with accumulated totals
+ * for both the current and previous month.
+ */
+export function calcularGastoAcumuladoDia(
+  comprasMesActual: Compra[],
+  comprasMesAnterior: Compra[],
+): Array<{ dia: number; acumuladoActual: number; acumuladoAnterior: number }> {
+  // Accumulate by day for current month
+  const porDiaActual = new Map<number, number>();
+  for (const compra of comprasMesActual) {
+    const dia = new Date(`${compra.fecha}T00:00:00`).getDate();
+    porDiaActual.set(dia, (porDiaActual.get(dia) ?? 0) + totalCompra(compra));
+  }
+
+  // Accumulate by day for previous month
+  const porDiaAnterior = new Map<number, number>();
+  for (const compra of comprasMesAnterior) {
+    const dia = new Date(`${compra.fecha}T00:00:00`).getDate();
+    porDiaAnterior.set(dia, (porDiaAnterior.get(dia) ?? 0) + totalCompra(compra));
+  }
+
+  // Build cumulative arrays for both months
+  const acumuladoActual = new Map<number, number>();
+  const acumuladoAnterior = new Map<number, number>();
+
+  let runningActual = 0;
+  let runningAnterior = 0;
+  for (let dia = 1; dia <= 31; dia++) {
+    runningActual += porDiaActual.get(dia) ?? 0;
+    runningAnterior += porDiaAnterior.get(dia) ?? 0;
+    acumuladoActual.set(dia, Number(runningActual.toFixed(2)));
+    acumuladoAnterior.set(dia, Number(runningAnterior.toFixed(2)));
+  }
+
+  return Array.from({ length: 31 }, (_, i) => ({
+    dia: i + 1,
+    acumuladoActual: acumuladoActual.get(i + 1) ?? 0,
+    acumuladoAnterior: acumuladoAnterior.get(i + 1) ?? 0,
+  }));
+}
+
 export function filtrarComprasHistorial(
   compras: Compra[],
   filtros: {
