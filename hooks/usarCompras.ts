@@ -129,7 +129,7 @@ export function useCompras(opciones: OpcionesCompras = {}) {
       const registros = (data ?? []) as unknown as CompraBaseDatos[];
       return registros.map(normalizarCompra);
     },
-    enabled: cargarInicial,
+    enabled: cargarInicial && !!(queryClient.getQueryData(["usuario"]) as { usuarioId: string | null } | undefined)?.usuarioId,
     staleTime: 1000 * 60 * 2, // 2 min — compras change frequently
     refetchOnWindowFocus: false,
     retry: (count, error) => {

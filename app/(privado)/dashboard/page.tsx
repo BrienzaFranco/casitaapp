@@ -137,8 +137,8 @@ function GraficoCategoriaInteractivo({
         </div>
 
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="relative" style={{ minHeight: "192px" }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="relative">
+            <ResponsiveContainer width="99%" minHeight={192}>
               <RePieChart>
                 <Pie
                   data={datos}
@@ -278,8 +278,7 @@ function GraficoEtiquetasInteractivo({
         </div>
 
         <div className="p-4">
-          <div className="w-full" style={{ minHeight: "192px" }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="99%" minHeight={192}>
               <BarChart data={datos} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
                 <XAxis dataKey="nombre" tick={{ fontSize: 10, fill: "var(--on-surface-variant)" }} tickLine={false} axisLine={false} />
                 <YAxis
@@ -304,7 +303,6 @@ function GraficoEtiquetasInteractivo({
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </div>
 
           <div className="mt-3 space-y-0 divide-y divide-outline-variant/10">
             {datos.map((d) => (
@@ -378,8 +376,7 @@ function GraficoMensual({ compras }: { compras: Compra[] }) {
         </div>
 
         <div className="p-4">
-          <div className="w-full" style={{ minHeight: "224px" }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="99%" minHeight={224}>
               <BarChart data={porMes} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
                 <XAxis
                   dataKey="mes"
@@ -415,7 +412,6 @@ function GraficoMensual({ compras }: { compras: Compra[] }) {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </div>
         </div>
       </section>
 

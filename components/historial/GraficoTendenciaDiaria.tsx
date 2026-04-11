@@ -64,8 +64,7 @@ export function GraficoTendenciaDiaria({ registros, compras, nombres, colorFranc
       </div>
 
       <div className="p-4">
-        <div className="w-full" style={{ minHeight: "192px" }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="99%" minHeight={192}>
             <AreaChart data={datos} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
               <defs>
                 <linearGradient id="gradFranco" x1="0" y1="0" x2="0" y2="1">
@@ -102,7 +101,6 @@ export function GraficoTendenciaDiaria({ registros, compras, nombres, colorFranc
               <Area type="monotone" dataKey="total" stroke={colorFabiola} strokeWidth={2} fill="url(#gradFabiola)" opacity={0.3} />
             </AreaChart>
           </ResponsiveContainer>
-        </div>
 
         {/* Leyenda de dominancia */}
         {nombres && (

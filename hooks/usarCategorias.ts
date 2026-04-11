@@ -25,6 +25,7 @@ export function useCategorias() {
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!(queryClient.getQueryData(["usuario"]) as { usuarioId: string | null } | undefined)?.usuarioId,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     retry: (count, error) => {
@@ -41,6 +42,7 @@ export function useCategorias() {
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!(queryClient.getQueryData(["usuario"]) as { usuarioId: string | null } | undefined)?.usuarioId,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     retry: (count, error) => {
@@ -57,6 +59,7 @@ export function useCategorias() {
       if (error) throw error;
       return data ?? [];
     },
+    enabled: !!(queryClient.getQueryData(["usuario"]) as { usuarioId: string | null } | undefined)?.usuarioId,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     retry: (count, error) => {

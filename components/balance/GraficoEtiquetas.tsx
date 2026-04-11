@@ -39,8 +39,7 @@ export function GraficoEtiquetas({ registros }: Props) {
       </div>
 
       <div className="p-4">
-        <div className="w-full" style={{ minHeight: "192px" }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="99%" minHeight={192}>
             <BarChart data={datos} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
               <XAxis dataKey="nombre" tick={{ fontSize: 10, fill: "var(--on-surface-variant)" }} tickLine={false} axisLine={false} />
               <YAxis
@@ -81,7 +80,6 @@ export function GraficoEtiquetas({ registros }: Props) {
             </div>
           ))}
         </div>
-      </div>
     </section>
   );
 }

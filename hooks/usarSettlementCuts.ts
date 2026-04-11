@@ -32,7 +32,7 @@ export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
       if (error) throw error;
       return (data ?? []) as SettlementCut[];
     },
-    enabled: cargarInicial,
+    enabled: cargarInicial && !!(queryClient.getQueryData(["usuario"]) as { usuarioId: string | null } | undefined)?.usuarioId,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     retry: (count, error) => {
