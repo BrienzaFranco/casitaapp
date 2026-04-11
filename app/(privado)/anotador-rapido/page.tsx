@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Camera } from "lucide-react";
 import type { CompraEditable, PagadorCompra } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
 import { vibrarExito } from "@/lib/haptics";
@@ -25,15 +27,18 @@ function evaluarMonto(expresion: string): number {
 }
 
 export default function PaginaAnotadorRapido() {
+  const router = useRouter();
   const compras = usarCompras();
   const usuario = usarUsuario();
   const { guardarConFallback } = usarOffline(compras.guardarCompra);
+  const imgRef = useRef<HTMLInputElement>(null);
 
   const [detalle, setDetalle] = useState("");
   const [monto, setMonto] = useState("");
   const [lugar, setLugar] = useState("");
   const [lugarNuevo, setLugarNuevo] = useState("");
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
+  const [imagen, setImagen] = useState<string>("");
   const [pagador, setPagador] = useState<PagadorCompra>(() => {
     // Auto-detect based on user profile name
     const nombre = usuario.perfil?.nombre?.toLowerCase() ?? "";
@@ -60,9 +65,10 @@ export default function PaginaAnotadorRapido() {
 
   function crearBorrador(): CompraEditable {
     const lugarFinal = mostrarNuevo ? lugarNuevo.trim() : lugar.trim();
+    const notas = imagen ? `[img:${imagen}]` : "";
     return {
       id: generarIdTemporal(), fecha: hoy(), nombre_lugar: lugarFinal,
-      notas: "", registrado_por: nombrePagador, pagador_general: pagador,
+      notas, registrado_por: nombrePagador, pagador_general: pagador,
       estado: "borrador", etiquetas_compra_ids: [],
       items: [{
         id: generarIdTemporal(), descripcion: detalle.trim(),
@@ -71,6 +77,17 @@ export default function PaginaAnotadorRapido() {
         pago_franco: montoCalculado / 2, pago_fabiola: montoCalculado / 2, etiquetas_ids: [],
       }],
     };
+  }
+
+  function cargarImagen(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Imagen muy grande (max 5MB)"); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => { if (ev.target?.result) { setImagen(ev.target.result as string); toast.success("Foto adjunta"); } };
+    reader.readAsDataURL(file);
+    // Reset input so same file can be re-selected
+    if (imgRef.current) imgRef.current.value = "";
   }
 
   async function guardarBorrador() {
@@ -84,7 +101,7 @@ export default function PaginaAnotadorRapido() {
       if (resultado.pendiente) toast.success("Borrador guardado (sin conexion)");
       else toast.success("Borrador guardado");
       vibrarExito();
-      setDetalle(""); setLugar(""); setLugarNuevo(""); setMonto("");
+      setDetalle(""); setLugar(""); setLugarNuevo(""); setMonto(""); setImagen("");
       setMostrarNuevo(false);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "No se pudo guardar";
@@ -165,10 +182,19 @@ export default function PaginaAnotadorRapido() {
               <span className="font-label text-2xl font-bold tracking-tight tabular-nums text-primary">{formatearPeso(montoCalculado)}</span>
             </div>
           )}
-          <button type="button" onClick={guardarBorrador} disabled={guardando || !monto.trim()}
-            className="w-full h-12 rounded bg-secondary font-headline text-base font-bold text-on-secondary disabled:opacity-50 hover:bg-secondary/90 active:scale-[0.98] transition-all shadow-lg shadow-secondary/20">
-            {guardando ? "Guardando..." : "Guardar borrador"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={guardarBorrador} disabled={guardando || !monto.trim()}
+              className="flex-1 h-12 rounded bg-secondary font-headline text-base font-bold text-on-secondary disabled:opacity-50 hover:bg-secondary/90 active:scale-[0.98] transition-all shadow-lg shadow-secondary/20">
+              {guardando ? "Guardando..." : "Guardar borrador"}
+            </button>
+            {/* Camera button */}
+            <input ref={imgRef} type="file" accept="image/*" onChange={cargarImagen} className="hidden" />
+            <button type="button" onClick={() => imgRef.current?.click()}
+              className="relative h-12 w-12 rounded bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors flex items-center justify-center">
+              <Camera className="h-5 w-5" />
+              {imagen && <span className="absolute -top-1 -right-1 w-3 h-3 bg-tertiary rounded-full border border-surface" />}
+            </button>
+          </div>
         </div>
       </footer>
     </div>
