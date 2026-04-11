@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
+import { ChartRegistry } from "@/components/ui/ChartRegistry";
 
 /**
  * Suppress known cosmetic warnings from third-party libraries:
@@ -76,6 +77,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <SuppressCosmeticWarnings />
+      <ChartRegistry />
       {children}
     </QueryClientProvider>
   );
