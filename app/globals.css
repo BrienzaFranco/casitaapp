@@ -174,3 +174,44 @@ summary::-webkit-details-marker {
     98% 97%, 96% 95%, 94% 97%, 92% 95%, 90% 97%, 88% 95%, 86% 97%, 84% 95%, 82% 97%, 80% 95%, 78% 97%, 76% 95%, 74% 97%, 72% 95%, 70% 97%, 68% 95%, 66% 97%, 64% 95%, 62% 97%, 60% 95%, 58% 97%, 56% 95%, 54% 97%, 52% 95%, 50% 97%, 48% 95%, 46% 97%, 44% 95%, 42% 97%, 40% 95%, 38% 97%, 36% 95%, 34% 97%, 32% 95%, 30% 97%, 28% 95%, 26% 97%, 24% 95%, 22% 97%, 20% 95%, 18% 97%, 16% 95%, 14% 97%, 12% 95%, 10% 97%, 8% 95%, 6% 97%, 4% 95%, 2% 97%, 0% 95%
   );
 }
+
+/* ═══════════════════════════════════════════════════════════
+   MODO OSCURO
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-surface: #1c1b19;
+    --color-surface-bright: #2c2a28;
+    --color-surface-dim: #151412;
+    --color-surface-container-lowest: #11100e;
+    --color-surface-container-low: #1e1d1b;
+    --color-surface-container: #222120;
+    --color-surface-container-high: #2d2b29;
+    --color-surface-container-highest: #383634;
+    --color-on-surface: #e8e1db;
+    --color-on-surface-variant: #c9c0b9;
+    --color-outline: #8e857e;
+    --color-outline-variant: #44403c;
+    --color-primary: #e7bdb1;
+    --color-primary-container: #5d4037;
+    --color-on-primary: #3a221a;
+    --color-on-primary-container: #f5d8cc;
+    --color-secondary: #ffb59a;
+    --color-secondary-container: #802a00;
+    --color-on-secondary: #5a1c00;
+    --color-on-secondary-container: #ffdbcf;
+    --color-tertiary: #88d982;
+    --color-tertiary-container: #005312;
+    --color-on-tertiary: #003909;
+    --color-on-tertiary-container: #a4f59d;
+    --color-error: #ffb4ab;
+    --color-error-container: #93000a;
+    --color-on-error: #690005;
+  }
+}

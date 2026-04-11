@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Inter, Space_Grotesk } from "next/font/google";
 import { RegistrarServiceWorker } from "@/components/pwa/RegistrarServiceWorker";
 import { Toast } from "@/components/ui/Toast";
+import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 const inter = Inter({
@@ -25,11 +26,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <body className={`${inter.variable} ${spaceGrotesk.variable} font-body`}>
-        <RegistrarServiceWorker />
-        {children}
-        <Toast />
+        <Providers>
+          <RegistrarServiceWorker />
+          {children}
+          <Toast />
+        </Providers>
       </body>
     </html>
   );
