@@ -86,6 +86,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   const [etiquetasAbiertas, setEtiquetasAbiertas] = useState<Record<string, boolean>>({});
   const [inputRapido, setInputRapido] = useState("");
   const [imagenComprobante, setImagenComprobante] = useState<string>("");
+  const [mostrarRapido, setMostrarRapido] = useState(false);
   const ref = useRef<Map<string, HTMLInputElement | null>>(new Map());
 
   const total = useMemo(() => compra.items.reduce((a, i) => a + i.monto_resuelto, 0), [compra.items]);
@@ -425,53 +426,66 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
           </div>
         </div>
 
-        {/* Input rapido + Imagen */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={inputRapido}
-              onChange={e => setInputRapido(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); procesarInputRapido(); } }}
-              placeholder='Ej: "Cena en Coto 15000" o "Yerba playadito 2500"'
-              className="flex-1 h-9 rounded bg-surface-container-low px-3 font-label text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:ring-1 focus:ring-secondary"
-            />
-            <button
-              type="button"
-              onClick={procesarInputRapido}
-              disabled={!inputRapido.trim()}
-              className="h-9 px-3 rounded bg-secondary text-on-secondary font-label text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-secondary/90 transition-colors"
-            >
-              Agregar
-            </button>
+        {/* Input rapido colapsable */}
+        {mostrarRapido && (
+          <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={inputRapido}
+                onChange={e => setInputRapido(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); procesarInputRapido(); } }}
+                placeholder='Ej: "Cena en Coto 15000" o "Yerba 2500"'
+                className="flex-1 h-9 rounded bg-surface-container-low px-3 font-label text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:ring-1 focus:ring-secondary"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={procesarInputRapido}
+                disabled={!inputRapido.trim()}
+                className="h-9 px-3 rounded bg-secondary text-on-secondary font-label text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-secondary/90 transition-colors"
+              >
+                Agregar
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 h-7 px-2 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors">
+                <Camera className="h-3.5 w-3.5" />
+                <span className="font-label text-[9px] font-bold uppercase">Foto</span>
+                <input type="file" accept="image/*" capture="environment" onChange={cargarImagen} className="hidden" />
+              </label>
+              <label className="flex items-center gap-1.5 h-7 px-2 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors">
+                <ImageIcon className="h-3.5 w-3.5" />
+                <span className="font-label text-[9px] font-bold uppercase">Galería</span>
+                <input type="file" accept="image/*" onChange={cargarImagen} className="hidden" />
+              </label>
+              {imagenComprobante && (
+                <div className="flex items-center gap-1 ml-auto">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imagenComprobante} alt="Comprobante" className="h-7 w-7 rounded object-cover" />
+                  <button type="button" onClick={() => setImagenComprobante("")} className="text-error hover:text-error/80">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1.5 h-7 px-2 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors">
-              <Camera className="h-3.5 w-3.5" />
-              <span className="font-label text-[9px] font-bold uppercase">Foto</span>
-              <input type="file" accept="image/*" capture="environment" onChange={cargarImagen} className="hidden" />
-            </label>
-            <label className="flex items-center gap-1.5 h-7 px-2 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors">
-              <ImageIcon className="h-3.5 w-3.5" />
-              <span className="font-label text-[9px] font-bold uppercase">Galeria</span>
-              <input type="file" accept="image/*" onChange={cargarImagen} className="hidden" />
-            </label>
-            {imagenComprobante && (
-              <div className="flex items-center gap-1 ml-auto">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagenComprobante} alt="Comprobante" className="h-7 w-7 rounded object-cover" />
-                <button type="button" onClick={() => setImagenComprobante("")} className="text-error hover:text-error/80">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Items */}
-        <div className="space-y-2">
-          <span className="font-label text-[10px] font-bold uppercase tracking-wider text-outline block">Items ({compra.items.length})</span>
+        <div className="flex items-center justify-between">
+          <span className="font-label text-[10px] font-bold uppercase tracking-wider text-outline">Items ({compra.items.length})</span>
+          <button
+            type="button"
+            onClick={() => setMostrarRapido(!mostrarRapido)}
+            className={`inline-flex items-center gap-1.5 h-7 px-2 rounded transition-colors ${mostrarRapido ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}
+          >
+            <Camera className="h-3.5 w-3.5" />
+            <span className="font-label text-[9px] font-bold uppercase">{mostrarRapido ? "Cerrado" : "Rapido"}</span>
+          </button>
+        </div>
 
+        <div className="space-y-2">
           {compra.items.map((item, index) => {
             const etqAbierta = etiquetasAbiertas[item.id ?? ""];
             const etqSeleccionadas = item.etiquetas_ids.map(id => etiquetas.find(e => e.id === id)).filter(Boolean);
