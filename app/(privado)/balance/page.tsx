@@ -77,7 +77,41 @@ export default function PaginaBalance() {
     return c.fecha > fechaDesde; // estrictamente despues del corte
   });
 
-  // Construir lista de items con calculo de deuda
+  // Calcular totales: quien pago realmente vs quien deberia haber pagado
+  let totalFrancoPago = 0;  // Lo que Franco efectivamente puso
+  let totalFabiolaPago = 0; // Lo que Fabiola efectivamente puso
+  let francoCorresponde = 0; // Lo que le corresponde a Franco pagar
+  let fabiolaCorresponde = 0; // Lo que le corresponde a Fabiola pagar
+
+  for (const compra of comprasPeriodoActual) {
+    for (const item of compra.items) {
+      francoCorresponde += item.pago_franco;
+      fabiolaCorresponde += item.pago_fabiola;
+
+      if (compra.pagador_general === "franco") totalFrancoPago += item.monto_resuelto;
+      else if (compra.pagador_general === "fabiola") totalFabiolaPago += item.monto_resuelto;
+      else { totalFrancoPago += item.pago_franco; totalFabiolaPago += item.pago_fabiola; }
+    }
+  }
+
+  // Deuda neta: diferencia entre lo que pago y lo que le corresponde
+  // Si Franco pago $100 y le correspondia $80 → Fabiola le debe $20
+  // Si Franco pago $80 y le correspondia $100 → Franco le debe $20
+  const diffFranco = totalFrancoPago - francoCorresponde; // positivo = Franco pago de mas
+  const diffFabiola = totalFabiolaPago - fabiolaCorresponde; // positivo = Fabiola pago de mas
+
+  let fabiolaDebeAFranco = 0;
+  let francoDebeAFabiola = 0;
+
+  if (diffFranco > 0.01 && diffFabiola < -0.01) {
+    // Franco pago de mas, Fabiola pago de menos → Fabiola debe
+    fabiolaDebeAFranco = Math.min(diffFranco, Math.abs(diffFabiola));
+  } else if (diffFabiola > 0.01 && diffFranco < -0.01) {
+    // Fabiola pago de mas, Franco pago de menos → Franco debe
+    francoDebeAFabiola = Math.min(diffFabiola, Math.abs(diffFranco));
+  }
+
+  // Construir items de deuda para el analisis detallado
   const itemsDeuda: ItemDeuda[] = [];
   for (const compra of comprasPeriodoActual) {
     for (const item of compra.items) {
@@ -85,26 +119,14 @@ export default function PaginaBalance() {
       let fabiolaDebe = 0;
 
       if (compra.pagador_general === "franco") {
-        // Franco puso la plata
-        if (item.tipo_reparto === "solo_fabiola") {
-          fabiolaDebe = item.monto_resuelto;
-        } else if (item.tipo_reparto === "50/50") {
-          fabiolaDebe = item.pago_fabiola;
-        }
+        if (item.tipo_reparto === "solo_fabiola") fabiolaDebe = item.monto_resuelto;
+        else if (item.tipo_reparto === "50/50") fabiolaDebe = item.pago_fabiola;
       } else if (compra.pagador_general === "fabiola") {
-        // Fabiola puso la plata
-        if (item.tipo_reparto === "solo_franco") {
-          francoDebe = item.monto_resuelto;
-        } else if (item.tipo_reparto === "50/50") {
-          francoDebe = item.pago_franco;
-        }
+        if (item.tipo_reparto === "solo_franco") francoDebe = item.monto_resuelto;
+        else if (item.tipo_reparto === "50/50") francoDebe = item.pago_franco;
       } else {
-        // Ambos pusieron (compartido)
-        if (item.tipo_reparto === "solo_franco") {
-          francoDebe = item.monto_resuelto * 0.5; // Franco puso mitad pero le corresponde todo → debe mitad a Fabiola
-        } else if (item.tipo_reparto === "solo_fabiola") {
-          fabiolaDebe = item.monto_resuelto * 0.5;
-        }
+        if (item.tipo_reparto === "solo_franco") francoDebe = item.monto_resuelto * 0.5;
+        else if (item.tipo_reparto === "solo_fabiola") fabiolaDebe = item.monto_resuelto * 0.5;
       }
 
       if (francoDebe > 0.01 || fabiolaDebe > 0.01) {
@@ -127,40 +149,32 @@ export default function PaginaBalance() {
     }
   }
 
-  const totalFrancoDebe = itemsDeuda.reduce((a, i) => a + i.francoDebe, 0);
-  const totalFabiolaDebe = itemsDeuda.reduce((a, i) => a + i.fabiolaDebe, 0);
-  const neto = totalFabiolaDebe - totalFrancoDebe;
-  const debeFabiola = neto > 0.01;
-  const debeFranco = neto < -0.01;
-  const montoDeuda = Math.abs(neto);
-
-  // Calcular totales para display
-  let totalFrancoPago = 0;
-  let totalFabiolaPago = 0;
-  for (const compra of comprasPeriodoActual) {
-    for (const item of compra.items) {
-      if (compra.pagador_general === "franco") totalFrancoPago += item.monto_resuelto;
-      else if (compra.pagador_general === "fabiola") totalFabiolaPago += item.monto_resuelto;
-      else { totalFrancoPago += item.pago_franco; totalFabiolaPago += item.pago_fabiola; }
-    }
-  }
-
-  // Analisis con checkboxes
-  const itemsCheckedList = itemsDeuda.filter((_, i) => itemsChecked.has(String(i)));
-  const checkedFrancoDebe = itemsCheckedList.reduce((a, i) => a + i.francoDebe, 0);
-  const checkedFabiolaDebe = itemsCheckedList.reduce((a, i) => a + i.fabiolaDebe, 0);
-  const checkedNeto = checkedFabiolaDebe - checkedFrancoDebe;
-  const checkedDebeFabiola = checkedNeto > 0.01;
-  const checkedDebeFranco = checkedNeto < -0.01;
-  const checkedMontoDeuda = Math.abs(checkedNeto);
+  // Analisis con checkboxes - calculo por pago vs corresponde
+  const checkedItems = itemsDeuda.filter((_, i) => itemsChecked.has(String(i)));
+  const checkedFrancoPago = checkedItems.reduce((a, i) => {
+    if (i.pagadorGeneral === "franco") return a + i.itemMonto;
+    if (i.pagadorGeneral === "compartido") return a + i.pagoFranco;
+    return a;
+  }, 0);
+  const checkedFabiolaPago = checkedItems.reduce((a, i) => {
+    if (i.pagadorGeneral === "fabiola") return a + i.itemMonto;
+    if (i.pagadorGeneral === "compartido") return a + i.pagoFabiola;
+    return a;
+  }, 0);
+  const checkedFrancoCorresponde = checkedItems.reduce((a, i) => a + i.pagoFranco, 0);
+  const checkedFabiolaCorresponde = checkedItems.reduce((a, i) => a + i.pagoFabiola, 0);
+  const checkedDiffFranco = checkedFrancoPago - checkedFrancoCorresponde;
+  const checkedDiffFabiola = checkedFabiolaPago - checkedFabiolaCorresponde;
+  const checkedFabiolaDebeA = checkedDiffFranco > 0.01 ? checkedDiffFranco : 0;
+  const checkedFrancoDebeA = checkedDiffFabiola > 0.01 ? checkedDiffFabiola : 0;
 
   async function quedarAManoHoy() {
     try {
       const hoy = hoyIso();
-      const resumen = debeFabiola
-        ? `${balance.nombres.fabiola} debia ${formatearPeso(montoDeuda)} a ${balance.nombres.franco}`
-        : debeFranco
-          ? `${balance.nombres.franco} debia ${formatearPeso(montoDeuda)} a ${balance.nombres.fabiola}`
+      const resumen = fabiolaDebeAFranco > 0.01
+        ? `${balance.nombres.fabiola} debia ${formatearPeso(fabiolaDebeAFranco)} a ${balance.nombres.franco}`
+        : francoDebeAFabiola > 0.01
+          ? `${balance.nombres.franco} debia ${formatearPeso(francoDebeAFabiola)} a ${balance.nombres.fabiola}`
           : "sin deuda";
 
       await balance.cortes.crearCorte({
@@ -219,39 +233,39 @@ export default function PaginaBalance() {
           </span>
         </div>
 
-        {debeFabiola && (
+        {fabiolaDebeAFranco > 0.01 && (
           <div className="space-y-0.5">
             <p className="font-label text-base font-bold" style={{ color: colorFabi }}>
-              {balance.nombres.fabiola} debe {formatearPeso(montoDeuda)}
+              {balance.nombres.fabiola} le debe {formatearPeso(fabiolaDebeAFranco)} a {balance.nombres.franco}
             </p>
             <p className="font-label text-xs text-on-surface-variant">
-              {balance.nombres.franco} debe $0
+              {balance.nombres.franco} pago {formatearPeso(totalFrancoPago)} pero le correspondia {formatearPeso(francoCorresponde)}
             </p>
           </div>
         )}
-        {debeFranco && (
+        {francoDebeAFabiola > 0.01 && (
           <div className="space-y-0.5">
             <p className="font-label text-base font-bold" style={{ color: colorFran }}>
-              {balance.nombres.franco} debe {formatearPeso(montoDeuda)}
+              {balance.nombres.franco} le debe {formatearPeso(francoDebeAFabiola)} a {balance.nombres.fabiola}
             </p>
             <p className="font-label text-xs text-on-surface-variant">
-              {balance.nombres.fabiola} debe $0
+              {balance.nombres.fabiola} pago {formatearPeso(totalFabiolaPago)} pero le correspondia {formatearPeso(fabiolaCorresponde)}
             </p>
           </div>
         )}
-        {!debeFabiola && !debeFranco && fechaDesde && (
+        {fabiolaDebeAFranco < 0.01 && francoDebeAFabiola < 0.01 && fechaDesde && (
           <p className="font-label text-sm" style={{ color: colorFabi }}>
             Deuda saldada. Ambos deben $0 desde {formatearFecha(fechaDesde)}
           </p>
         )}
-        {!debeFabiola && !debeFranco && !fechaDesde && (
+        {fabiolaDebeAFranco < 0.01 && francoDebeAFabiola < 0.01 && !fechaDesde && (
           <p className="font-label text-sm" style={{ color: colorFabi }}>
             Sin registros de deuda. Ambos deben $0.
           </p>
         )}
 
         <div className="flex gap-2 mt-3">
-          {itemsDeuda.length > 0 && (
+          {(fabiolaDebeAFranco > 0.01 || francoDebeAFabiola > 0.01) && (
             <>
               <button type="button" onClick={() => {
                 // Initialize all as checked
@@ -345,13 +359,13 @@ export default function PaginaBalance() {
             <div className="border-t border-outline-variant/15 px-4 py-3 space-y-2 bg-surface-container">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-label text-[10px] text-on-surface-variant">Items seleccionados: {itemsChecked.size}/{itemsDeuda.length}</span>
-                {checkedDebeFabiola && (
-                  <span className="font-label text-sm font-bold" style={{ color: colorFabi }}>{balance.nombres.fabiola} debe {formatearPeso(checkedMontoDeuda)} a {balance.nombres.franco}</span>
+                {checkedFabiolaDebeA > 0.01 && (
+                  <span className="font-label text-sm font-bold" style={{ color: colorFabi }}>{balance.nombres.fabiola} debe {formatearPeso(checkedFabiolaDebeA)} a {balance.nombres.franco}</span>
                 )}
-                {checkedDebeFranco && (
-                  <span className="font-label text-sm font-bold" style={{ color: colorFran }}>{balance.nombres.franco} debe {formatearPeso(checkedMontoDeuda)} a {balance.nombres.fabiola}</span>
+                {checkedFrancoDebeA > 0.01 && (
+                  <span className="font-label text-sm font-bold" style={{ color: colorFran }}>{balance.nombres.franco} debe {formatearPeso(checkedFrancoDebeA)} a {balance.nombres.fabiola}</span>
                 )}
-                {!checkedDebeFabiola && !checkedDebeFranco && (
+                {checkedFabiolaDebeA < 0.01 && checkedFrancoDebeA < 0.01 && (
                   <span className="font-label text-sm font-semibold" style={{ color: colorFabi }}>A mano</span>
                 )}
               </div>
