@@ -58,25 +58,35 @@ function detectarColumna(fila: Record<string, unknown>, candidatos: string[]) {
 
 function parsearImportacion(datos: Array<Record<string, unknown>>) {
   return datos.map((fila) => {
-    const monto = Number(detectarColumna(fila, ["monto", "monto_resuelto", "importe"]) ?? 0);
-    const expresion = String(detectarColumna(fila, ["expresion_monto", "expresion", "monto"]) ?? monto);
-    const tipo = String(detectarColumna(fila, ["tipo_reparto", "reparto"]) ?? "50/50").toLowerCase();
-    const tipoReparto: TipoReparto =
-      tipo === "solo_franco" || tipo === "solo_fabiola" || tipo === "personalizado" || tipo === "50/50"
-        ? (tipo as TipoReparto)
-        : "50/50";
+    // Detectar precio/monto
+    const precioRaw = detectarColumna(fila, ["precio", "monto", "monto_resuelto", "importe"]);
+    const monto = typeof precioRaw === "number" ? precioRaw : parsearPrecioArgentino(String(precioRaw ?? 0));
+    const expresion = String(detectarColumna(fila, ["expresion_monto", "expresion"]) ?? precioRaw ?? monto);
+
+    // Detectar tipo de reparto (compartido column)
+    const compartido = String(detectarColumna(fila, ["compartido", "tipo_reparto", "reparto", "pagador", "tipo"])).toLowerCase();
+    let tipoReparto: TipoReparto = "50/50";
+    if (compartido.includes("franco") || compartido.includes("fran")) tipoReparto = "solo_franco";
+    else if (compartido.includes("fabiola") || compartido.includes("fabi")) tipoReparto = "solo_fabiola";
+    else if (compartido.includes("personalizado") || compartido.includes("custom")) tipoReparto = "personalizado";
+
+    // Detectar quien pago
+    const quienPagoRaw = String(detectarColumna(fila, ["quien_pago", "pagador", "pago"])).toLowerCase();
+    let pagoFranco = monto / 2, pagoFabiola = monto / 2;
+    if (quienPagoRaw.includes("franco") || quienPagoRaw.includes("fran")) { pagoFranco = monto; pagoFabiola = 0; }
+    else if (quienPagoRaw.includes("fabiola") || quienPagoRaw.includes("fabi")) { pagoFranco = 0; pagoFabiola = monto; }
 
     return {
       fecha: String(detectarColumna(fila, ["fecha"]) ?? fechaLocalISO()),
       nombre_lugar: String(detectarColumna(fila, ["lugar", "nombre_lugar", "comercio"]) ?? ""),
       categoria: String(detectarColumna(fila, ["categoria"]) ?? ""),
       subcategoria: String(detectarColumna(fila, ["subcategoria"]) ?? ""),
-      descripcion: String(detectarColumna(fila, ["descripcion", "detalle"]) ?? ""),
+      descripcion: String(detectarColumna(fila, ["descripcion", "detalle", "item"]) ?? ""),
       expresion_monto: expresion,
       monto,
       tipo_reparto: tipoReparto,
-      pago_franco: Number(detectarColumna(fila, ["pago_franco", "franco"]) ?? monto / 2),
-      pago_fabiola: Number(detectarColumna(fila, ["pago_fabiola", "fabiola"]) ?? monto / 2),
+      pago_franco: pagoFranco,
+      pago_fabiola: pagoFabiola,
       etiquetas: String(detectarColumna(fila, ["etiquetas", "tags"]) ?? "")
         .split(",")
         .map((valor) => valor.trim())
@@ -668,7 +678,7 @@ export default function PaginaConfiguracion() {
             <div className="flex gap-2">
               <button type="button" onClick={() => setModoImportacion("csv")}
                 className={`flex-1 h-9 rounded-lg font-label text-xs font-bold uppercase tracking-wider transition-colors ${modoImportacion === "csv" ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}>
-                CSV Historico
+                CSV
               </button>
               <button type="button" onClick={() => setModoImportacion("excel")}
                 className={`flex-1 h-9 rounded-lg font-label text-xs font-bold uppercase tracking-wider transition-colors ${modoImportacion === "excel" ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}>
@@ -678,16 +688,25 @@ export default function PaginaConfiguracion() {
 
             {modoImportacion === "csv" ? (
               <>
-                {/* Importacion CSV */}
+                {/* Importacion CSV - pegar o archivo */}
                 <div className="space-y-3">
                   <div>
-                    <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Pega tu CSV aca</p>
+                    <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Pega tu CSV o subí archivo</p>
                     <textarea
                       value={csvRaw}
                       onChange={e => setCsvRaw(e.target.value)}
                       placeholder={`Fecha,Categoria,Subcategoria,Item,Tipo,Precio,Compartido\n1/11/2025,Casa,Alquiler,Alquiler sin expensas,Egreso,$500.000,00,Compartido`}
-                      className="w-full min-h-[160px] rounded-lg bg-surface-container-low border border-outline-variant/30 px-3 py-2 font-mono text-xs text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-secondary resize-y"
+                      className="w-full min-h-[120px] rounded-lg bg-surface-container-low border border-outline-variant/30 px-3 py-2 font-mono text-xs text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-secondary resize-y"
                     />
+                    <label className="mt-2 flex items-center gap-2 h-9 px-3 rounded bg-surface-container-high font-label text-[10px] font-bold uppercase tracking-wider text-on-surface cursor-pointer hover:bg-surface-container-highest transition-colors">
+                      <Upload className="h-4 w-4" /> Subir archivo CSV
+                      <input type="file" accept=".csv,.txt" onChange={async e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const text = await file.text();
+                        setCsvRaw(text);
+                      }} className="hidden" />
+                    </label>
                   </div>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => parsearCSV(csvRaw)} disabled={!csvRaw.trim()}
@@ -731,18 +750,18 @@ export default function PaginaConfiguracion() {
                 )}
                 {csvParsed.length === 0 && !csvRaw && (
                   <p className="font-body text-center text-sm text-on-surface-variant">
-                    Pega tu CSV historico aca. Se crean categorias automaticamente si no existen.
+                    Formato: Fecha,Categoria,Subcategoria,Item,Tipo,Precio,Compartido
                   </p>
                 )}
               </>
             ) : (
               <>
-                {/* Importacion Excel */}
+                {/* Importacion Excel - mismo formato */}
                 <label className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed border-outline-variant rounded-lg text-center transition-colors duration-150 hover:bg-surface-container-low">
                   <Upload className="h-5 w-5 text-secondary" />
                   <span className="font-headline text-sm font-semibold text-on-surface">Seleccionar .xlsx</span>
                   <span className="font-body text-xs text-on-surface-variant">
-                    Se parsea en cliente y muestra preview antes de confirmar.
+                    Mismas columnas: Fecha, Categoria, Subcategoria, Item, Tipo, Precio, Compartido
                   </span>
                   <input type="file" accept=".xlsx" onChange={(event) => void importarExcel(event)} className="hidden" />
                 </label>
