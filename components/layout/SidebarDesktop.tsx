@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, Home, Settings, WalletCards, FileClock, LogOut } from "lucide-react";
+import { ChartColumn, Home, Settings, WalletCards, FileClock, LogOut, LayoutDashboard } from "lucide-react";
 import { combinarClases } from "@/lib/utiles";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarUsuario } from "@/hooks/usarUsuario";
@@ -11,6 +11,7 @@ const enlaces = [
   { href: "/", etiqueta: "Inicio", icono: Home },
   { href: "/historial", etiqueta: "Historial", icono: WalletCards },
   { href: "/borradores", etiqueta: "Borradores", icono: FileClock },
+  { href: "/dashboard", etiqueta: "Dashboard", icono: LayoutDashboard },
   { href: "/balance", etiqueta: "Balance", icono: ChartColumn },
   { href: "/configuracion", etiqueta: "Config", icono: Settings },
 ];

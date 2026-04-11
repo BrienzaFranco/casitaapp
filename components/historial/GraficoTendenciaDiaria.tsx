@@ -18,7 +18,7 @@ function etiquetaFechaCorta(fechaIso: string) {
   return fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }
 
-export function GraficoTendenciaDiaria({ registros, compras, nombres, colorFranco = "#10b981", colorFabiola = "#a83900" }: Props) {
+export function GraficoTendenciaDiaria({ registros, compras, nombres, colorFranco = "#3b82f6", colorFabiola = "#10b981" }: Props) {
   // Calcular dominancia por dia: quien pago mas ese dia
   const dominanciaPorDia = useMemo(() => {
     if (!compras) return {} as Record<string, number>;

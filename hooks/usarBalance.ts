@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   calcularBalance,
   calcularCategoriasMes,
@@ -50,6 +51,7 @@ export function useBalance() {
 
   function exportar() {
     exportarExcel(comprasMes, resumenMes, resumenHistorico, categoriasMes, etiquetasMes, mesSeleccionado);
+    toast.success(`Exportado: ${mesSeleccionado || "historico"} (${comprasMes.length} compras)`);
   }
 
   return {

@@ -11,6 +11,7 @@ import { fechaLocalISO } from "@/lib/utiles";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarOffline } from "@/hooks/usarOffline";
 import { usarUsuario } from "@/hooks/usarUsuario";
+import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 
 function hoy() { return fechaLocalISO(); }
 function generarIdTemporal() {
@@ -30,6 +31,9 @@ export default function PaginaAnotadorRapido() {
   const router = useRouter();
   const compras = usarCompras();
   const usuario = usarUsuario();
+  const config = usarConfiguracion();
+  const colorFran = config.colores.franco;
+  const colorFabi = config.colores.fabiola;
   const { guardarConFallback } = usarOffline(compras.guardarCompra);
   const imgRef = useRef<HTMLInputElement>(null);
 
@@ -120,12 +124,19 @@ export default function PaginaAnotadorRapido() {
           </div>
           <div className="flex items-center gap-0.5 bg-surface-container rounded-full p-0.5">
             {[
-              { val: "franco" as const, label: "Fran" },
-              { val: "fabiola" as const, label: "Fabi" },
-              { val: "compartido" as const, label: "50/50" },
-            ].map(({ val, label }) => (
+              { val: "franco" as const, label: "Fran", color: colorFran },
+              { val: "fabiola" as const, label: "Fabi", color: colorFabi },
+              { val: "compartido" as const, label: "50/50", color: "" },
+            ].map(({ val, label, color }) => (
               <button key={val} type="button" onClick={() => setPagador(val)}
-                className={`h-7 px-2.5 rounded-full font-label text-[10px] font-bold transition-all ${pagador === val ? "bg-secondary text-on-secondary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
+                className={`h-7 px-2.5 rounded-full font-label text-[10px] font-bold transition-all ${
+                  pagador === val
+                    ? val === "compartido"
+                      ? "bg-secondary text-on-secondary shadow-sm"
+                      : "shadow-sm"
+                    : "text-on-surface-variant hover:bg-surface-container-high"
+                }`}
+                style={pagador === val && val !== "compartido" ? { backgroundColor: color, color: color === "#10b981" || color === "#f59e0b" || color === "#fbbf24" ? "#000" : "#fff" } : {}}>
                 {label}
               </button>
             ))}

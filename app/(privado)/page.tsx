@@ -6,10 +6,14 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearFecha, formatearPeso } from "@/lib/formatear";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarCompras } from "@/hooks/usarCompras";
+import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 
 export default function PaginaInicio() {
   const balance = usarBalance();
   const compras = usarCompras();
+  const config = usarConfiguracion();
+  const colorFran = config.colores.franco;
+  const colorFabi = config.colores.fabiola;
   const ultimaCompra = compras.compras[0];
   const mesActual = new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" });
   const mesClave = new Date().toISOString().slice(0, 7);
@@ -59,20 +63,20 @@ export default function PaginaInicio() {
 
       {/* Stats: gastos por persona este mes */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-surface-container-low rounded-lg p-3">
-          <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">
+        <div className="bg-surface-container-low rounded-lg p-3" style={{ borderLeft: `3px solid ${colorFran}` }}>
+          <p className="font-label text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color: colorFran }}>
             {balance.nombres.franco}
           </p>
-          <p className="font-label text-base font-bold tabular-nums text-on-surface">
+          <p className="font-label text-base font-bold tabular-nums" style={{ color: colorFran }}>
             {formatearPeso(pagoFrancoMes)}
           </p>
           <p className="font-label text-[8px] text-on-surface-variant mt-0.5">este mes</p>
         </div>
-        <div className="bg-surface-container-low rounded-lg p-3">
-          <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">
+        <div className="bg-surface-container-low rounded-lg p-3" style={{ borderLeft: `3px solid ${colorFabi}` }}>
+          <p className="font-label text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color: colorFabi }}>
             {balance.nombres.fabiola}
           </p>
-          <p className="font-label text-base font-bold tabular-nums text-on-surface">
+          <p className="font-label text-base font-bold tabular-nums" style={{ color: colorFabi }}>
             {formatearPeso(pagoFabiolaMes)}
           </p>
           <p className="font-label text-[8px] text-on-surface-variant mt-0.5">este mes</p>

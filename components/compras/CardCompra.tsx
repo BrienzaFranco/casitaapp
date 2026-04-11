@@ -9,6 +9,7 @@ import { Boton } from "@/components/ui/Boton";
 import { formatearFecha, formatearPeso } from "@/lib/formatear";
 import { obtenerCategoriasUsadas, totalCompra } from "@/lib/calculos";
 import { combinarClases } from "@/lib/utiles";
+import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 
 interface Props {
   compra: Compra;
@@ -24,6 +25,9 @@ export function CardCompra({ compra, nombres, onEliminar }: Props) {
   const totalFabiola = compra.items.reduce((acc, item) => acc + item.pago_fabiola, 0);
   const divisor = totalFranco + totalFabiola || 1;
   const pctFranco = (totalFranco / divisor) * 100;
+  const config = usarConfiguracion();
+  const colorFran = config.colores.franco;
+  const colorFabi = config.colores.fabiola;
 
   return (
     <article className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 shadow-sm overflow-hidden">
@@ -69,14 +73,14 @@ export function CardCompra({ compra, nombres, onEliminar }: Props) {
 
       {/* Distribution bar */}
       <div className="px-4 py-2 bg-surface-container flex items-center gap-2 text-[10px]">
-        <span className="font-label font-bold text-secondary tabular-nums text-right truncate max-w-[80px]">
+        <span className="font-label font-bold tabular-nums text-right truncate max-w-[80px]" style={{ color: colorFran }}>
           {formatearPeso(totalFranco)}
         </span>
         <div className="flex-1 flex h-1.5 overflow-hidden rounded-full bg-surface-container-lowest">
-          <div className="bg-secondary transition-all duration-200" style={{ width: `${pctFranco}%` }} />
-          <div className="bg-tertiary transition-all duration-200" style={{ width: `${100 - pctFranco}%` }} />
+          <div style={{ width: `${pctFranco}%`, backgroundColor: colorFran }} className="transition-all duration-200" />
+          <div style={{ width: `${100 - pctFranco}%`, backgroundColor: colorFabi }} className="transition-all duration-200" />
         </div>
-        <span className="font-label font-bold text-tertiary tabular-nums text-right truncate max-w-[80px]">
+        <span className="font-label font-bold tabular-nums text-right truncate max-w-[80px]" style={{ color: colorFabi }}>
           {formatearPeso(totalFabiola)}
         </span>
       </div>

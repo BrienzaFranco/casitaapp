@@ -1,5 +1,6 @@
 import type { ItemEditable } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
+import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 
 interface Props {
   items: ItemEditable[];
@@ -18,20 +19,23 @@ function calcularTotales(items: ItemEditable[]) {
 
 export function ResumenTotal({ items, nombres }: Props) {
   const { total, pagoFranco, pagoFabiola, pctFranco, pctFabiola } = calcularTotales(items);
+  const config = usarConfiguracion();
+  const colorFran = config.colores.franco;
+  const colorFabi = config.colores.fabiola;
 
   return (
     <footer className="fixed bottom-0 left-0 right-0 z-20 bg-surface border-t border-outline-variant/20 px-4 py-2.5 pb-safe">
       <div className="mx-auto max-w-[480px]">
         {/* Distribution bar */}
         <div className="mb-2 flex h-1.5 overflow-hidden rounded-full bg-surface-container-lowest">
-          <div className="bg-secondary transition-all duration-200" style={{ width: `${pctFranco}%` }} />
-          <div className="bg-tertiary transition-all duration-200" style={{ width: `${pctFabiola}%` }} />
+          <div style={{ width: `${pctFranco}%`, backgroundColor: colorFran }} className="transition-all duration-200" />
+          <div style={{ width: `${pctFabiola}%`, backgroundColor: colorFabi }} className="transition-all duration-200" />
         </div>
 
         <div className="flex items-center justify-between">
           <div>
             <p className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">{nombres.franco}</p>
-            <p className="font-label text-sm font-bold tabular-nums text-secondary">{formatearPeso(pagoFranco)}</p>
+            <p className="font-label text-sm font-bold tabular-nums" style={{ color: colorFran }}>{formatearPeso(pagoFranco)}</p>
           </div>
           <div className="text-center">
             <p className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">Total</p>
@@ -39,7 +43,7 @@ export function ResumenTotal({ items, nombres }: Props) {
           </div>
           <div className="text-right">
             <p className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant">{nombres.fabiola}</p>
-            <p className="font-label text-sm font-bold tabular-nums text-tertiary">{formatearPeso(pagoFabiola)}</p>
+            <p className="font-label text-sm font-bold tabular-nums" style={{ color: colorFabi }}>{formatearPeso(pagoFabiola)}</p>
           </div>
         </div>
       </div>

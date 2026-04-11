@@ -5,8 +5,6 @@ import { Download, ChevronDown, ChevronRight, X, Eye } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import type { Compra } from "@/types";
-import { GraficoCategoriasDonut } from "@/components/balance/GraficoCategoriasDonut";
-import { GraficoEtiquetas } from "@/components/balance/GraficoEtiquetas";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearFecha, formatearPeso } from "@/lib/formatear";
 import { fechaLocalISO } from "@/lib/utiles";
@@ -14,6 +12,19 @@ import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 
 function hoyIso() { return fechaLocalISO(); }
+
+/**
+ * Returns readable text color for a given background hex.
+ * Uses WCAG perceived luminance formula.
+ */
+function textoContraste(hex: string): string {
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  const luminancia = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminancia > 0.5 ? "#000000" : "#ffffff";
+}
 
 interface ItemDeuda {
   compraId: string;
@@ -277,7 +288,7 @@ export default function PaginaBalance() {
               </button>
               <button type="button" onClick={quedarAManoHoy} disabled={balance.cortes.guardando}
                 className="h-8 px-4 rounded font-label text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 transition-colors hover:opacity-90"
-                style={{ backgroundColor: colorFabi, color: colorFabi === "#10b981" ? "#003909" : "#ffffff" }}>
+                style={{ backgroundColor: colorFabi, color: textoContraste(colorFabi) }}>
                 Quedar a mano
               </button>
             </>
@@ -374,7 +385,7 @@ export default function PaginaBalance() {
                 quedarAManoHoy();
               }}
                 className="w-full h-10 rounded font-label text-[10px] font-bold uppercase tracking-wider transition-colors hover:opacity-90"
-                style={{ backgroundColor: colorFabi, color: colorFabi === "#10b981" ? "#003909" : "#ffffff" }}>
+                style={{ backgroundColor: colorFabi, color: textoContraste(colorFabi) }}>
                 Confirmar y quedar a mano
               </button>
             </div>
@@ -390,10 +401,6 @@ export default function PaginaBalance() {
         expandido={historialExpandido}
         setExpandido={setHistorialExpandido}
       />
-
-      {/* Graficos */}
-      <GraficoCategoriasDonut registros={balance.categoriasMes} />
-      <GraficoEtiquetas registros={balance.etiquetasMes} />
     </section>
   );
 }
