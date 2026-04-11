@@ -192,8 +192,15 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   }
 
   // Quien pago mas del otro
-  const debeFrancoAFabiola = totalFabiola > totalFranco ? totalFabiola - totalFranco : 0;
-  const debeFabiolaAFranco = totalFranco > totalFabiola ? totalFranco - totalFabiola : 0;
+  // Calcular cuánto pagó realmente cada uno en esta compra
+  const francoPagoReal = compra.pagador_general === "franco" ? total : (compra.pagador_general === "compartido" ? totalFranco : 0);
+
+  // Balance = Lo que pagó - Lo que le correspondía pagar
+  const balanceFranco = francoPagoReal - totalFranco;
+
+  // Si el balance es positivo, Franco pagó de más (Fabiola le debe). Si es negativo, Franco pagó de menos (él le debe a Fabiola).
+  const debeFabiolaAFranco = balanceFranco > 0.01 ? balanceFranco : 0;
+  const debeFrancoAFabiola = balanceFranco < -0.01 ? Math.abs(balanceFranco) : 0;
 
   // Options for tags SelectBuscable
   const opcionesEtiquetas = useMemo(() => {
