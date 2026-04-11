@@ -12,10 +12,11 @@ import { Boton } from "@/components/ui/Boton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearPeso } from "@/lib/formatear";
 import { fechaLocalISO, normalizarTexto } from "@/lib/utiles";
-import { ocultarLugar, mostrarLugar } from "@/lib/configuracion";
+import { guardarColor, ocultarLugar, mostrarLugar } from "@/lib/configuracion";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
+import { usarBalance } from "@/hooks/usarBalance";
 
 type Tab = "categorias" | "subcategorias" | "etiquetas" | "colores" | "lugares" | "importar" | "instalar";
 
@@ -94,9 +95,8 @@ const TABS: { valor: Tab; etiqueta: string }[] = [
   { valor: "instalar", etiqueta: "Instalar" },
 ];
 
-function LugaresManager({ compras }: { compras: Compra[] }) {
+function LugaresManager({ compras, nombres }: { compras: Compra[]; nombres: { franco: string; fabiola: string } }) {
   const config = usarConfiguracion();
-  const nombreUsuario = config.nombreUsuario;
 
   const lugaresConteo = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -109,7 +109,7 @@ function LugaresManager({ compras }: { compras: Compra[] }) {
   }, [compras, config.lugaresOcultos]);
 
   async function ocultar(lugar: string) {
-    await ocultarLugar(lugar, nombreUsuario);
+    await ocultarLugar(lugar, nombres.franco);
     // Refresh local state
     const nuevos = [...config.lugaresOcultos, lugar];
     config.setLugaresOcultos(nuevos);
@@ -117,7 +117,7 @@ function LugaresManager({ compras }: { compras: Compra[] }) {
   }
 
   async function mostrar(lugar: string) {
-    await mostrarLugar(lugar, nombreUsuario);
+    await mostrarLugar(lugar, nombres.franco);
     const nuevos = config.lugaresOcultos.filter(l => l !== lugar);
     config.setLugaresOcultos(nuevos);
   }
@@ -167,7 +167,7 @@ function LugaresManager({ compras }: { compras: Compra[] }) {
 export default function PaginaConfiguracion() {
   const categorias = usarCategorias();
   const compras = usarCompras();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const balance = usarBalance();
   const config = usarConfiguracion();
   const [tab, setTab] = useState<Tab>("categorias");
   const [filtroCategoria, setFiltroCategoria] = useState("");
@@ -604,6 +604,38 @@ export default function PaginaConfiguracion() {
           </section>
         )}
 
+        {tab === "colores" && (
+          <section className="space-y-4 p-4">
+            <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+              Colores de cada persona
+            </p>
+            <p className="font-body text-xs text-on-surface-variant">
+              Estos colores se usan en el reparto y se comparten entre todos los dispositivos.
+            </p>
+
+            {(["franco", "fabiola"] as const).map((persona) => {
+              const color = config.colores[persona];
+              const label = persona === "franco" ? balance.nombres.franco : balance.nombres.fabiola;
+              return (
+                <div key={persona} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-container-low">
+                  <div className="w-8 h-8 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <span className="font-headline text-sm font-semibold text-on-surface flex-1">{label}</span>
+                  <input
+                    type="color"
+                    value={color}
+                    onChange={async e => {
+                      const nuevoColor = e.target.value;
+                      config.setColores({ ...config.colores, [persona]: nuevoColor });
+                      await guardarColor(persona, nuevoColor, config.nombreUsuario);
+                    }}
+                    className="h-8 w-12 cursor-pointer rounded bg-transparent border-none p-0 outline-none"
+                  />
+                </div>
+              );
+            })}
+          </section>
+        )}
+
         {tab === "lugares" && (
           <section className="space-y-4 p-4">
             <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
@@ -612,7 +644,7 @@ export default function PaginaConfiguracion() {
             <p className="font-body text-xs text-on-surface-variant">
               Tocá la estrella para marcar favoritos. Los mas usados aparecen primero.
             </p>
-            <LugaresManager compras={compras.compras} />
+            <LugaresManager compras={compras.compras} nombres={balance.nombres} />
           </section>
         )}
 
