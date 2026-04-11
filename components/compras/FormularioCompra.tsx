@@ -24,12 +24,6 @@ interface Props {
   onCrearEtiqueta?: (nombre: string) => Promise<string | null>;
 }
 
-// Colores por persona (localStorage)
-function obtenerColorPersona(nombre: string, fallback: string) {
-  if (typeof window === "undefined") return fallback;
-  return localStorage.getItem(`color_${nombre}`) || fallback;
-}
-
 function hoy() { return fechaLocalISO(); }
 function genId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return `tmp-${crypto.randomUUID()}`;
@@ -89,12 +83,6 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
   const totalFabiola = useMemo(() => compra.items.reduce((a, i) => a + i.pago_fabiola, 0), [compra.items]);
   const mapaLugares = useMemo(() => cargarMapaLugares(comprasHistoria), [comprasHistoria]);
   const mapaDetalles = useMemo(() => cargarMapaDetalles(comprasHistoria), [comprasHistoria]);
-
-  // Colores de cada persona
-  const colorFranco = obtenerColorPersona("franco", "#3b82f6");
-  const colorFabiola = obtenerColorPersona("fabiola", "#10b981");
-  const colorFran = useMemo(() => colorFranco, [colorFranco]);
-  const colorFabi = useMemo(() => colorFabiola, [colorFabiola]);
 
   useEffect(() => { if (!compraInicial && registradoPorDefecto && !compra.registrado_por) { setCompra(a => ({ ...a, registrado_por: registradoPorDefecto })); guardarRegistradoPor(registradoPorDefecto); } }, [compra.registrado_por, compraInicial, registradoPorDefecto]);
 
@@ -246,14 +234,12 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
           )}
 
           {/* Etiquetas toggle (colapsable como Notas) */}
-          <div className="border-t border-outline-variant/10 pt-1">
+          <div className="pt-1 border-t border-outline-variant/10">
             <button type="button" onClick={() => setMostrarEtiquetas(!mostrarEtiquetas)}
-              className="flex items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors py-1">
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mostrarEtiquetas ? "rotate-180" : ""}`} />
+              className="flex items-center gap-1.5 text-on-surface-variant hover:text-on-surface transition-colors w-full py-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-3.5 w-3.5 transition-transform ${mostrarEtiquetas ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6"></path></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"></path><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"></circle></svg>
               <span className="font-label text-[10px] font-bold uppercase tracking-wider">Etiquetas</span>
-              {compra.etiquetas_compra_ids.length > 0 && (
-                <span className="font-label text-[9px] bg-secondary/20 text-secondary px-1.5 py-0 rounded-full">{compra.etiquetas_compra_ids.length}</span>
-              )}
             </button>
             {mostrarEtiquetas && (
               <div className="flex flex-wrap gap-1 pb-1">
@@ -274,7 +260,6 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
           {compra.items.map((item, index) => {
             const etqAbierta = etiquetasAbiertas[item.id ?? ""];
-            const subs = item.categoria_id ? (subsPorCat.get(item.categoria_id) ?? []) : [];
             const etqSeleccionadas = item.etiquetas_ids.map(id => etiquetas.find(e => e.id === id)).filter(Boolean);
             const subOpciones = item.categoria_id
               ? (subsPorCat.get(item.categoria_id) ?? []).map(s => ({
@@ -286,12 +271,12 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
             return (
               <div key={item.id} className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 overflow-hidden">
-                {/* Header: Item badge + descripcion editable + monto + eliminar */}
-                <div className="flex items-center px-3 py-2 gap-2">
-                  <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-surface-variant font-label text-[9px] font-bold text-on-surface-variant shrink-0">
-                    Item {index + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
+                {/* Header: Item number badge + descripcion editable + eliminar */}
+                <div className="px-3 py-2 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-surface-variant font-label text-[9px] font-bold text-on-surface-variant shrink-0">
+                      {index + 1}
+                    </span>
                     <input
                       ref={el => { if (el && !item.descripcion) ref.current.set(item.id ?? "", el); }}
                       type="text" value={item.descripcion}
@@ -304,31 +289,25 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                       }}
                       onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
                       placeholder="Que compraste?"
-                      className="w-full bg-transparent border-none px-0 py-0 font-headline text-xs font-semibold text-on-surface outline-none placeholder:text-on-surface-variant/40"
+                      className="flex-1 min-w-0 bg-transparent border-none px-0 py-0 font-headline text-sm font-semibold text-on-surface outline-none placeholder:text-on-surface-variant/40"
                     />
-                    {item.categoria_id && (
-                      <p className="font-label text-[8px] text-on-surface-variant truncate">
-                        {categorias.find(c => c.id === item.categoria_id)?.nombre}
-                        {item.subcategoria_id ? ` \u203A ${subs.find(s => s.id === item.subcategoria_id)?.nombre}` : ""}
-                      </p>
-                    )}
+                    <button type="button" onClick={() => del(item.id ?? "")}
+                      className="w-6 h-6 flex items-center justify-center rounded text-on-surface-variant/40 hover:text-error hover:bg-error-container/30 transition-colors shrink-0"
+                      title="Eliminar">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
 
-                  {/* Monto + Eliminar */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <div className="text-right">
-                      <p className="font-label text-sm font-bold tabular-nums text-primary">{formatearPeso(item.monto_resuelto)}</p>
-                      {item.tipo_reparto !== "50/50" && (
-                        <p className="font-label text-[8px]" style={{ color: item.tipo_reparto === "solo_franco" ? colorFran : colorFabi }}>
-                          {item.tipo_reparto === "solo_franco" ? nombres.franco : nombres.fabiola}
-                        </p>
-                      )}
-                    </div>
-                    <button type="button" onClick={() => del(item.id ?? "")}
-                      className="w-7 h-7 flex items-center justify-center rounded text-error hover:bg-error-container transition-colors"
-                      title="Eliminar item">
-                      <X className="h-4 w-4" />
-                    </button>
+                  {/* Monto inline */}
+                  <div className="flex items-center gap-2 pl-7">
+                    <span className="font-label text-[10px] text-on-surface-variant/60 shrink-0">$</span>
+                    <input type="text" inputMode="decimal" value={item.expresion_monto}
+                      onChange={e => setItem(item.id ?? "", { expresion_monto: e.target.value })}
+                      onBlur={() => setItem(item.id ?? "", {}, true)}
+                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+                      placeholder="200+200"
+                      className="flex-1 bg-transparent border-b border-outline/20 px-0 py-0.5 font-label text-xs tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/40 focus:border-b-primary" />
+                    <span className="font-label text-base font-bold tabular-nums text-primary shrink-0">{formatearPeso(item.monto_resuelto)}</span>
                   </div>
                 </div>
 
@@ -364,33 +343,31 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                       className="flex-1 bg-transparent border-b border-outline/20 px-0 py-1 font-label text-[10px] tabular-nums text-on-surface-variant outline-none placeholder:text-on-surface-variant/40 focus:border-b-primary" />
                   </div>
 
-                  {/* Corresponde a + Etiquetas toggle juntos */}
-                  <div className="flex items-center gap-1">
-                    <span className="font-label text-[8px] uppercase tracking-wider text-on-surface-variant/60 shrink-0">Corresp</span>
-                    <select value={item.tipo_reparto} onChange={e => setItem(item.id ?? "", { tipo_reparto: e.target.value as TipoReparto }, true)}
-                      className="h-6 rounded bg-surface-container px-1.5 font-label text-[9px] font-bold text-on-surface outline-none shrink-0"
-                      style={{ width: `${Math.max(48, (item.tipo_reparto === "solo_franco" ? nombres.franco : item.tipo_reparto === "solo_fabiola" ? nombres.fabiola : "Ambos").length * 7 + 28)}px` }}>
-                      <option value="50/50">Ambos</option>
-                      <option value="solo_franco">{nombres.franco}</option>
-                      <option value="solo_fabiola">{nombres.fabiola}</option>
-                    </select>
-
-                    {item.tipo_reparto === "50/50" && (
-                      <span className="font-label text-[8px] tabular-nums" style={{ color: colorFran }}>{formatearPeso(item.pago_franco)}</span>
-                    )}
-                    {item.tipo_reparto === "solo_franco" && (
-                      <span className="font-label text-[8px] tabular-nums" style={{ color: colorFran }}>{formatearPeso(item.monto_resuelto)}</span>
-                    )}
-                    {item.tipo_reparto === "solo_fabiola" && (
-                      <span className="font-label text-[8px] tabular-nums" style={{ color: colorFabi }}>{formatearPeso(item.monto_resuelto)}</span>
-                    )}
-
+                  {/* Reparto: pill buttons */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <span className="font-label text-[9px] uppercase tracking-wider text-on-surface-variant/50 shrink-0">Corresp:</span>
+                      <div className="inline-flex rounded-full bg-surface-container p-0.5 gap-0.5">
+                        <button type="button" onClick={() => setItem(item.id ?? "", { tipo_reparto: "solo_franco" }, true)}
+                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${item.tipo_reparto === "solo_franco" ? "bg-secondary text-on-secondary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
+                          {nombres.franco}
+                        </button>
+                        <button type="button" onClick={() => setItem(item.id ?? "", { tipo_reparto: "50/50" }, true)}
+                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${item.tipo_reparto === "50/50" ? "bg-secondary text-on-secondary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
+                          50/50
+                        </button>
+                        <button type="button" onClick={() => setItem(item.id ?? "", { tipo_reparto: "solo_fabiola" }, true)}
+                          className={`h-6 px-2.5 rounded-full font-label text-[9px] font-medium transition-all ${item.tipo_reparto === "solo_fabiola" ? "bg-secondary text-on-secondary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
+                          {nombres.fabiola}
+                        </button>
+                      </div>
+                    </div>
                     {/* Etiquetas toggle */}
                     <button type="button" onClick={() => setEtiquetasAbiertas(a => ({ ...a, [item.id ?? ""]: !a[item.id ?? ""] }))}
-                      className="flex items-center gap-0.5 h-6 px-1.5 rounded bg-surface-container font-label text-[9px] text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0">
-                      <span>Etq</span>
+                      className="flex items-center gap-1 h-6 px-2 rounded-full font-label text-[9px] transition-colors shrink-0 bg-surface-container text-on-surface-variant hover:bg-surface-container-high">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"></path><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"></circle></svg>
                       {etqSeleccionadas.length > 0 && (
-                        <span className="text-[8px] px-0.5 rounded-full" style={{ color: colorFabi }}>{etqSeleccionadas.length}</span>
+                        <span className="text-[8px] px-0.5 rounded-full bg-secondary/20 text-secondary">{etqSeleccionadas.length}</span>
                       )}
                     </button>
                   </div>
