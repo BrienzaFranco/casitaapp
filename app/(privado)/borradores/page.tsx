@@ -4,12 +4,15 @@ import Link from "next/link";
 import { Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { formatearFecha, formatearPeso } from "@/lib/formatear";
+import { deducirNombresParticipantes } from "@/lib/calculos";
 import { usarCompras } from "@/hooks/usarCompras";
+import { usarUsuario } from "@/hooks/usarUsuario";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function PaginaBorradores() {
   const compras = usarCompras();
-
+  const usuario = usarUsuario();
+  const nombres = deducirNombresParticipantes(usuario.perfiles);
   const borradores = compras.compras.filter(c => c.estado === "borrador");
 
   async function eliminar(id: string) {
@@ -69,7 +72,7 @@ export default function PaginaBorradores() {
                 <p className="font-headline text-sm text-on-surface mt-1 truncate">{b.items[0].descripcion}</p>
               )}
               <p className="font-label text-[9px] text-on-surface-variant mt-0.5">
-                Pago: {b.pagador_general === "franco" ? "Franco" : b.pagador_general === "fabiola" ? "Fabiola" : "Compartido"}
+                Pago: {b.pagador_general === "franco" ? nombres.franco : b.pagador_general === "fabiola" ? nombres.fabiola : "Ambos"}
               </p>
             </div>
             <p className="font-label text-lg font-bold tabular-nums text-primary shrink-0">

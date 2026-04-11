@@ -7,10 +7,10 @@ interface Props {
 }
 
 function textoReparto(item: Item, nombres: { franco: string; fabiola: string }) {
-  if (item.tipo_reparto === "solo_franco") return nombres.franco;
-  if (item.tipo_reparto === "solo_fabiola") return nombres.fabiola;
-  if (item.tipo_reparto === "personalizado") return `${nombres.franco} / ${nombres.fabiola}`;
-  return "50/50";
+  if (item.tipo_reparto === "solo_franco") return `Corresp: ${nombres.franco}`;
+  if (item.tipo_reparto === "solo_fabiola") return `Corresp: ${nombres.fabiola}`;
+  if (item.tipo_reparto === "personalizado") return `Corresp: ${nombres.franco} / ${nombres.fabiola}`;
+  return "Corresp: Ambos";
 }
 
 export function ItemCompra({ item, nombres }: Props) {

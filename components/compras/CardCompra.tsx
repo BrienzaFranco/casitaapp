@@ -36,7 +36,7 @@ export function CardCompra({ compra, nombres, onEliminar }: Props) {
                 {compra.nombre_lugar || "Compra"}
               </span>
               <span className="font-label text-[10px] text-on-surface-variant whitespace-nowrap">
-                {compra.registrado_por}
+                Pago: {compra.pagador_general === "franco" ? nombres.franco : compra.pagador_general === "fabiola" ? nombres.fabiola : "Ambos"}
               </span>
             </div>
             <div className="flex flex-wrap gap-1 mt-1.5">
