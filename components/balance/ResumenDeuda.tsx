@@ -10,63 +10,50 @@ import { formatearFecha, formatearPeso } from "@/lib/formatear";
 interface Props {
   compras: Compra[];
   nombres: { franco: string; fabiola: string };
-  onQuedarAMano?: () => void;
 }
 
-export function ResumenDeuda({ compras, nombres, onQuedarAMano }: Props) {
+export function ResumenDeuda({ compras, nombres }: Props) {
   const [catExpandida, setCatExpandida] = useState<string | null>(null);
   const [compraExpandida, setCompraExpandida] = useState<string | null>(null);
 
   const deuda = analizarDeudaPorCategoria(compras);
 
+  // Si no hay ninguna deuda registrada en absoluto, ocultamos todo
+  if (!deuda.length) return null;
+
   let totalFrancoDebe = 0;
   let totalFabiolaDebe = 0;
   for (const cat of deuda) {
-    totalFrancoDebe += cat.totalFrancoDebe; // Cuanto le debe Franco a Fabiola
-    totalFabiolaDebe += cat.totalFabiolaDebe; // Cuanto le debe Fabiola a Franco
+    totalFrancoDebe += cat.totalFrancoDebe;
+    totalFabiolaDebe += cat.totalFabiolaDebe;
   }
   const neto = totalFabiolaDebe - totalFrancoDebe;
-  // neto > 0: Fabiola debe mas → debe transferir a Franco
-  // neto < 0: Franco debe mas → debe transferir a Fabiola
+
   const debeTransferirFabiola = neto > 0.01;
   const debeTransferirFranco = neto < -0.01;
-  const montoNeto = Math.abs(neto);
-
-  if (!deuda.length) {
-    return (
-      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4">
-        <p className="font-label text-[10px] uppercase tracking-widest text-outline mb-2">Resumen de deuda</p>
-        <p className="font-body text-sm text-tertiary">A mano. Nadie debe nada.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15">
       {/* Header */}
       <div className="px-4 py-3 border-b border-outline-variant/10">
-        <p className="font-label text-[10px] uppercase tracking-widest text-outline">Resumen de deuda</p>
+        <p className="font-label text-[10px] uppercase tracking-widest text-outline">Desglose de deuda</p>
+
         {debeTransferirFabiola && (
           <p className="font-label text-sm font-bold text-secondary mt-0.5">
-            {nombres.fabiola} debe transferir {formatearPeso(montoNeto)} a {nombres.franco}
+            {nombres.fabiola} debe transferir {formatearPeso(Math.abs(neto))} a {nombres.franco}
           </p>
         )}
+
         {debeTransferirFranco && (
           <p className="font-label text-sm font-bold text-secondary mt-0.5">
-            {nombres.franco} debe transferir {formatearPeso(montoNeto)} a {nombres.fabiola}
+            {nombres.franco} debe transferir {formatearPeso(Math.abs(neto))} a {nombres.fabiola}
           </p>
         )}
+
         {!debeTransferirFabiola && !debeTransferirFranco && (
-          <p className="font-label text-sm text-tertiary mt-0.5">A mano</p>
-        )}
-        {onQuedarAMano && (
-          <button
-            type="button"
-            onClick={onQuedarAMano}
-            className="mt-2 h-7 px-3 rounded bg-tertiary/10 font-label text-[10px] font-bold uppercase tracking-wider text-tertiary hover:bg-tertiary/20 transition-colors"
-          >
-            Quedar a mano
-          </button>
+          <p className="font-label text-sm font-semibold text-tertiary mt-0.5">
+            ¡Están al día! Las cuentas están balanceadas.
+          </p>
         )}
       </div>
 

@@ -124,11 +124,10 @@ export default function PaginaBalance() {
         </button>
       </div>
 
-      {/* Resumen de deuda por categoria */}
+      {/* Desglose de deuda por categoria */}
       <ResumenDeuda
         compras={balance.compras.compras.filter(c => c.estado !== "borrador")}
         nombres={balance.nombres}
-        onQuedarAMano={quedarAManoHoy}
       />
 
       {/* Historial de cortes */}
