@@ -1,7 +1,50 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+
+/**
+ * Suppress known cosmetic warnings from third-party libraries:
+ * - Recharts "width(-1) and height(-1)" — false-positive on resize/F12
+ * - Supabase gotrue-js lock errors — harmless, the SDK retries internally
+ */
+function SuppressCosmeticWarnings() {
+  useEffect(() => {
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    const suppressedPatterns = [
+      /The width\(-1\) and height\(-1\) of chart should be greater than 0/,
+      /Lock "lock:sb-.*" was not released within \d+ms/,
+      /Lock broken by another request with the 'steal' option/,
+      /forcefully acquiring the lock to recover/i,
+      /orphaned lock from a component unmount/i,
+      /AbortError.*Lock broken/i,
+    ];
+
+    function shouldSuppress(message: string) {
+      return suppressedPatterns.some(pattern => pattern.test(message));
+    }
+
+    console.error = (...args: unknown[]) => {
+      const message = args.map(a => String(a ?? "")).join(" ");
+      if (shouldSuppress(message)) return;
+      originalError(...args);
+    };
+
+    console.warn = (...args: unknown[]) => {
+      const message = args.map(a => String(a ?? "")).join(" ");
+      if (shouldSuppress(message)) return;
+      originalWarn(...args);
+    };
+
+    return () => {
+      console.error = originalError;
+      console.warn = originalWarn;
+    };
+  }, []);
+
+  return null;
+}
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -19,6 +62,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SuppressCosmeticWarnings />
       {children}
     </QueryClientProvider>
   );
