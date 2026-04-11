@@ -19,12 +19,14 @@ function SuppressCosmeticWarnings() {
       /forcefully acquiring the lock to recover/i,
       /orphaned lock from a component unmount/i,
       /AbortError.*Lock broken/i,
+      /AbortError.*steal/i,
     ];
 
     function shouldSuppress(message: string) {
       return suppressedPatterns.some(pattern => pattern.test(message));
     }
 
+    // Intercept console.error and console.warn
     console.error = (...args: unknown[]) => {
       const message = args.map(a => String(a ?? "")).join(" ");
       if (shouldSuppress(message)) return;
@@ -37,9 +39,20 @@ function SuppressCosmeticWarnings() {
       originalWarn(...args);
     };
 
+    // Intercept unhandled promise rejections for these known errors
+    function handleUnhandledRejection(e: PromiseRejectionEvent) {
+      const message = String(e.reason ?? "");
+      if (shouldSuppress(message)) {
+        e.preventDefault();
+      }
+    }
+
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+
     return () => {
       console.error = originalError;
       console.warn = originalWarn;
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
     };
   }, []);
 
