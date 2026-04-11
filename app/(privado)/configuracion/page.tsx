@@ -440,7 +440,7 @@ export default function PaginaConfiguracion() {
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Color</label>
                   <input className="h-8 w-full cursor-pointer rounded bg-transparent border-none p-0 outline-none"
-                    type="color" value={nuevaCategoria.color}
+                    type="color" name="categoria-color" value={nuevaCategoria.color}
                     onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, color: event.target.value }))} />
                 </div>
                 <div className="space-y-1">
@@ -589,7 +589,7 @@ export default function PaginaConfiguracion() {
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Color</label>
                   <input className="h-8 w-full cursor-pointer rounded bg-transparent border-none p-0 outline-none"
-                    type="color" value={nuevaEtiqueta.color}
+                    type="color" name="etiqueta-color" value={nuevaEtiqueta.color}
                     onChange={(event) => setNuevaEtiqueta((anterior) => ({ ...anterior, color: event.target.value }))} />
                 </div>
               </div>
@@ -613,7 +613,7 @@ export default function PaginaConfiguracion() {
                   <input className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
                     defaultValue={etiqueta.nombre}
                     onBlur={(event) => void categorias.actualizarEtiqueta(etiqueta.id, { nombre: event.target.value })} />
-                  <input type="color" className="h-6 w-6 cursor-pointer rounded bg-transparent border-none p-0 outline-none"
+                  <input type="color" name={`etiqueta-color-${etiqueta.id}`} className="h-6 w-6 cursor-pointer rounded bg-transparent border-none p-0 outline-none"
                     defaultValue={etiqueta.color}
                     onBlur={(event) => void categorias.actualizarEtiqueta(etiqueta.id, { color: event.target.value })} />
                   <button type="button" className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
@@ -700,7 +700,7 @@ export default function PaginaConfiguracion() {
                     />
                     <label className="mt-2 flex items-center gap-2 h-9 px-3 rounded bg-surface-container-high font-label text-[10px] font-bold uppercase tracking-wider text-on-surface cursor-pointer hover:bg-surface-container-highest transition-colors">
                       <Upload className="h-4 w-4" /> Subir archivo CSV
-                      <input type="file" accept=".csv,.txt" onChange={async e => {
+                      <input type="file" name="csv-file" accept=".csv,.txt" onChange={async e => {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         const text = await file.text();
@@ -763,7 +763,7 @@ export default function PaginaConfiguracion() {
                   <span className="font-body text-xs text-on-surface-variant">
                     Mismas columnas: Fecha, Categoria, Subcategoria, Item, Tipo, Precio, Compartido
                   </span>
-                  <input type="file" accept=".xlsx" onChange={(event) => void importarExcel(event)} className="hidden" />
+                  <input type="file" name="excel-file" accept=".xlsx" onChange={(event) => void importarExcel(event)} className="hidden" />
                 </label>
 
                 {previewImportacion.length ? (

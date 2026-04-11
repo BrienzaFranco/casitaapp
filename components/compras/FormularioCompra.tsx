@@ -306,12 +306,12 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
           <div className="flex items-center gap-2 flex-wrap">
             <label className="flex items-center gap-1.5 shrink-0">
               <Calendar className="h-3.5 w-3.5 text-on-surface-variant" />
-              <input type="date" value={compra.fecha} onChange={e => set({ fecha: e.target.value })}
+              <input id="compra-fecha" type="date" value={compra.fecha} onChange={e => set({ fecha: e.target.value })}
                 className="h-7 rounded bg-surface-container-low px-2 font-label text-xs tabular-nums text-on-surface outline-none" />
             </label>
             <label className="flex items-center gap-1.5 shrink-0">
               <Users className="h-3.5 w-3.5 text-on-surface-variant" />
-              <select value={compra.pagador_general} onChange={e => set({ pagador_general: e.target.value as "franco" | "fabiola" | "compartido" })}
+              <select id="compra-pagador" value={compra.pagador_general} onChange={e => set({ pagador_general: e.target.value as "franco" | "fabiola" | "compartido" })}
                 className="h-7 rounded bg-surface-container-low px-2 font-label text-xs text-on-surface outline-none">
                 <option value="compartido">50/50</option>
                 <option value="franco">{nombres.franco}</option>
@@ -322,12 +322,13 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
           {/* Notas toggle */}
           <button type="button" onClick={() => setMostrarNotas(!mostrarNotas)}
+            aria-label={mostrarNotas ? "Ocultar notas" : "Mostrar notas"}
             className="flex items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors">
             <FileText className="h-3.5 w-3.5" />
             {mostrarNotas && <ChevronDown className={`h-3.5 w-3.5 transition-transform rotate-180`} />}
           </button>
           {mostrarNotas && (
-            <textarea value={notas} onChange={e => setNotas(e.target.value)} placeholder="Notas..."
+            <textarea id="compra-notas" value={notas} onChange={e => setNotas(e.target.value)} placeholder="Notas..."
               className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-2 font-headline text-sm text-on-surface outline-none resize-none placeholder:text-on-surface-variant/50 focus:border-b-primary" rows={2} />
           )}
 
@@ -336,6 +337,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
             <button
               type="button"
               onClick={() => setMostrarEtiquetasCompra(!mostrarEtiquetasCompra)}
+              aria-label={mostrarEtiquetasCompra ? "Ocultar etiquetas" : "Mostrar etiquetas"}
               className="flex items-center gap-1.5 text-on-surface-variant hover:text-on-surface transition-colors"
             >
               <Tag className="h-3.5 w-3.5" />
@@ -430,6 +432,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
             <div className="flex items-center gap-2">
               <input
                 type="text"
+                name="input-rapido"
                 value={inputRapido}
                 onChange={e => setInputRapido(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); procesarInputRapido(); } }}
@@ -447,13 +450,13 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
               </button>
             </div>
             <div className="flex items-center gap-1.5">
-              <label className="h-7 w-7 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors flex items-center justify-center">
+              <label className="h-7 w-7 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors flex items-center justify-center" aria-label="Tomar foto">
                 <Camera className="h-3.5 w-3.5" />
-                <input type="file" accept="image/*" capture="environment" onChange={cargarImagen} className="hidden" />
+                <input type="file" name="foto-camara" accept="image/*" capture="environment" onChange={cargarImagen} className="hidden" />
               </label>
-              <label className="h-7 w-7 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors flex items-center justify-center">
+              <label className="h-7 w-7 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors flex items-center justify-center" aria-label="Subir imagen">
                 <ImageIcon className="h-3.5 w-3.5" />
-                <input type="file" accept="image/*" onChange={cargarImagen} className="hidden" />
+                <input type="file" name="foto-galeria" accept="image/*" onChange={cargarImagen} className="hidden" />
               </label>
               {imagenComprobante && (
                 <div className="flex items-center gap-1">
@@ -474,6 +477,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
           <button
             type="button"
             onClick={() => setMostrarRapido(!mostrarRapido)}
+            aria-label={mostrarRapido ? "Cerrar input rapido" : "Abrir input rapido"}
             className={`h-7 w-7 rounded flex items-center justify-center transition-colors ${mostrarRapido ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}
           >
             <Camera className="h-3.5 w-3.5" />
@@ -607,7 +611,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                     </div>
 
                     {/* Etiquetas toggle */}
-                    <button type="button" onClick={() => setEtiquetasAbiertas(a => ({ ...a, [item.id ?? ""]: !a[item.id ?? ""] }))}
+                    <button type="button" aria-label="Etiquetas del item" onClick={() => setEtiquetasAbiertas(a => ({ ...a, [item.id ?? ""]: !a[item.id ?? ""] }))}
                       className={`flex items-center gap-1 h-6 px-2 rounded-full font-label text-[9px] transition-colors shrink-0 ${
                         etqSeleccionadas.length > 0
                           ? "bg-tertiary/15 text-tertiary"
@@ -677,7 +681,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
         {/* Opciones avanzadas */}
         <div className="flex justify-center">
-          <button type="button" onClick={() => setMostrarAvanzadas(!mostrarAvanzadas)}
+          <button type="button" aria-label="Opciones avanzadas de importacion" onClick={() => setMostrarAvanzadas(!mostrarAvanzadas)}
             className="font-label text-[9px] uppercase tracking-widest text-on-surface-variant/50 hover:text-on-surface-variant transition-colors underline underline-offset-2 decoration-outline-variant/30">
             {mostrarAvanzadas ? "Ocultar opciones" : "Opciones avanzadas"}
           </button>
