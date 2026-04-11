@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Calendar } from "lucide-react";
 import type { PuntoTendenciaDiaria } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
@@ -21,6 +21,8 @@ function getIntensityColor(value: number, max: number): string {
 }
 
 export function HeatmapGasto({ tendenciaDiariaMes, mesLabel }: Props) {
+  const [hoverCell, setHoverCell] = useState<{ fecha: string; total: number } | null>(null);
+
   const datos = useMemo(() => {
     if (!tendenciaDiariaMes.length) return { semanas: [] as Array<Array<{ fecha: string; total: number; diaSemana: number }>>, max: 1 };
 
@@ -93,6 +95,11 @@ export function HeatmapGasto({ tendenciaDiariaMes, mesLabel }: Props) {
         </div>
         <p className="font-label text-[10px] text-on-surface-variant">
           Intensidad de gasto por día — {mesLabel}
+          {hoverCell && hoverCell.total > 0 && (
+            <span className="ml-2 tabular-nums">
+              · {hoverCell.fecha} → {formatearPeso(hoverCell.total)}
+            </span>
+          )}
         </p>
       </div>
 
@@ -101,7 +108,7 @@ export function HeatmapGasto({ tendenciaDiariaMes, mesLabel }: Props) {
           {/* Day labels */}
           <div className="flex flex-col gap-0.5 mr-1">
             {diasSemana.map(d => (
-              <div key={d} className="h-4 w-8 flex items-center justify-end">
+              <div key={d} className="h-5 w-8 flex items-center justify-end">
                 <span className="font-label text-[8px] text-on-surface-variant">{d}</span>
               </div>
             ))}
@@ -114,11 +121,12 @@ export function HeatmapGasto({ tendenciaDiariaMes, mesLabel }: Props) {
                 {semana.map((dia, di) => (
                   <div
                     key={`${si}-${di}`}
-                    className="h-4 w-4 rounded-sm transition-colors hover:ring-1 hover:ring-outline"
+                    className="h-5 w-5 rounded-sm transition-all hover:ring-1 hover:ring-outline hover:scale-110 cursor-pointer"
                     style={{
                       backgroundColor: getIntensityColor(dia.total, max),
                     }}
-                    title={`${dia.fecha}: ${dia.total > 0 ? formatearPeso(dia.total) : "Sin gasto"}`}
+                    onMouseEnter={() => setHoverCell({ fecha: dia.fecha, total: dia.total })}
+                    onMouseLeave={() => setHoverCell(null)}
                   />
                 ))}
               </div>
@@ -127,16 +135,16 @@ export function HeatmapGasto({ tendenciaDiariaMes, mesLabel }: Props) {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-1 mt-2">
-          <span className="font-label text-[8px] text-on-surface-variant">Menos</span>
+        <div className="flex items-center gap-1.5 mt-3">
+          <span className="font-label text-[9px] text-on-surface-variant">Menos</span>
           {[0, 0.2, 0.4, 0.6, 0.8, 1].map(ratio => (
             <div
               key={ratio}
-              className="h-3 w-3 rounded-sm"
+              className="h-3.5 w-3.5 rounded-sm"
               style={{ backgroundColor: getIntensityColor(ratio * max, max) }}
             />
           ))}
-          <span className="font-label text-[8px] text-on-surface-variant">Más</span>
+          <span className="font-label text-[9px] text-on-surface-variant">Más</span>
         </div>
       </div>
     </section>

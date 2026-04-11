@@ -86,9 +86,19 @@ export function TreemapSubcategorias({ categoriasMes }: Props) {
                 const itemColor = (item.color as string) || "#6b7280";
                 const itemTotal = (item.total as number) ?? 0;
                 const itemName = (item.nombre as string) ?? "";
+                const itemCat = (item.categoria as string) ?? "";
                 const isHovered = hoverIdx === String(index);
-                const opacity = hoverIdx === null || isHovered ? 0.9 : 0.5;
+                const opacity = hoverIdx === null || isHovered ? 0.92 : 0.45;
                 const pct = totalGeneral > 0 ? ((itemTotal / totalGeneral) * 100).toFixed(0) : "0";
+
+                // Text color: white on dark backgrounds, dark on light
+                const hex = itemColor.replace("#", "");
+                const r = parseInt(hex.substring(0, 2), 16);
+                const g = parseInt(hex.substring(2, 4), 16);
+                const b = parseInt(hex.substring(4, 6), 16);
+                const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                const textColor = luminance > 0.55 ? "#1a1a1a" : "#ffffff";
+                const textSub = luminance > 0.55 ? "rgba(26,26,26,0.7)" : "rgba(255,255,255,0.7)";
 
                 return (
                   <g
@@ -104,34 +114,44 @@ export function TreemapSubcategorias({ categoriasMes }: Props) {
                       style={{
                         fill: hexToRgba(itemColor, opacity),
                         stroke: isHovered ? "var(--outline)" : "var(--surface-container-lowest)",
-                        strokeWidth: isHovered ? 2 : 1,
-                        transition: "fill-opacity 0.15s",
+                        strokeWidth: isHovered ? 2.5 : 1.5,
+                        transition: "fill-opacity 0.15s, stroke-width 0.15s",
                       }}
                       rx={4}
                       ry={4}
                     />
-                    {width > 50 && height > 30 && (
+                    {width > 55 && height > 35 && (
                       <>
                         <text
                           x={x + width / 2}
-                          y={y + height / 2 - 6}
+                          y={y + height / 2 - 8}
                           textAnchor="middle"
-                          fill="var(--on-surface)"
-                          fontSize={10}
-                          fontWeight={600}
-                          style={{ pointerEvents: "none" }}
+                          fill={textColor}
+                          fontSize={11}
+                          fontWeight={700}
+                          style={{ pointerEvents: "none", textShadow: isHovered ? `0 0 6px rgba(0,0,0,0.3)` : "none" }}
                         >
-                          {itemName.length > 14 ? `${itemName.slice(0, 13)}…` : itemName}
+                          {itemName.length > 16 ? `${itemName.slice(0, 15)}…` : itemName}
                         </text>
                         <text
                           x={x + width / 2}
-                          y={y + height / 2 + 8}
+                          y={y + height / 2 + 6}
                           textAnchor="middle"
-                          fill="var(--on-surface-variant)"
+                          fill={textSub}
                           fontSize={9}
                           style={{ pointerEvents: "none" }}
                         >
                           {formatearPeso(itemTotal)} · {pct}%
+                        </text>
+                        <text
+                          x={x + width / 2}
+                          y={y + height / 2 + 18}
+                          textAnchor="middle"
+                          fill={textSub}
+                          fontSize={8}
+                          style={{ pointerEvents: "none" }}
+                        >
+                          {itemCat}
                         </text>
                       </>
                     )}
