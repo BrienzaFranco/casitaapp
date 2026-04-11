@@ -10,7 +10,8 @@ import type { Compra, CompraEditable, DatosImportados, TipoReparto } from "@/typ
 import { Badge } from "@/components/ui/Badge";
 import { Boton } from "@/components/ui/Boton";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { fechaLocalISO } from "@/lib/utiles";
+import { formatearPeso } from "@/lib/formatear";
+import { fechaLocalISO, normalizarTexto } from "@/lib/utiles";
 import { ocultarLugar, mostrarLugar } from "@/lib/configuracion";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
@@ -24,6 +25,29 @@ function normalizarCabecera(cabecera: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+/**
+ * Parsea precio en formato argentino: $500.000,00 → 500000
+ */
+function parsearPrecioArgentino(str: string): number {
+  const limpio = str.replace(/[$\s]/g, "").trim();
+  // Formato: 500.000,00 → 500000.00
+  const conPunto = limpio.replace(/\./g, "").replace(",", ".");
+  const num = parseFloat(conPunto);
+  return Number.isFinite(num) ? num : 0;
+}
+
+/**
+ * Parsea fecha DD/MM/YYYY → YYYY-MM-DD
+ */
+function parsearFecha(str: string): string {
+  const partes = str.trim().split("/");
+  if (partes.length === 3) {
+    const [dia, mes, anio] = partes;
+    return `${anio}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
+  }
+  return str.trim();
 }
 
 function detectarColumna(fila: Record<string, unknown>, candidatos: string[]) {
@@ -151,11 +175,162 @@ export default function PaginaConfiguracion() {
   const [nuevaSubcategoria, setNuevaSubcategoria] = useState({ categoria_id: "", nombre: "", limite_mensual: "" });
   const [nuevaEtiqueta, setNuevaEtiqueta] = useState({ nombre: "", color: "#f59e0b" });
   const [datosImportados, setDatosImportados] = useState<DatosImportados[]>([]);
+  const [modoImportacion, setModoImportacion] = useState<"excel" | "csv">("excel");
+  const [csvRaw, setCsvRaw] = useState("");
+  const [csvParsed, setCsvParsed] = useState<CompraEditable[]>([]);
 
   const previewImportacion = datosImportados.slice(0, 20);
   const subcategoriasFiltradas = categorias.subcategorias.filter((subcategoria) =>
     filtroCategoria ? subcategoria.categoria_id === filtroCategoria : true,
   );
+
+  async function parsearCSV(texto: string) {
+    const lineas = texto.trim().split("\n");
+    if (lineas.length < 2) {
+      toast.error("El CSV debe tener al menos encabezado y una fila de datos");
+      return;
+    }
+
+    // Detectar separador
+    const header = lineas[0];
+    const separador = header.includes("\t") ? "\t" : ",";
+    const columnas = header.split(separador).map(c => c.trim().toLowerCase());
+
+    // Encontrar indices de columnas
+    const idxFecha = columnas.findIndex(c => ["fecha", "date"].includes(c));
+    const idxCat = columnas.findIndex(c => ["categoria", "category"].includes(c));
+    const idxSubcat = columnas.findIndex(c => ["subcategoria", "subcategoria", "subcategory"].includes(c));
+    const idxItem = columnas.findIndex(c => ["item", "detalle", "descripcion", "description"].includes(c));
+    const idxPrecio = columnas.findIndex(c => ["precio", "monto", "importe", "price", "amount"].includes(c));
+    const idxCompartido = columnas.findIndex(c => ["compartido", "pago", "pagador", "shared"].includes(c));
+
+    if (idxPrecio < 0) {
+      toast.error("No se encontro columna de precio. Columnas detectadas: " + columnas.join(", "));
+      return;
+    }
+
+    const comprasMapa = new Map<string, CompraEditable>();
+    const categoriasCreadas = new Map<string, string>();
+    const subcategoriasCreadas = new Map<string, string>();
+
+    for (let i = 1; i < lineas.length; i++) {
+      const linea = lineas[i].trim();
+      if (!linea) continue;
+
+      // Parsear campos respetando comillas
+      const campos: string[] = [];
+      let campo = "";
+      let entreComillas = false;
+      for (const char of linea) {
+        if (char === '"') { entreComillas = !entreComillas; continue; }
+        if (char === separador && !entreComillas) { campos.push(campo.trim()); campo = ""; continue; }
+        campo += char;
+      }
+      campos.push(campo.trim());
+
+      const fecha = idxFecha >= 0 ? parsearFecha(campos[idxFecha]) : new Date().toISOString().slice(0, 10);
+      const catNombre = idxCat >= 0 ? campos[idxCat] : "Otros";
+      const subcatNombre = idxSubcat >= 0 ? campos[idxSubcat] : "";
+      const item = idxItem >= 0 ? campos[idxItem] : "";
+      const precioRaw = idxPrecio >= 0 ? campos[idxPrecio] : "0";
+      const monto = parsearPrecioArgentino(precioRaw);
+      const compartido = idxCompartido >= 0 ? campos[idxCompartido].toLowerCase() : "compartido";
+
+      if (monto <= 0) continue;
+
+      // Determinar tipo de reparto
+      let tipoReparto: "50/50" | "solo_franco" | "solo_fabiola" = "50/50";
+      let pagadorGeneral: "franco" | "fabiola" | "compartido" = "compartido";
+      if (compartido.includes("franco")) {
+        tipoReparto = "solo_franco";
+        pagadorGeneral = "franco";
+      } else if (compartido.includes("fabiola") || compartido.includes("fabi")) {
+        tipoReparto = "solo_fabiola";
+        pagadorGeneral = "fabiola";
+      }
+
+      // Crear categoria si no existe
+      let catId = categorias.categorias.find(c => normalizarTexto(c.nombre) === normalizarTexto(catNombre))?.id;
+      if (!catId) {
+        const cacheKey = normalizarTexto(catNombre);
+        catId = categoriasCreadas.get(cacheKey);
+        if (!catId) {
+          try {
+            const nueva = await categorias.crearCategoria({ nombre: catNombre, color: "#6b7280", limite_mensual: null });
+            catId = nueva.id;
+            categoriasCreadas.set(cacheKey, catId);
+          } catch { catId = ""; }
+        }
+      }
+
+      // Crear subcategoria si no existe
+      let subcatId = "";
+      if (subcatNombre && catId) {
+        subcatId = categorias.subcategorias.find(s => s.categoria_id === catId && normalizarTexto(s.nombre) === normalizarTexto(subcatNombre))?.id ?? "";
+        if (!subcatId) {
+          const subKey = `${catId}-${normalizarTexto(subcatNombre)}`;
+          subcatId = subcategoriasCreadas.get(subKey) ?? "";
+          if (!subcatId) {
+            try {
+              const nueva = await categorias.crearSubcategoria({ categoria_id: catId, nombre: subcatNombre, limite_mensual: null });
+              subcatId = nueva.id;
+              subcategoriasCreadas.set(subKey, subcatId);
+            } catch { subcatId = ""; }
+          }
+        }
+      }
+
+      // Agrupar por fecha (como una compra por dia sin lugar)
+      const clave = fecha;
+      const compraExistente = comprasMapa.get(clave);
+
+      const repartoPago = tipoReparto === "solo_franco"
+        ? { pago_franco: monto, pago_fabiola: 0 }
+        : tipoReparto === "solo_fabiola"
+          ? { pago_franco: 0, pago_fabiola: monto }
+          : { pago_franco: monto / 2, pago_fabiola: monto / 2 };
+
+      if (compraExistente) {
+        compraExistente.items.push({
+          descripcion: item || `${catNombre}${subcatNombre ? ` - ${subcatNombre}` : ""}`,
+          categoria_id: catId, subcategoria_id: subcatId,
+          expresion_monto: String(monto), monto_resuelto: monto,
+          tipo_reparto: tipoReparto, ...repartoPago, etiquetas_ids: [],
+        });
+        // Actualizar pagador si es consistente
+        if (compraExistente.pagador_general !== pagadorGeneral) {
+          compraExistente.pagador_general = "compartido";
+        }
+      } else {
+        comprasMapa.set(clave, {
+          id: undefined, fecha, nombre_lugar: "",
+          notas: "Importado desde CSV historico", registrado_por: "Importacion",
+          pagador_general: pagadorGeneral, estado: "confirmada", etiquetas_compra_ids: [],
+          items: [{
+            descripcion: item || `${catNombre}${subcatNombre ? ` - ${subcatNombre}` : ""}`,
+            categoria_id: catId, subcategoria_id: subcatId,
+            expresion_monto: String(monto), monto_resuelto: monto,
+            tipo_reparto: tipoReparto, ...repartoPago, etiquetas_ids: [],
+          }],
+        });
+      }
+    }
+
+    const resultado = [...comprasMapa.values()];
+    setCsvParsed(resultado);
+    toast.success(`${resultado.length} compras detectadas en el CSV`);
+  }
+
+  async function confirmarImportacionCSV() {
+    if (!csvParsed.length) return;
+    for (const compra of csvParsed) {
+      await compras.guardarCompra(compra);
+    }
+    toast.success(`${csvParsed.length} compras importadas`);
+    setCsvParsed([]);
+    setCsvRaw("");
+    await categorias.recargar();
+  }
 
   async function importarExcel(event: ChangeEvent<HTMLInputElement>) {
     const archivo = event.target.files?.[0];
@@ -443,43 +618,119 @@ export default function PaginaConfiguracion() {
 
         {tab === "importar" && (
           <section className="space-y-4 p-4">
-            <label className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed border-outline-variant rounded-lg text-center transition-colors duration-150 hover:bg-surface-container-low">
-              <Upload className="h-5 w-5 text-secondary" />
-              <span className="font-headline text-sm font-semibold text-on-surface">Seleccionar .xlsx</span>
-              <span className="font-body text-xs text-on-surface-variant">
-                Se parsea en cliente y muestra preview antes de confirmar.
-              </span>
-              <input type="file" accept=".xlsx" onChange={(event) => void importarExcel(event)} className="hidden" />
-            </label>
+            {/* Selector de modo */}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setModoImportacion("csv")}
+                className={`flex-1 h-9 rounded-lg font-label text-xs font-bold uppercase tracking-wider transition-colors ${modoImportacion === "csv" ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}>
+                CSV Historico
+              </button>
+              <button type="button" onClick={() => setModoImportacion("excel")}
+                className={`flex-1 h-9 rounded-lg font-label text-xs font-bold uppercase tracking-wider transition-colors ${modoImportacion === "excel" ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}>
+                Excel (.xlsx)
+              </button>
+            </div>
 
-            {previewImportacion.length ? (
+            {modoImportacion === "csv" ? (
               <>
-                <div className="space-y-1">
-                  <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
-                    Vista previa ({previewImportacion.length} registros)
-                  </p>
-                  {previewImportacion.map((fila, indice) => (
-                    <div key={`${fila.fecha}-${indice}`}
-                      className="py-2 px-3 bg-surface-container-low rounded-lg transition-all duration-150">
-                      <p className="tabular-nums font-headline text-sm font-semibold text-on-surface">
-                        {fila.fecha}{" "}
-                        <span className="text-on-surface-variant/60">·</span>{" "}
-                        {fila.nombre_lugar || "Sin lugar"}
-                      </p>
-                      <p className="font-body text-xs text-on-surface-variant">
-                        {fila.categoria} / {fila.subcategoria} · {fila.descripcion} · {fila.expresion_monto}
-                      </p>
-                    </div>
-                  ))}
+                {/* Importacion CSV */}
+                <div className="space-y-3">
+                  <div>
+                    <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Pega tu CSV aca</p>
+                    <textarea
+                      value={csvRaw}
+                      onChange={e => setCsvRaw(e.target.value)}
+                      placeholder={`Fecha,Categoria,Subcategoria,Item,Tipo,Precio,Compartido\n1/11/2025,Casa,Alquiler,Alquiler sin expensas,Egreso,$500.000,00,Compartido`}
+                      className="w-full min-h-[160px] rounded-lg bg-surface-container-low border border-outline-variant/30 px-3 py-2 font-mono text-xs text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-secondary resize-y"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => parsearCSV(csvRaw)} disabled={!csvRaw.trim()}
+                      className="flex-1 h-9 rounded bg-surface-container-high font-label text-[10px] font-bold uppercase tracking-wider text-on-surface disabled:opacity-40 hover:bg-surface-container-highest transition-colors">
+                      Previsualizar
+                    </button>
+                    {csvParsed.length > 0 && (
+                      <button type="button" onClick={() => confirmarImportacionCSV()}
+                        className="flex-1 h-9 rounded bg-secondary font-label text-[10px] font-bold uppercase tracking-wider text-on-secondary hover:bg-secondary/90 transition-colors">
+                        Importar ({csvParsed.length})
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <Boton variante="secundario" anchoCompleto onClick={() => void confirmarImportacion()}>
-                  Confirmar importacion
-                </Boton>
+
+                {/* Preview CSV */}
+                {csvParsed.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
+                      {csvParsed.length} compras detectadas
+                    </p>
+                    {csvParsed.slice(0, 10).map((c, i) => (
+                      <div key={i} className="py-2 px-3 bg-surface-container-low rounded-lg">
+                        <p className="font-label text-xs tabular-nums text-on-surface">{c.fecha} · {c.items.length} item(s)</p>
+                        <p className="font-label text-[10px] text-on-surface-variant">
+                          Pago: {c.pagador_general === "franco" ? "Franco" : c.pagador_general === "fabiola" ? "Fabiola" : "Ambos"}
+                          {" · "}Total: {formatearPeso(c.items.reduce((a, it) => a + it.monto_resuelto, 0))}
+                        </p>
+                      </div>
+                    ))}
+                    {csvParsed.length > 10 && (
+                      <p className="font-label text-[10px] text-on-surface-variant px-3">... y {csvParsed.length - 10} mas</p>
+                    )}
+                  </div>
+                )}
+
+                {csvParsed.length === 0 && csvRaw.length > 0 && (
+                  <p className="font-body text-center text-sm text-on-surface-variant">
+                    Toca &ldquo;Previsualizar&rdquo; para analizar el CSV.
+                  </p>
+                )}
+                {csvParsed.length === 0 && !csvRaw && (
+                  <p className="font-body text-center text-sm text-on-surface-variant">
+                    Pega tu CSV historico aca. Se crean categorias automaticamente si no existen.
+                  </p>
+                )}
               </>
             ) : (
-              <p className="font-body text-center text-sm text-on-surface-variant">
-                Sube un archivo para ver la preview del mapeo.
-              </p>
+              <>
+                {/* Importacion Excel */}
+                <label className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed border-outline-variant rounded-lg text-center transition-colors duration-150 hover:bg-surface-container-low">
+                  <Upload className="h-5 w-5 text-secondary" />
+                  <span className="font-headline text-sm font-semibold text-on-surface">Seleccionar .xlsx</span>
+                  <span className="font-body text-xs text-on-surface-variant">
+                    Se parsea en cliente y muestra preview antes de confirmar.
+                  </span>
+                  <input type="file" accept=".xlsx" onChange={(event) => void importarExcel(event)} className="hidden" />
+                </label>
+
+                {previewImportacion.length ? (
+                  <>
+                    <div className="space-y-1">
+                      <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
+                        Vista previa ({previewImportacion.length} registros)
+                      </p>
+                      {previewImportacion.map((fila, indice) => (
+                        <div key={`${fila.fecha}-${indice}`}
+                          className="py-2 px-3 bg-surface-container-low rounded-lg transition-all duration-150">
+                          <p className="tabular-nums font-headline text-sm font-semibold text-on-surface">
+                            {fila.fecha}{" "}
+                            <span className="text-on-surface-variant/60">·</span>{" "}
+                            {fila.nombre_lugar || "Sin lugar"}
+                          </p>
+                          <p className="font-body text-xs text-on-surface-variant">
+                            {fila.categoria} / {fila.subcategoria} · {fila.descripcion} · {fila.expresion_monto}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <Boton variante="secundario" anchoCompleto onClick={() => void confirmarImportacion()}>
+                      Confirmar importacion
+                    </Boton>
+                  </>
+                ) : (
+                  <p className="font-body text-center text-sm text-on-surface-variant">
+                    Sube un archivo para ver la preview del mapeo.
+                  </p>
+                )}
+              </>
             )}
           </section>
         )}
