@@ -400,3 +400,88 @@ export function deducirNombresParticipantes(perfiles: Array<{ nombre: string | n
 
   return { franco, fabiola };
 }
+
+/**
+ * Analiza la deuda por categoria/subcategoria.
+ * Calcula quien debe a quien basandose en quien pago vs a quien corresponde.
+ */
+export interface DeudaPorCategoria {
+  categoria: string;
+  color: string;
+  subcategorias: { nombre: string; francoDebe: number; fabiolaDebe: number }[];
+  totalFrancoDebe: number;
+  totalFabiolaDebe: number;
+  compras: Array<{ id: string; fecha: string; lugar: string; items: Array<{ descripcion: string; monto: number }> }>;
+}
+
+export function analizarDeudaPorCategoria(
+  compras: Compra[],
+): DeudaPorCategoria[] {
+  const mapa = new Map<string, DeudaPorCategoria>();
+
+  for (const compra of compras) {
+    for (const item of compra.items) {
+      const catNombre = item.categoria?.nombre ?? "Sin categoria";
+      const catColor = item.categoria?.color ?? "#6b7280";
+      const subNombre = item.subcategoria?.nombre ?? "";
+
+      if (!mapa.has(catNombre)) {
+        mapa.set(catNombre, {
+          categoria: catNombre,
+          color: catColor,
+          subcategorias: [],
+          totalFrancoDebe: 0,
+          totalFabiolaDebe: 0,
+          compras: [],
+        });
+      }
+
+      const cat = mapa.get(catNombre)!;
+
+      // Franco debe si Fabiola pago y corresponde a Franco (o ambos)
+      let francoDebe = 0;
+      let fabiolaDebe = 0;
+
+      if (compra.pagador_general === "fabiola") {
+        // Fabiola pago → Franco debe su parte
+        if (item.tipo_reparto === "solo_franco") francoDebe = item.monto_resuelto;
+        else if (item.tipo_reparto === "50/50") francoDebe = item.pago_franco;
+      } else if (compra.pagador_general === "franco") {
+        // Franco pago → Fabiola debe su parte
+        if (item.tipo_reparto === "solo_fabiola") fabiolaDebe = item.monto_resuelto;
+        else if (item.tipo_reparto === "50/50") fabiolaDebe = item.pago_fabiola;
+      } else {
+        // Ambos pagaron (compartido) → se divide segun el reparto
+        // En este caso, si es 50/50 ambos pagaron su parte, nadie debe
+        // Si es solo_franco, Fabiola le debe a Franco (porque Franco puso todo)
+        if (item.tipo_reparto === "solo_franco") fabiolaDebe = 0; // Franco puso su parte
+        if (item.tipo_reparto === "solo_fabiola") francoDebe = 0;
+      }
+
+      cat.totalFrancoDebe += francoDebe;
+      cat.totalFabiolaDebe += fabiolaDebe;
+
+      const sub = cat.subcategorias.find(s => s.nombre === subNombre);
+      if (sub) {
+        sub.francoDebe += francoDebe;
+        sub.fabiolaDebe += fabiolaDebe;
+      } else if (subNombre) {
+        cat.subcategorias.push({ nombre: subNombre, francoDebe, fabiolaDebe });
+      }
+
+      const compraExistente = cat.compras.find(c => c.id === compra.id);
+      if (!compraExistente) {
+        cat.compras.push({
+          id: compra.id,
+          fecha: compra.fecha,
+          lugar: compra.nombre_lugar || "Sin lugar",
+          items: [{ descripcion: item.descripcion || "", monto: item.monto_resuelto }],
+        });
+      } else {
+        compraExistente.items.push({ descripcion: item.descripcion || "", monto: item.monto_resuelto });
+      }
+    }
+  }
+
+  return [...mapa.values()].filter(c => c.totalFrancoDebe > 0.01 || c.totalFabiolaDebe > 0.01);
+}

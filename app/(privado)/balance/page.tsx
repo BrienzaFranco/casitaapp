@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { GraficoCategoriasDonut } from "@/components/balance/GraficoCategoriasDonut";
 import { GraficoEtiquetas } from "@/components/balance/GraficoEtiquetas";
+import { ResumenDeuda } from "@/components/balance/ResumenDeuda";
 import { TablaBalance } from "@/components/balance/TablaBalance";
 import { Boton } from "@/components/ui/Boton";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -206,6 +207,13 @@ export default function PaginaBalance() {
           </div>
         )}
       </div>
+
+      {/* Resumen de deuda - analisis detallado */}
+      <ResumenDeuda
+        compras={balance.compras.compras.filter(c => c.estado !== "borrador")}
+        nombres={balance.nombres}
+        onQuedarAMano={quedarAManoHoy}
+      />
 
       {/* Charts - responsive grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

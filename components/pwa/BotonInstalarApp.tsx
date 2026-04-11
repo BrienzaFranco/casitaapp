@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Download, MonitorSmartphone, Share2 } from "lucide-react";
-import { Boton } from "@/components/ui/Boton";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -10,123 +9,120 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 function detectarStandalone() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(display-mode: standalone)").matches
+    || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
 function detectarIos() {
-  if (typeof window === "undefined") {
-    return false;
-  }
+  if (typeof window === "undefined") return false;
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
 
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+function detectarAndroid() {
+  if (typeof window === "undefined") return false;
+  return /android/i.test(navigator.userAgent);
 }
 
 export function BotonInstalarApp() {
-  const [eventoInstalacion, setEventoInstalacion] = useState<BeforeInstallPromptEvent | null>(null);
-  const [instalada, setInstalada] = useState(detectarStandalone);
-  const [esIos] = useState(detectarIos);
+  const [evento, setEvento] = useState<BeforeInstallPromptEvent | null>(null);
+  const [instalada, setInstalada] = useState(() => detectarStandalone());
+  const esIos = detectarIos();
+  const esAndroid = detectarAndroid();
 
   useEffect(() => {
-    function manejarBeforeInstallPrompt(evento: Event) {
-      evento.preventDefault();
-      setEventoInstalacion(evento as BeforeInstallPromptEvent);
+
+    function handler(e: Event) {
+      e.preventDefault();
+      setEvento(e as BeforeInstallPromptEvent);
     }
 
-    function manejarInstalacion() {
-      setInstalada(true);
-      setEventoInstalacion(null);
-    }
-
-    window.addEventListener("beforeinstallprompt", manejarBeforeInstallPrompt);
-    window.addEventListener("appinstalled", manejarInstalacion);
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", () => setInstalada(true));
 
     return () => {
-      window.removeEventListener("beforeinstallprompt", manejarBeforeInstallPrompt);
-      window.removeEventListener("appinstalled", manejarInstalacion);
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("appinstalled", () => setInstalada(true));
     };
   }, []);
 
   async function instalar() {
-    if (!eventoInstalacion) {
-      return;
-    }
-
-    await eventoInstalacion.prompt();
-    const resultado = await eventoInstalacion.userChoice;
-
-    if (resultado.outcome === "accepted") {
-      setInstalada(true);
-    }
-
-    setEventoInstalacion(null);
+    if (!evento) return;
+    await evento.prompt();
+    const resultado = await evento.userChoice;
+    if (resultado.outcome === "accepted") setInstalada(true);
+    setEvento(null);
   }
 
   if (instalada) {
     return (
-      <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+      <div className="bg-surface-container-low rounded-lg p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-            <MonitorSmartphone className="h-5 w-5" />
+          <div className="bg-tertiary-fixed/30 rounded-lg p-2.5">
+            <MonitorSmartphone className="h-5 w-5 text-tertiary" />
           </div>
-          <div className="space-y-1">
-            <p className="font-semibold">La app ya está lista en este dispositivo</p>
-            <p className="text-emerald-800/80">Podés abrir CasitaApp desde tu pantalla principal o escritorio.</p>
+          <div>
+            <p className="font-headline text-sm font-semibold text-on-surface">App instalada</p>
+            <p className="font-body text-xs text-on-surface-variant">Abrila desde tu pantalla principal.</p>
           </div>
         </div>
       </div>
     );
   }
 
-  if (eventoInstalacion) {
+  if (evento) {
     return (
-      <div className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-4">
-        <div className="space-y-1">
-          <p className="text-base font-semibold text-slate-950">Instalar app</p>
-          <p className="text-sm text-[var(--muted)]">
-            Instalá CasitaApp para abrirla como app independiente y tener acceso más rápido desde el celu.
-          </p>
+      <div className="bg-surface-container-low rounded-lg p-4 space-y-3">
+        <div>
+          <p className="font-headline text-sm font-semibold text-on-surface">Instalar app</p>
+          <p className="font-body text-xs text-on-surface-variant">Instala CasitaApp para acceso rapido.</p>
         </div>
-        <Boton anchoCompleto icono={<Download className="h-4 w-4" />} onClick={() => void instalar()}>
-          Instalar CasitaApp
-        </Boton>
+        <button
+          type="button"
+          onClick={instalar}
+          className="w-full h-10 rounded bg-primary font-label text-sm font-bold uppercase tracking-wider text-on-primary hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+        >
+          <Download className="h-4 w-4" /> Instalar
+        </button>
       </div>
     );
   }
 
   if (esIos) {
     return (
-      <div className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-4">
-        <div className="space-y-1">
-          <p className="text-base font-semibold text-slate-950">Instalar app en iPhone o iPad</p>
-          <p className="text-sm text-[var(--muted)]">
-            En Safari tocá Compartir y después elegí Agregar a pantalla de inicio.
-          </p>
+      <div className="bg-surface-container-low rounded-lg p-4 space-y-3">
+        <div>
+          <p className="font-headline text-sm font-semibold text-on-surface">Instalar en iPhone/iPad</p>
+          <p className="font-body text-xs text-on-surface-variant">En Safari, tocá Compartir y luego &quot;Agregar a pantalla de inicio&quot;.</p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
-          <Share2 className="h-4 w-4 text-blue-600" />
-          <span>Safari → Compartir → Agregar a pantalla de inicio</span>
+        <div className="bg-surface-container rounded-lg p-3 flex items-center gap-2">
+          <Share2 className="h-4 w-4 text-on-surface-variant shrink-0" />
+          <span className="font-label text-xs text-on-surface-variant">Safari → Compartir → Agregar a inicio</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (esAndroid) {
+    return (
+      <div className="bg-surface-container-low rounded-lg p-4 space-y-3">
+        <div>
+          <p className="font-headline text-sm font-semibold text-on-surface">Instalar en Android</p>
+          <p className="font-body text-xs text-on-surface-variant">Tocá el menú (⋮) del navegador y seleccioná &quot;Instalar app&quot; o &quot;Agregar a pantalla principal&quot;.</p>
+        </div>
+        <div className="bg-surface-container rounded-lg p-3 flex items-center gap-2">
+          <Download className="h-4 w-4 text-on-surface-variant shrink-0" />
+          <span className="font-label text-xs text-on-surface-variant">Menu → Instalar app</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-4">
-      <div className="space-y-1">
-        <p className="text-base font-semibold text-slate-950">Instalación no disponible ahora</p>
-        <p className="text-sm text-[var(--muted)]">
-          Si abriste la app desde un navegador no compatible o ya descartaste el aviso, probá refrescar la página.
-        </p>
-      </div>
-      <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
-        Chrome, Edge y algunos navegadores móviles muestran el botón de instalación automáticamente cuando está disponible.
+    <div className="bg-surface-container-low rounded-lg p-4 space-y-3">
+      <div>
+        <p className="font-headline text-sm font-semibold text-on-surface">Instalacion</p>
+        <p className="font-body text-xs text-on-surface-variant">Refrescá la pagina o usa Chrome/Edge para ver la opcion de instalacion.</p>
       </div>
     </div>
   );

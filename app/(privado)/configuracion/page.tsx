@@ -178,15 +178,15 @@ export default function PaginaConfiguracion() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="space-y-1">
-        <h2 className="font-headline text-2xl font-bold text-on-surface">Configuracion</h2>
+        <h2 className="font-headline text-xl sm:text-2xl font-bold text-on-surface">Configuracion</h2>
         <p className="font-body text-sm text-on-surface-variant">Categorias, subcategorias, etiquetas e importacion.</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide border-b border-outline-variant/15">
+      {/* Tabs - scrollable horizontal en mobile */}
+      <div className="flex gap-3 overflow-x-auto scrollbar-hide border-b border-outline-variant/15 -mx-4 px-4">
         {TABS.map(({ valor, etiqueta }) => (
           <button
             key={valor}
