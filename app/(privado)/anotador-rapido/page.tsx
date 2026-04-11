@@ -101,13 +101,14 @@ export default function PaginaAnotadorRapido() {
             <p className="font-label text-[10px] uppercase tracking-widest text-outline">Registro Rapido</p>
             <h1 className="font-headline text-xl font-bold tracking-tight text-on-surface">Anotador rapido</h1>
           </div>
-          <div className="flex items-center gap-1 bg-surface-container rounded-full p-0.5">
+          <div className="flex items-center gap-0.5 bg-surface-container rounded-full p-0.5">
             {[
               { val: "franco" as const, label: "Fran" },
               { val: "fabiola" as const, label: "Fabi" },
+              { val: "compartido" as const, label: "50/50" },
             ].map(({ val, label }) => (
               <button key={val} type="button" onClick={() => setPagador(val)}
-                className={`h-7 px-3 rounded-full font-label text-[10px] font-bold transition-all ${pagador === val ? "bg-secondary text-on-secondary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
+                className={`h-7 px-2.5 rounded-full font-label text-[10px] font-bold transition-all ${pagador === val ? "bg-secondary text-on-secondary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
                 {label}
               </button>
             ))}
