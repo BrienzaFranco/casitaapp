@@ -47,7 +47,7 @@ export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
     }
 
     // Stagger initial load to avoid auth lock contention with other hooks
-    const timer = setTimeout(() => { void recargar(); }, 250);
+    const timer = setTimeout(() => { void recargar(); }, 800);
     return () => clearTimeout(timer);
   }, [cargarInicial, recargar]);
 

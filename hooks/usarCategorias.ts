@@ -124,7 +124,7 @@ export function useCategorias() {
 
   useEffect(() => {
     // Stagger initial load to avoid auth lock contention with other hooks
-    const timer = setTimeout(() => { void recargar(); }, 200);
+    const timer = setTimeout(() => { void recargar(); }, 600);
     return () => clearTimeout(timer);
   }, [recargar]);
 

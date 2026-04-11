@@ -82,7 +82,10 @@ export function useUsuario() {
       });
     }
 
-    void cargar();
+    // Stagger auth to avoid lock contention with other hooks firing simultaneously
+    const timer = setTimeout(() => {
+      void cargar();
+    }, 100);
 
     const { data: suscripcion } = cliente.auth.onAuthStateChange(() => {
       void cargar();
@@ -90,6 +93,7 @@ export function useUsuario() {
     });
 
     return () => {
+      clearTimeout(timer);
       suscripcion.subscription.unsubscribe();
     };
   }, [router]);

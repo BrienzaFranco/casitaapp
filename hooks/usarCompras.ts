@@ -131,7 +131,7 @@ export function useCompras(opciones: OpcionesCompras = {}) {
       throw error;
     }
 
-    const registros = (data ?? []) as CompraBaseDatos[];
+    const registros = (data ?? []) as unknown as CompraBaseDatos[];
     setCompras(registros.map(normalizarCompra));
     setCargando(false);
   }, [incluirBorradores]);
@@ -143,7 +143,7 @@ export function useCompras(opciones: OpcionesCompras = {}) {
     }
 
     // Stagger initial load to avoid auth lock contention with other hooks
-    const timer = setTimeout(() => { void recargar(); }, 150);
+    const timer = setTimeout(() => { void recargar(); }, 400);
     return () => clearTimeout(timer);
   }, [cargarInicial, recargar]);
 
