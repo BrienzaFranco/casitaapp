@@ -190,7 +190,7 @@ export default function PaginaAnotadorRapido() {
             {/* Camera button */}
             <input ref={imgRef} type="file" accept="image/*" onChange={cargarImagen} className="hidden" />
             <button type="button" onClick={() => imgRef.current?.click()}
-              className="relative h-12 w-12 rounded bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors flex items-center justify-center">
+              className="relative h-12 w-12 rounded bg-surface-container-high text-secondary hover:bg-surface-container-highest transition-colors flex items-center justify-center">
               <Camera className="h-5 w-5" />
               {imagen && <span className="absolute -top-1 -right-1 w-3 h-3 bg-tertiary rounded-full border border-surface" />}
             </button>
