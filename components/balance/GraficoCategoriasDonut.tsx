@@ -45,7 +45,7 @@ export function GraficoCategoriasDonut({ registros }: Props) {
 
       <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Donut */}
-        <div className="relative h-48">
+        <div className="relative" style={{ minHeight: "192px" }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie

@@ -5,20 +5,19 @@ import { Calendar, ArrowRight, Zap, FileText } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearFecha, formatearPeso } from "@/lib/formatear";
 import { usarBalance } from "@/hooks/usarBalance";
-import { usarCompras } from "@/hooks/usarCompras";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 
 export default function PaginaInicio() {
   const balance = usarBalance();
-  const compras = usarCompras();
   const config = usarConfiguracion();
   const colorFran = config.colores.franco;
   const colorFabi = config.colores.fabiola;
+  const compras = balance.compras;
   const ultimaCompra = compras.compras[0];
   const mesActual = new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" });
   const mesClave = new Date().toISOString().slice(0, 7);
 
-  if (balance.compras.cargando || compras.cargando || balance.categorias.cargando || balance.cortes.cargando) {
+  if (balance.compras.cargando || balance.categorias.cargando || balance.cortes.cargando) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-28 w-full rounded-lg" />

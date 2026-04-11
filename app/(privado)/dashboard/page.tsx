@@ -7,9 +7,6 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearFecha, formatearPeso } from "@/lib/formatear";
 import { mesClave } from "@/lib/utiles";
 import { usarBalance } from "@/hooks/usarBalance";
-import { usarConfiguracion } from "@/hooks/usarConfiguracion";
-import { usarCategorias } from "@/hooks/usarCategorias";
-import { usarCompras } from "@/hooks/usarCompras";
 import {
   Bar,
   BarChart,
@@ -140,7 +137,7 @@ function GraficoCategoriaInteractivo({
         </div>
 
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="relative h-48">
+          <div className="relative" style={{ minHeight: "192px" }}>
             <ResponsiveContainer width="100%" height="100%">
               <RePieChart>
                 <Pie
@@ -281,7 +278,7 @@ function GraficoEtiquetasInteractivo({
         </div>
 
         <div className="p-4">
-          <div className="h-48 w-full">
+          <div className="w-full" style={{ minHeight: "192px" }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={datos} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
                 <XAxis dataKey="nombre" tick={{ fontSize: 10, fill: "var(--on-surface-variant)" }} tickLine={false} axisLine={false} />
@@ -381,7 +378,7 @@ function GraficoMensual({ compras }: { compras: Compra[] }) {
         </div>
 
         <div className="p-4">
-          <div className="h-56 w-full">
+          <div className="w-full" style={{ minHeight: "224px" }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={porMes} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
                 <XAxis
@@ -436,11 +433,8 @@ function GraficoMensual({ compras }: { compras: Compra[] }) {
 /* ── Pagina principal ── */
 export default function PaginaDashboard() {
   const balance = usarBalance();
-  const config = usarConfiguracion();
-  const categoriasHook = usarCategorias();
-  const comprasHook = usarCompras();
 
-  if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando || categoriasHook.cargando) {
+  if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando) {
     return (
       <div className="space-y-3">
         <Skeleton className="h-28 w-full rounded-lg" />
@@ -485,7 +479,7 @@ export default function PaginaDashboard() {
       {/* Charts */}
       <GraficoCategoriaInteractivo registros={balance.categoriasMes} comprasMes={balance.comprasMes} />
       <GraficoEtiquetasInteractivo registros={balance.etiquetasMes} comprasMes={balance.comprasMes} />
-      <GraficoMensual compras={comprasHook.compras} />
+      <GraficoMensual compras={balance.compras.compras} />
     </section>
   );
 }
