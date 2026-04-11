@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, ChevronDown, ChevronRight, Image as ImageIcon, Plus, Tag, X } from "lucide-react";
+import { Camera, Calendar, ChevronDown, ChevronRight, Image as ImageIcon, Plus, Tag, Users, FileText, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Categoria, CompraEditable, Etiqueta, ItemEditable, Subcategoria, TipoReparto } from "@/types";
 import { calcularReparto, evaluarExpresion } from "@/lib/calculos";
@@ -303,17 +303,17 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
           </datalist>
 
           {/* Fecha + Pago en misma linea */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
             <label className="flex items-center gap-1.5 shrink-0">
-              <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Fecha</span>
+              <Calendar className="h-3.5 w-3.5 text-on-surface-variant" />
               <input type="date" value={compra.fecha} onChange={e => set({ fecha: e.target.value })}
                 className="h-7 rounded bg-surface-container-low px-2 font-label text-xs tabular-nums text-on-surface outline-none" />
             </label>
             <label className="flex items-center gap-1.5 shrink-0">
-              <span className="font-label text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Quien pago</span>
+              <Users className="h-3.5 w-3.5 text-on-surface-variant" />
               <select value={compra.pagador_general} onChange={e => set({ pagador_general: e.target.value as "franco" | "fabiola" | "compartido" })}
                 className="h-7 rounded bg-surface-container-low px-2 font-label text-xs text-on-surface outline-none">
-                <option value="compartido">Ambos</option>
+                <option value="compartido">50/50</option>
                 <option value="franco">{nombres.franco}</option>
                 <option value="fabiola">{nombres.fabiola}</option>
               </select>
@@ -323,8 +323,8 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
           {/* Notas toggle */}
           <button type="button" onClick={() => setMostrarNotas(!mostrarNotas)}
             className="flex items-center gap-1 text-on-surface-variant hover:text-on-surface transition-colors">
-            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mostrarNotas ? "rotate-180" : ""}`} />
-            <span className="font-label text-[10px] font-bold uppercase tracking-wider">Notas</span>
+            <FileText className="h-3.5 w-3.5" />
+            {mostrarNotas && <ChevronDown className={`h-3.5 w-3.5 transition-transform rotate-180`} />}
           </button>
           {mostrarNotas && (
             <textarea value={notas} onChange={e => setNotas(e.target.value)} placeholder="Notas..."
@@ -336,13 +336,11 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
             <button
               type="button"
               onClick={() => setMostrarEtiquetasCompra(!mostrarEtiquetasCompra)}
-              className="flex items-center gap-1.5 text-on-surface-variant hover:text-on-surface transition-colors w-full"
+              className="flex items-center gap-1.5 text-on-surface-variant hover:text-on-surface transition-colors"
             >
-              <ChevronRight className={`h-3.5 w-3.5 transition-transform ${mostrarEtiquetasCompra ? "rotate-90" : ""}`} />
-              <Tag className="h-3 w-3" />
-              <span className="font-label text-[10px] font-bold uppercase tracking-wider">Etiquetas</span>
+              <Tag className="h-3.5 w-3.5" />
               {compra.etiquetas_compra_ids.length > 0 && (
-                <span className="ml-auto font-label text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-on-secondary">
+                <span className="font-label text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-on-secondary">
                   {compra.etiquetas_compra_ids.length}
                 </span>
               )}
@@ -448,19 +446,17 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                 Agregar
               </button>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1.5 h-7 px-2 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors">
+            <div className="flex items-center gap-1.5">
+              <label className="h-7 w-7 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors flex items-center justify-center">
                 <Camera className="h-3.5 w-3.5" />
-                <span className="font-label text-[9px] font-bold uppercase">Foto</span>
                 <input type="file" accept="image/*" capture="environment" onChange={cargarImagen} className="hidden" />
               </label>
-              <label className="flex items-center gap-1.5 h-7 px-2 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors">
+              <label className="h-7 w-7 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high cursor-pointer transition-colors flex items-center justify-center">
                 <ImageIcon className="h-3.5 w-3.5" />
-                <span className="font-label text-[9px] font-bold uppercase">Galería</span>
                 <input type="file" accept="image/*" onChange={cargarImagen} className="hidden" />
               </label>
               {imagenComprobante && (
-                <div className="flex items-center gap-1 ml-auto">
+                <div className="flex items-center gap-1">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={imagenComprobante} alt="Comprobante" className="h-7 w-7 rounded object-cover" />
                   <button type="button" onClick={() => setImagenComprobante("")} className="text-error hover:text-error/80">
@@ -478,10 +474,9 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
           <button
             type="button"
             onClick={() => setMostrarRapido(!mostrarRapido)}
-            className={`inline-flex items-center gap-1.5 h-7 px-2 rounded transition-colors ${mostrarRapido ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}
+            className={`h-7 w-7 rounded flex items-center justify-center transition-colors ${mostrarRapido ? "bg-secondary text-on-secondary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}
           >
             <Camera className="h-3.5 w-3.5" />
-            <span className="font-label text-[9px] font-bold uppercase">{mostrarRapido ? "Cerrado" : "Rapido"}</span>
           </button>
         </div>
 

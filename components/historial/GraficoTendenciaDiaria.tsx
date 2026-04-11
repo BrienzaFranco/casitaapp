@@ -75,9 +75,9 @@ export function GraficoTendenciaDiaria({ registros, compras, nombres }: Props) {
                   <stop offset="100%" stopColor="var(--secondary)" stopOpacity={0.03} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="etiqueta" tick={{ fontSize: 10, fill: "var(--on-surface-variant)" }} tickLine={false} axisLine={false} />
+              <XAxis dataKey="etiqueta" tick={{ fontSize: 10, fill: "var(--chart-axis-color, #6b7280)" }} tickLine={false} axisLine={false} />
               <YAxis
-                tick={{ fontSize: 10, fill: "var(--on-surface-variant)" }}
+                tick={{ fontSize: 10, fill: "var(--chart-axis-color, #6b7280)" }}
                 tickLine={false}
                 axisLine={false}
                 width={64}
