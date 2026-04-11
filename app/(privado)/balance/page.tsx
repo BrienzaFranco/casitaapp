@@ -216,17 +216,34 @@ export default function PaginaBalance() {
         </div>
 
         {debeFabiola && (
-          <p className="font-label text-base font-bold text-secondary">
-            {balance.nombres.fabiola} le debe {formatearPeso(montoDeuda)} a {balance.nombres.franco}
-          </p>
+          <div className="space-y-0.5">
+            <p className="font-label text-base font-bold text-secondary">
+              {balance.nombres.fabiola} debe {formatearPeso(montoDeuda)}
+            </p>
+            <p className="font-label text-xs text-on-surface-variant">
+              {balance.nombres.franco} debe $0
+            </p>
+          </div>
         )}
         {debeFranco && (
-          <p className="font-label text-base font-bold text-secondary">
-            {balance.nombres.franco} le debe {formatearPeso(montoDeuda)} a {balance.nombres.fabiola}
+          <div className="space-y-0.5">
+            <p className="font-label text-base font-bold text-secondary">
+              {balance.nombres.franco} debe {formatearPeso(montoDeuda)}
+            </p>
+            <p className="font-label text-xs text-on-surface-variant">
+              {balance.nombres.fabiola} debe $0
+            </p>
+          </div>
+        )}
+        {!debeFabiola && !debeFranco && fechaDesde && (
+          <p className="font-label text-sm text-tertiary">
+            Deuda saldada. Ambos deben $0 desde {formatearFecha(fechaDesde)}
           </p>
         )}
-        {!debeFabiola && !debeFranco && (
-          <p className="font-label text-base font-semibold text-tertiary">Están a mano</p>
+        {!debeFabiola && !debeFranco && !fechaDesde && (
+          <p className="font-label text-sm text-tertiary">
+            Sin registros de deuda. Ambos deben $0.
+          </p>
         )}
 
         <div className="flex gap-2 mt-3">
