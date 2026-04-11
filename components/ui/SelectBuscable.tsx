@@ -32,6 +32,7 @@ export function SelectBuscable({
 }: Props) {
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState("");
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [creando, setCreando] = useState(false);
@@ -49,6 +50,13 @@ export function SelectBuscable({
     document.addEventListener("mousedown", clicFuera);
     return () => document.removeEventListener("mousedown", clicFuera);
   }, [opcionActual]);
+
+  useEffect(() => {
+    if (abierto && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 300) });
+    }
+  }, [abierto]);
 
   const opcionesFiltradas = busqueda
     ? opciones.filter(o => normalizarTexto(o.etiqueta).includes(normalizarTexto(busqueda)))
@@ -90,8 +98,9 @@ export function SelectBuscable({
       </button>
 
       {abierto && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg bg-surface-container-lowest border border-outline-variant/15 shadow-lg overflow-hidden">
-          <div className="flex items-center gap-1 px-2 py-1 border-b border-outline-variant/10">
+        <div className="fixed z-[100] w-72 max-h-[60vh] overflow-hidden rounded-lg bg-surface-container-lowest border border-outline-variant/15 shadow-lg"
+          style={{ left: pos.left, top: pos.top }}>
+          <div className="flex items-center gap-1 px-2 py-1.5 border-b border-outline-variant/10">
             <Search className="h-3.5 w-3.5 text-on-surface-variant/50 shrink-0" />
             <input
               ref={inputRef}
@@ -112,7 +121,7 @@ export function SelectBuscable({
             />
           </div>
 
-          <div className="max-h-48 overflow-y-auto">
+          <div className="max-h-52 overflow-y-auto overscroll-contain">
             {ordenadas.length > 0 && ordenadas.map(o => (
               <button
                 key={o.valor}
