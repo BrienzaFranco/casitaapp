@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SettlementCut } from "@/types";
-import { crearClienteSupabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 interface OpcionesSettlementCuts {
   cargarInicial?: boolean;
@@ -17,39 +18,33 @@ interface CrearCorteInput {
 
 export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
   const { cargarInicial = true } = opciones;
-  const [cortes, setCortes] = useState<SettlementCut[]>([]);
-  const [cargando, setCargando] = useState(cargarInicial);
+  const queryClient = useQueryClient();
   const [guardando, setGuardando] = useState(false);
 
+  const { data: cortes = [], isLoading, isFetching, refetch } = useQuery<SettlementCut[]>({
+    queryKey: ["settlement_cuts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("settlement_cuts")
+        .select("*")
+        .order("fecha_corte", { ascending: false })
+        .order("creado_en", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as SettlementCut[];
+    },
+    enabled: cargarInicial,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    retry: (count, error) => {
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.includes("Lock") || msg.includes("Abort") || msg.includes("steal")) return count < 2;
+      return false;
+    },
+  });
+
   const recargar = useCallback(async () => {
-    const cliente = crearClienteSupabase();
-    setCargando(true);
-
-    const { data, error } = await cliente
-      .from("settlement_cuts")
-      .select("*")
-      .order("fecha_corte", { ascending: false })
-      .order("creado_en", { ascending: false });
-
-    if (error) {
-      setCargando(false);
-      throw error;
-    }
-
-    setCortes((data ?? []) as SettlementCut[]);
-    setCargando(false);
-  }, []);
-
-  useEffect(() => {
-    if (!cargarInicial) {
-      setCargando(false);
-      return;
-    }
-
-    // Stagger initial load to avoid auth lock contention with other hooks
-    const timer = setTimeout(() => { void recargar(); }, 800);
-    return () => clearTimeout(timer);
-  }, [cargarInicial, recargar]);
+    await queryClient.invalidateQueries({ queryKey: ["settlement_cuts"] });
+  }, [queryClient]);
 
   const corteActivo = useMemo(
     () => cortes.find((corte) => corte.activo) ?? null,
@@ -57,11 +52,10 @@ export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
   );
 
   async function crearCorte(input: CrearCorteInput) {
-    const cliente = crearClienteSupabase();
     setGuardando(true);
 
     try {
-      let limpiarActivos = cliente.from("settlement_cuts").update({ activo: false }).eq("activo", true);
+      let limpiarActivos = supabase.from("settlement_cuts").update({ activo: false }).eq("activo", true);
 
       if (input.hogar_id) {
         limpiarActivos = limpiarActivos.eq("hogar_id", input.hogar_id);
@@ -72,7 +66,7 @@ export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
         throw limpiar.error;
       }
 
-      const { error } = await cliente.from("settlement_cuts").insert({
+      const { error } = await supabase.from("settlement_cuts").insert({
         fecha_corte: input.fecha_corte,
         nota: input.nota ?? "",
         hogar_id: input.hogar_id ?? null,
@@ -84,7 +78,7 @@ export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
         throw error;
       }
 
-      await recargar();
+      await queryClient.invalidateQueries({ queryKey: ["settlement_cuts"] });
     } finally {
       setGuardando(false);
     }
@@ -93,7 +87,7 @@ export function useSettlementCuts(opciones: OpcionesSettlementCuts = {}) {
   return {
     cortes,
     corteActivo,
-    cargando,
+    cargando: isLoading || isFetching,
     guardando,
     recargar,
     crearCorte,

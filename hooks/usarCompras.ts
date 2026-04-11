@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Compra, CompraBaseDatos, CompraEditable, Item } from "@/types";
-import { crearClienteSupabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 const seleccionCompras = `
   id,
@@ -108,47 +109,41 @@ function normalizarCompra(compra: CompraBaseDatos): Compra {
 
 export function useCompras(opciones: OpcionesCompras = {}) {
   const { cargarInicial = true, incluirBorradores = false } = opciones;
-  const [compras, setCompras] = useState<Compra[]>([]);
-  const [cargando, setCargando] = useState(cargarInicial);
+  const queryClient = useQueryClient();
   const [guardando, setGuardando] = useState(false);
 
+  const { data: compras = [], isLoading, isFetching, refetch } = useQuery<Compra[]>({
+    queryKey: ["compras", incluirBorradores],
+    queryFn: async () => {
+      let consulta = supabase.from("compras").select(seleccionCompras).order("fecha", {
+        ascending: false,
+      });
+
+      if (!incluirBorradores) {
+        consulta = consulta.neq("estado", "borrador");
+      }
+
+      const { data, error } = await consulta;
+      if (error) throw error;
+
+      const registros = (data ?? []) as unknown as CompraBaseDatos[];
+      return registros.map(normalizarCompra);
+    },
+    enabled: cargarInicial,
+    staleTime: 1000 * 60 * 2, // 2 min — compras change frequently
+    refetchOnWindowFocus: false,
+    retry: (count, error) => {
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.includes("Lock") || msg.includes("Abort") || msg.includes("steal")) return count < 2;
+      return false;
+    },
+  });
+
   const recargar = useCallback(async () => {
-    const cliente = crearClienteSupabase();
-    setCargando(true);
-
-    let consulta = cliente.from("compras").select(seleccionCompras).order("fecha", {
-      ascending: false,
-    });
-
-    if (!incluirBorradores) {
-      consulta = consulta.neq("estado", "borrador");
-    }
-
-    const { data, error } = await consulta;
-
-    if (error) {
-      setCargando(false);
-      throw error;
-    }
-
-    const registros = (data ?? []) as unknown as CompraBaseDatos[];
-    setCompras(registros.map(normalizarCompra));
-    setCargando(false);
-  }, [incluirBorradores]);
-
-  useEffect(() => {
-    if (!cargarInicial) {
-      setCargando(false);
-      return;
-    }
-
-    // Stagger initial load to avoid auth lock contention with other hooks
-    const timer = setTimeout(() => { void recargar(); }, 400);
-    return () => clearTimeout(timer);
-  }, [cargarInicial, recargar]);
+    await queryClient.invalidateQueries({ queryKey: ["compras"] });
+  }, [queryClient]);
 
   async function guardarCompra(compra: CompraEditable) {
-    const cliente = crearClienteSupabase();
     setGuardando(true);
     const compraIdValido = compra.id && !compra.id.startsWith("tmp-") ? compra.id : null;
 
@@ -175,19 +170,16 @@ export function useCompras(opciones: OpcionesCompras = {}) {
 
     try {
       const respuesta = compra.estado === "borrador"
-        ? await cliente.rpc("guardar_compra_borrador", { ...payload, p_compra_id: compraIdValido })
+        ? await supabase.rpc("guardar_compra_borrador", { ...payload, p_compra_id: compraIdValido })
         : compraIdValido
-          ? await cliente.rpc("actualizar_compra_completa", { ...payload, p_compra_id: compraIdValido })
-          : await cliente.rpc("crear_compra_completa", payload);
+          ? await supabase.rpc("actualizar_compra_completa", { ...payload, p_compra_id: compraIdValido })
+          : await supabase.rpc("crear_compra_completa", payload);
 
       if (respuesta.error) {
         throw respuesta.error;
       }
 
-      if (cargarInicial) {
-        await recargar();
-      }
-
+      await queryClient.invalidateQueries({ queryKey: ["compras"] });
       return respuesta.data as string;
     } finally {
       setGuardando(false);
@@ -195,19 +187,14 @@ export function useCompras(opciones: OpcionesCompras = {}) {
   }
 
   async function eliminarCompra(id: string) {
-    const cliente = crearClienteSupabase();
-    const { error } = await cliente.from("compras").delete().eq("id", id);
-
-    if (error) {
-      throw error;
-    }
-
-    await recargar();
+    const { error } = await supabase.from("compras").delete().eq("id", id);
+    if (error) throw error;
+    await queryClient.invalidateQueries({ queryKey: ["compras"] });
   }
 
   return {
     compras,
-    cargando,
+    cargando: isLoading || isFetching,
     guardando,
     recargar,
     guardarCompra,

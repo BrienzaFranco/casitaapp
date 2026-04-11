@@ -3,25 +3,29 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-let cliente: SupabaseClient | null = null;
+/**
+ * Single shared Supabase client instance.
+ * Created once and reused everywhere, avoiding redundant auth lock acquisitions.
+ */
+export const supabase: SupabaseClient = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      flowType: "pkce",
+      detectSessionInUrl: false,
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  },
+);
 
+/**
+ * Legacy alias for gradual migration.
+ * All hooks should migrate to the `supabase` export directly over time.
+ */
 export function crearClienteSupabase() {
-  if (!cliente) {
-    cliente = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          flowType: "pkce",
-          detectSessionInUrl: false,
-          persistSession: true,
-          autoRefreshToken: true,
-        },
-      },
-    );
-  }
-
-  return cliente;
+  return supabase;
 }
 
 /**
