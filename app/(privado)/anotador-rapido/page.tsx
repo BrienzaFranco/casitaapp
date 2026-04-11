@@ -34,7 +34,13 @@ export default function PaginaAnotadorRapido() {
   const [lugar, setLugar] = useState("");
   const [lugarNuevo, setLugarNuevo] = useState("");
   const [mostrarNuevo, setMostrarNuevo] = useState(false);
-  const [pagador, setPagador] = useState<PagadorCompra>("compartido");
+  const [pagador, setPagador] = useState<PagadorCompra>(() => {
+    // Auto-detect based on user profile name
+    const nombre = usuario.perfil?.nombre?.toLowerCase() ?? "";
+    if (nombre.includes("franco") || nombre.includes("fran")) return "franco";
+    if (nombre.includes("fabiola") || nombre.includes("fabi")) return "fabiola";
+    return "compartido";
+  });
   const [guardando, setGuardando] = useState(false);
 
   const montoCalculado = evaluarMonto(monto);
@@ -88,85 +94,65 @@ export default function PaginaAnotadorRapido() {
 
   return (
     <div className="min-h-screen bg-surface pb-28">
-      <div className="mx-auto max-w-xl px-4 pt-4 space-y-4">
-        <div className="space-y-0.5">
-          <p className="font-label text-[10px] uppercase tracking-widest text-outline">Registro Rapido</p>
-          <h1 className="font-headline text-2xl font-bold tracking-tight text-on-surface">Anotador rapido</h1>
-          <p className="font-body text-xs text-on-surface-variant">Anota lo basico y completalo despues.</p>
+      <div className="mx-auto max-w-xl px-4 pt-4 space-y-3">
+        {/* Header compacto con quien pago */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-label text-[10px] uppercase tracking-widest text-outline">Registro Rapido</p>
+            <h1 className="font-headline text-xl font-bold tracking-tight text-on-surface">Anotador rapido</h1>
+          </div>
+          <div className="flex items-center gap-1 bg-surface-container rounded-full p-0.5">
+            {[
+              { val: "franco" as const, label: "Fran" },
+              { val: "fabiola" as const, label: "Fabi" },
+            ].map(({ val, label }) => (
+              <button key={val} type="button" onClick={() => setPagador(val)}
+                className={`h-7 px-3 rounded-full font-label text-[10px] font-bold transition-all ${pagador === val ? "bg-secondary text-on-secondary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* 1. Detalle primero */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
-          <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Detalle</label>
-          <input
-            type="text" inputMode="text" value={detalle} onChange={e => setDetalle(e.target.value)}
-            placeholder="ej: Yerba, Leche, Pan..."
-            className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-3 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-b-primary"
-            autoFocus
-          />
+        {/* Detalle + Monto en la misma linea si es posible */}
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3 space-y-2">
+          <input type="text" inputMode="text" value={detalle} onChange={e => setDetalle(e.target.value)}
+            placeholder="Que compraste? (ej: Yerba, Pan)"
+            className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-2 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-b-primary"
+            autoFocus />
+          <div className="flex items-baseline gap-2">
+            <span className="font-label text-[10px] text-on-surface-variant/60 shrink-0">$</span>
+            <input type="text" inputMode="decimal" value={monto} onChange={e => setMonto(e.target.value)}
+              placeholder="4500 o 2000+500"
+              className="flex-1 bg-transparent border-b border-outline/20 px-0 py-2 font-label text-xl font-bold tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/30 focus:border-b-primary" />
+            {montoCalculado > 0 && monto !== String(montoCalculado) && (
+              <span className="font-label text-xs text-tertiary tabular-nums shrink-0">{formatearPeso(montoCalculado)}</span>
+            )}
+          </div>
         </div>
 
-        {/* 2. Monto */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
-          <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Monto</label>
-          <input
-            type="text" inputMode="decimal" value={monto} onChange={e => setMonto(e.target.value)}
-            placeholder="ej: 4500 o 2000+500"
-            className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-3 font-label text-2xl font-bold tabular-nums text-on-surface outline-none placeholder:text-on-surface-variant/30 focus:border-b-primary focus:bg-surface-container-highest transition-all"
-          />
-          {montoCalculado > 0 && monto !== String(montoCalculado) && (
-            <p className="font-label text-xs text-tertiary tabular-nums">
-              = {formatearPeso(montoCalculado)}
-            </p>
-          )}
-        </div>
-
-        {/* 3. Lugar */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
-          <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Lugar</label>
+        {/* Lugar */}
+        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3">
           {!mostrarNuevo ? (
-            <select
-              value={lugar}
+            <select value={lugar}
               onChange={e => { if (e.target.value === "__nuevo__") { setMostrarNuevo(true); setLugarNuevo(""); } else { setLugar(e.target.value); } }}
-              className="w-full h-10 rounded bg-surface-container-low px-3 font-headline text-sm text-on-surface outline-none"
-            >
+              className="w-full h-9 rounded bg-surface-container-low px-3 font-headline text-sm text-on-surface outline-none">
               <option value="">Seleccionar lugar...</option>
               {lugaresPasados.map(l => <option key={l} value={l}>{l}</option>)}
               <option value="__nuevo__">+ Otro (nuevo)</option>
             </select>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <input type="text" value={lugarNuevo} onChange={e => setLugarNuevo(e.target.value)}
                 placeholder="Nombre del lugar"
-                className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-2.5 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-b-primary"
+                className="w-full bg-surface-container-low border-b border-outline/20 px-0 py-2 font-headline text-sm text-on-surface outline-none placeholder:text-on-surface-variant/50 focus:border-b-primary"
               />
               <button type="button" onClick={() => { setMostrarNuevo(false); setLugarNuevo(""); }}
                 className="font-label text-[10px] text-on-surface-variant hover:text-on-surface underline">
-                Volver a la lista
+                ← Volver a la lista
               </button>
             </div>
           )}
-        </div>
-
-        {/* 4. Quien pago */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-2">
-          <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Quien pago</label>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { val: "franco" as const, label: nombrePagador || "Franco" },
-              { val: "fabiola" as const, label: "Fabiola" },
-              { val: "compartido" as const, label: "Compartido" },
-            ].map(({ val, label }) => (
-              <button key={val} type="button" onClick={() => setPagador(val)}
-                className={`h-14 rounded-lg font-headline text-sm font-bold transition-all active:scale-[0.97] ${
-                  pagador === val
-                    ? "bg-secondary text-on-secondary shadow-md shadow-secondary/20"
-                    : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
-                }`}>
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
