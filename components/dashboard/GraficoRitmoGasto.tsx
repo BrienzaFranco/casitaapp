@@ -1,6 +1,6 @@
 "use client";
 
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from "recharts";
+import { Area, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useMemo } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import type { Compra } from "@/types";
@@ -63,6 +63,16 @@ export function GraficoRitmoGasto({ comprasMesActual, comprasMesAnterior, mesAct
         <div className="w-full" style={{ minHeight: "200px" }}>
           <ResponsiveContainer width="99%" minHeight={200}>
             <LineChart data={datosFiltrados.length > 0 ? datosFiltrados : datos} margin={{ top: 4, right: 4, left: -8, bottom: 4 }}>
+              <defs>
+                <linearGradient id="gradBurnActual" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gradBurnAnterior" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--on-surface-variant)" stopOpacity={0.08} />
+                  <stop offset="100%" stopColor="var(--on-surface-variant)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <XAxis
                 dataKey="dia"
                 tick={{ fontSize: 9, fill: "var(--on-surface-variant)" }}
@@ -78,17 +88,49 @@ export function GraficoRitmoGasto({ comprasMesActual, comprasMesAnterior, mesAct
                 tickFormatter={(v) => formatearPeso(Number(v))}
               />
               <Tooltip
-                formatter={(value, name) => [
-                  formatearPeso(Number(value)),
-                  name === "acumuladoActual" ? mesActual : mesAnterior,
-                ]}
-                contentStyle={{
-                  borderRadius: "0.5rem",
-                  borderColor: "var(--outline-variant)",
-                  backgroundColor: "var(--surface-container-lowest)",
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const d = payload[0].payload;
+                  const diff = d.acumuladoActual - d.acumuladoAnterior;
+                  const pctDiff = d.acumuladoAnterior > 0 ? ((diff / d.acumuladoAnterior) * 100).toFixed(0) : "—";
+                  return (
+                    <div className="rounded-lg border border-outline-variant/20 bg-surface-container-lowest p-2.5 shadow-sm min-w-[180px]">
+                      <p className="font-label text-[10px] font-bold text-on-surface mb-1.5">Día {d.dia}</p>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-label text-[9px] text-on-surface-variant">{mesActual}</span>
+                          <span className="font-label text-[9px] tabular-nums font-bold text-primary">{formatearPeso(d.acumuladoActual)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-label text-[9px] text-on-surface-variant">{mesAnterior}</span>
+                          <span className="font-label text-[9px] tabular-nums text-on-surface-variant">{formatearPeso(d.acumuladoAnterior)}</span>
+                        </div>
+                        <div className="border-t border-outline-variant/10 pt-0.5 flex items-center justify-between gap-3">
+                          <span className="font-label text-[9px] font-bold text-on-surface">Diferencia</span>
+                          <span className={`font-label text-[9px] tabular-nums font-bold ${diff > 0 ? "text-error" : "text-success"}`}>
+                            {diff > 0 ? "+" : ""}{formatearPeso(diff)} ({diff > 0 ? "+" : ""}{pctDiff}%)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
                 }}
               />
               <ReferenceLine x={diaActual} stroke="var(--outline-variant)" strokeDasharray="3 3" />
+              {tieneDatosActual && (
+                <Area
+                  type="monotone"
+                  dataKey="acumuladoActual"
+                  fill="url(#gradBurnActual)"
+                />
+              )}
+              {tieneDatosAnterior && (
+                <Area
+                  type="monotone"
+                  dataKey="acumuladoAnterior"
+                  fill="url(#gradBurnAnterior)"
+                />
+              )}
               {tieneDatosActual && (
                 <Line
                   type="monotone"

@@ -22,6 +22,8 @@ import { DesgloseReparto } from "@/components/dashboard/DesgloseReparto";
 import { ComparativaPersonal } from "@/components/dashboard/ComparativaPersonal";
 import { HeatmapGasto } from "@/components/dashboard/HeatmapGasto";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   Cell,
@@ -440,6 +442,66 @@ function GraficoMensual({ compras }: { compras: Compra[] }) {
   );
 }
 
+/* ── Sparkline KPI Card ── */
+function KPICard({
+  label,
+  value,
+  color,
+  sparkline,
+  sparklineColor,
+  subtitle,
+  subtitleColor,
+  borderTop,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  sparkline: Array<{ label: string; value: number }>;
+  sparklineColor: string;
+  subtitle?: string;
+  subtitleColor?: string;
+  borderTop?: string;
+}) {
+  const hasData = sparkline.some(d => d.value > 0);
+
+  return (
+    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3" style={borderTop ? { borderTop: `3px solid ${borderTop}` } : {}}>
+      <p className="font-label text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color }}>{label}</p>
+      <p className="font-label text-lg font-bold tabular-nums" style={{ color }}>{value}</p>
+
+      {/* Sparkline */}
+      {hasData && (
+        <div className="h-8 mt-1 -mx-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={sparkline} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`grad-${label.replace(/\s/g, "")}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={sparklineColor} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={sparklineColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={sparklineColor}
+                strokeWidth={1.5}
+                fill={`url(#grad-${label.replace(/\s/g, "")})`}
+                dot={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {subtitle && (
+        <p className="font-label text-[9px] tabular-nums mt-0.5" style={{ color: subtitleColor ?? "var(--on-surface-variant)" }}>
+          {subtitle}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ── Pagina principal ── */
 export default function PaginaDashboard() {
   const balance = usarBalance();
@@ -491,6 +553,24 @@ export default function PaginaDashboard() {
   const variacion = balance.variacionMensual;
   const tieneVariacion = variacion.porcentaje !== null && isFinite(variacion.porcentaje);
 
+  // Sparkline data: last 7 days of spending
+  const sparklineData = useMemo(() => {
+    const porDia = new Map<string, { total: number; franco: number; fabiola: number }>();
+    for (const compra of balance.comprasMes) {
+      const entry = porDia.get(compra.fecha) ?? { total: 0, franco: 0, fabiola: 0 };
+      for (const item of compra.items) {
+        entry.total += item.monto_resuelto;
+        entry.franco += item.pago_franco;
+        entry.fabiola += item.pago_fabiola;
+      }
+      porDia.set(compra.fecha, entry);
+    }
+    return [...porDia.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-7)
+      .map(([fecha, d]) => ({ fecha: fecha.slice(8), ...d }));
+  }, [balance.comprasMes]);
+
   async function quedarAMano() {
     try {
       const hoy = fechaLocalISO();
@@ -540,31 +620,35 @@ export default function PaginaDashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {/* Total */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3">
-          <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">Total mes</p>
-          <p className="font-label text-lg font-bold tabular-nums text-primary">{formatearPeso(totalMes)}</p>
-          {tieneVariacion && (
-            <p className={`font-label text-[9px] tabular-nums ${variacion.diferencia > 0 ? "text-error" : "text-success"}`}>
-              {variacion.diferencia > 0 ? "↑" : "↓"} {Math.abs(variacion.porcentaje!)}% vs mes anterior
-            </p>
-          )}
-        </div>
+        <KPICard
+          label="Total mes"
+          value={formatearPeso(totalMes)}
+          color="var(--primary)"
+          sparkline={sparklineData.map(d => ({ label: d.fecha, value: d.total }))}
+          sparklineColor="var(--primary)"
+          subtitle={tieneVariacion ? `${variacion.diferencia > 0 ? "↑" : "↓"} ${Math.abs(variacion.porcentaje!)}% vs mes ant.` : undefined}
+          subtitleColor={variacion.diferencia > 0 ? "var(--error)" : "var(--success)"}
+        />
         {/* Franco */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3" style={{ borderTop: `3px solid ${colorFran}` }}>
-          <p className="font-label text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color: colorFran }}>{balance.nombres.franco}</p>
-          <p className="font-label text-lg font-bold tabular-nums" style={{ color: colorFran }}>{formatearPeso(francoMes)}</p>
-          <p className="font-label text-[9px] text-on-surface-variant">
-            {totalMes > 0 ? ((francoMes / totalMes) * 100).toFixed(0) : 0}% del total
-          </p>
-        </div>
+        <KPICard
+          label={balance.nombres.franco}
+          value={formatearPeso(francoMes)}
+          color={colorFran}
+          sparkline={sparklineData.map(d => ({ label: d.fecha, value: d.franco }))}
+          sparklineColor={colorFran}
+          subtitle={`${totalMes > 0 ? ((francoMes / totalMes) * 100).toFixed(0) : 0}% del total`}
+          borderTop={colorFran}
+        />
         {/* Fabiola */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3" style={{ borderTop: `3px solid ${colorFabi}` }}>
-          <p className="font-label text-[9px] uppercase tracking-wider font-bold mb-1" style={{ color: colorFabi }}>{balance.nombres.fabiola}</p>
-          <p className="font-label text-lg font-bold tabular-nums" style={{ color: colorFabi }}>{formatearPeso(fabiolaMes)}</p>
-          <p className="font-label text-[9px] text-on-surface-variant">
-            {totalMes > 0 ? ((fabiolaMes / totalMes) * 100).toFixed(0) : 0}% del total
-          </p>
-        </div>
+        <KPICard
+          label={balance.nombres.fabiola}
+          value={formatearPeso(fabiolaMes)}
+          color={colorFabi}
+          sparkline={sparklineData.map(d => ({ label: d.fecha, value: d.fabiola }))}
+          sparklineColor={colorFabi}
+          subtitle={`${totalMes > 0 ? ((fabiolaMes / totalMes) * 100).toFixed(0) : 0}% del total`}
+          borderTop={colorFabi}
+        />
         {/* Balance */}
         <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3">
           <p className="font-label text-[9px] uppercase tracking-wider font-bold text-outline mb-1">Balance</p>
