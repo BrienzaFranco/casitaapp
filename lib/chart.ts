@@ -13,8 +13,6 @@ import {
   LineController,
   DoughnutController,
 } from "chart.js";
-import "chartjs-plugin-zoom";
-import "chartjs-plugin-datalabels";
 
 let registered = false;
 
