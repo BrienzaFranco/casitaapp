@@ -15,14 +15,13 @@ interface Props {
 
 export function ChartEtiquetasInteractivo({ registros, comprasMes }: Props) {
   const [ready, setReady] = useState(false);
-  useEffect(() => { registerCharts(); setReady(true); }, []);
-  if (!ready) return null;
-
   const [modalEtiqueta, setModalEtiqueta] = useState<string | null>(null);
+
+  useEffect(() => { registerCharts(); setReady(true); }, []);
 
   const datos = registros.filter(r => r.total > 0).sort((a, b) => b.total - a.total);
 
-  if (!datos.length) {
+  if (!ready || !datos.length) {
     return (
       <section className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 shadow-sm">
         <p className="font-label text-xs text-on-surface-variant">No hubo etiquetas usadas este mes.</p>

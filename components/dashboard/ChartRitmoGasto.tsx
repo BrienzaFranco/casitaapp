@@ -16,8 +16,9 @@ interface Props {
 
 export function ChartRitmoGasto({ comprasMesActual, comprasMesAnterior, mesActual, mesAnterior }: Props) {
   const [ready, setReady] = useState(false);
+
   useEffect(() => { registerCharts(); setReady(true); }, []);
-  if (!ready) return null;
+
   const datos = useMemo(() => {
     const porDiaActual = new Map<number, number>();
     for (const compra of comprasMesActual) {

@@ -21,10 +21,9 @@ function formatearMesLabel(mes: string): string {
 
 export function ChartGastoMensual({ compras }: Props) {
   const [ready, setReady] = useState(false);
-  useEffect(() => { registerCharts(); setReady(true); }, []);
-  if (!ready) return null;
-
   const [modalMes, setModalMes] = useState<string | null>(null);
+
+  useEffect(() => { registerCharts(); setReady(true); }, []);
 
   const porMes = useMemo(() => {
     const mapa = new Map<string, { total: number; compras: Compra[] }>();

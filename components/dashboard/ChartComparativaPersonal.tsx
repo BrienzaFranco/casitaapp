@@ -17,8 +17,8 @@ interface Props {
 
 export function ChartComparativaPersonal({ comprasMes, categorias, nombres, colorFran, colorFabi }: Props) {
   const [ready, setReady] = useState(false);
+
   useEffect(() => { registerCharts(); setReady(true); }, []);
-  if (!ready) return null;
 
   const datos = useMemo(() => {
     const porCategoria = new Map<string, { categoria: Categoria; franco: number; fabiola: number }>();

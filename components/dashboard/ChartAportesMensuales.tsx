@@ -21,8 +21,8 @@ function formatearMesCorto(mes: string): string {
 
 export function ChartAportesMensuales({ historico, nombres, colorFran, colorFabi }: Props) {
   const [ready, setReady] = useState(false);
+
   useEffect(() => { registerCharts(); setReady(true); }, []);
-  if (!ready) return null;
 
   const datos = useMemo(() => {
     return historico.slice(-6).map((fila) => {

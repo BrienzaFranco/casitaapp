@@ -14,8 +14,8 @@ interface Props {
 
 export function ChartDesgloseReparto({ comprasMes, nombres }: Props) {
   const [ready, setReady] = useState(false);
+
   useEffect(() => { registerCharts(); setReady(true); }, []);
-  if (!ready) return null;
 
   const datos = useMemo(() => {
     let compartido = 0;
