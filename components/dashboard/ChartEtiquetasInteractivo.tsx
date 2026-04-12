@@ -1,10 +1,11 @@
 "use client";
 
 import { Bar } from "react-chartjs-2";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tag } from "lucide-react";
 import type { EtiquetaBalance, Compra } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
+import { registerCharts } from "@/lib/chart";
 import ModalExpensesDashboard from "./ModalExpensesDashboard";
 
 interface Props {
@@ -13,6 +14,10 @@ interface Props {
 }
 
 export function ChartEtiquetasInteractivo({ registros, comprasMes }: Props) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { registerCharts(); setReady(true); }, []);
+  if (!ready) return null;
+
   const [modalEtiqueta, setModalEtiqueta] = useState<string | null>(null);
 
   const datos = registros.filter(r => r.total > 0).sort((a, b) => b.total - a.total);

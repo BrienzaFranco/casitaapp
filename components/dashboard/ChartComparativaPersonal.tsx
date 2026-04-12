@@ -1,10 +1,11 @@
 "use client";
 
 import { Bar } from "react-chartjs-2";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Users } from "lucide-react";
 import type { Compra, Categoria } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
+import { registerCharts } from "@/lib/chart";
 
 interface Props {
   comprasMes: Compra[];
@@ -15,6 +16,10 @@ interface Props {
 }
 
 export function ChartComparativaPersonal({ comprasMes, categorias, nombres, colorFran, colorFabi }: Props) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { registerCharts(); setReady(true); }, []);
+  if (!ready) return null;
+
   const datos = useMemo(() => {
     const porCategoria = new Map<string, { categoria: Categoria; franco: number; fabiola: number }>();
 

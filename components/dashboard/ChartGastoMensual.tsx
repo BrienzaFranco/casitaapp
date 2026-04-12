@@ -1,11 +1,12 @@
 "use client";
 
 import { Bar } from "react-chartjs-2";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TrendingUp } from "lucide-react";
 import type { Compra } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
 import { mesClave } from "@/lib/utiles";
+import { registerCharts } from "@/lib/chart";
 import ModalExpensesDashboard from "./ModalExpensesDashboard";
 
 interface Props {
@@ -19,6 +20,10 @@ function formatearMesLabel(mes: string): string {
 }
 
 export function ChartGastoMensual({ compras }: Props) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { registerCharts(); setReady(true); }, []);
+  if (!ready) return null;
+
   const [modalMes, setModalMes] = useState<string | null>(null);
 
   const porMes = useMemo(() => {

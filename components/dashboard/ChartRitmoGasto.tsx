@@ -1,10 +1,11 @@
 "use client";
 
 import { Line } from "react-chartjs-2";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import type { Compra } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
+import { registerCharts } from "@/lib/chart";
 
 interface Props {
   comprasMesActual: Compra[];
@@ -14,6 +15,9 @@ interface Props {
 }
 
 export function ChartRitmoGasto({ comprasMesActual, comprasMesAnterior, mesActual, mesAnterior }: Props) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { registerCharts(); setReady(true); }, []);
+  if (!ready) return null;
   const datos = useMemo(() => {
     const porDiaActual = new Map<number, number>();
     for (const compra of comprasMesActual) {

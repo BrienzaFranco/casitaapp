@@ -1,10 +1,11 @@
 "use client";
 
 import { Doughnut } from "react-chartjs-2";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Users } from "lucide-react";
 import type { Compra } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
+import { registerCharts } from "@/lib/chart";
 
 interface Props {
   comprasMes: Compra[];
@@ -12,6 +13,10 @@ interface Props {
 }
 
 export function ChartDesgloseReparto({ comprasMes, nombres }: Props) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { registerCharts(); setReady(true); }, []);
+  if (!ready) return null;
+
   const datos = useMemo(() => {
     let compartido = 0;
     let soloFranco = 0;

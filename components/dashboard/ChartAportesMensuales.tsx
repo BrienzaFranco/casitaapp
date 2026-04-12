@@ -1,9 +1,10 @@
 "use client";
 
 import { Bar } from "react-chartjs-2";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BalanceMensualFila } from "@/types";
 import { formatearPeso, formatearPorcentaje } from "@/lib/formatear";
+import { registerCharts } from "@/lib/chart";
 
 interface Props {
   historico: BalanceMensualFila[];
@@ -19,6 +20,10 @@ function formatearMesCorto(mes: string): string {
 }
 
 export function ChartAportesMensuales({ historico, nombres, colorFran, colorFabi }: Props) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { registerCharts(); setReady(true); }, []);
+  if (!ready) return null;
+
   const datos = useMemo(() => {
     return historico.slice(-6).map((fila) => {
       const total = fila.franco + fila.fabiola;
