@@ -17,23 +17,24 @@ import {
 let registered = false;
 
 export function registerCharts() {
-  if (registered) return;
-  registered = true;
-
-  Chart.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    LineElement,
-    PointElement,
-    ArcElement,
-    Filler,
-    Tooltip,
-    Legend,
-    BarController,
-    LineController,
-    DoughnutController,
-  );
+  // Always register — HMR/reloads can reset Chart.js state while `registered` stays true
+  if (!registered) {
+    Chart.register(
+      CategoryScale,
+      LinearScale,
+      BarElement,
+      LineElement,
+      PointElement,
+      ArcElement,
+      Filler,
+      Tooltip,
+      Legend,
+      BarController,
+      LineController,
+      DoughnutController,
+    );
+    registered = true;
+  }
 
   Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
   Chart.defaults.color = "rgba(107, 114, 128, 1)";

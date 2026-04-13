@@ -15,7 +15,7 @@ import { GraficoAportesMensuales } from "@/components/dashboard/GraficoAportesMe
 import { EstadoPresupuestos } from "@/components/dashboard/EstadoPresupuestos";
 import { DonutFijosVariables } from "@/components/dashboard/DonutFijosVariables";
 import { TreemapSubcategorias } from "@/components/dashboard/TreemapSubcategorias";
-import { ChartComparativaPersonal } from "@/components/dashboard/ChartComparativaPersonal";
+import { ComparativaPersonal } from "@/components/dashboard/ComparativaPersonal";
 
 function formatearMesLabel(mes: string): string {
   const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -336,7 +336,7 @@ export default function PaginaDashboard() {
       {/* Comparativa personal */}
       <Card>
         <SectionTitle>Comparativa personal</SectionTitle>
-        <ChartComparativaPersonal
+        <ComparativaPersonal
           comprasMes={balance.comprasMes}
           categorias={balance.categorias.categorias}
           nombres={balance.nombres}
