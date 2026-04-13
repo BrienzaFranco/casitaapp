@@ -6,6 +6,7 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 import type { Compra } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
 import { calcularGastoAcumuladoDia } from "@/lib/calculos";
+import { mesLocalISO } from "@/lib/utiles";
 
 interface Props {
   comprasMesActual: Compra[];
@@ -25,12 +26,14 @@ export function GraficoRitmoGasto({ comprasMesActual, comprasMesAnterior, mesAct
   const diff = totalActual - totalAnterior;
   const pctDiff = totalAnterior > 0 ? ((diff / totalAnterior) * 100).toFixed(0) : "—";
 
-  // Determine how many days have passed this month
+  // Only filter to "today" when viewing the current month
+  const esMesActual = mesActual === mesLocalISO();
   const hoy = new Date();
   const diaActual = hoy.getDate();
 
-  // Only show up to today's day for current month, full month for previous
-  const datosFiltrados = datos.filter((d) => d.dia <= diaActual);
+  // When viewing current month: show up to today. Otherwise: show full month.
+  const maxDia = esMesActual ? diaActual : 31;
+  const datosFiltrados = datos.filter((d) => d.dia <= maxDia);
   const tieneDatosActual = comprasMesActual.length > 0;
   const tieneDatosAnterior = comprasMesAnterior.length > 0;
 
@@ -116,7 +119,7 @@ export function GraficoRitmoGasto({ comprasMesActual, comprasMesAnterior, mesAct
                   );
                 }}
               />
-              <ReferenceLine x={diaActual} stroke="var(--outline-variant)" strokeDasharray="3 3" />
+              {esMesActual && <ReferenceLine x={diaActual} stroke="var(--outline-variant)" strokeDasharray="3 3" />}
               {tieneDatosActual && (
                 <Area
                   type="monotone"
@@ -168,8 +171,12 @@ export function GraficoRitmoGasto({ comprasMesActual, comprasMesAnterior, mesAct
             <span className="font-label text-[9px] text-on-surface-variant">{mesAnterior}</span>
           </div>
           <div className="flex items-center gap-1.5 ml-auto">
-            <span className="w-px h-3 border-r border-outline-variant border-dashed" />
-            <span className="font-label text-[9px] text-on-surface-variant">Hoy</span>
+            {esMesActual && (
+              <>
+                <span className="w-px h-3 border-r border-outline-variant border-dashed" />
+                <span className="font-label text-[9px] text-on-surface-variant">Hoy</span>
+              </>
+            )}
           </div>
         </div>
       </div>

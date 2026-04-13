@@ -14,6 +14,7 @@ export interface Categoria {
   nombre: string;
   color: string;
   limite_mensual: number | null;
+  es_fijo: boolean;
   creado_en: string;
 }
 
@@ -164,6 +165,7 @@ export interface BalanceMensualFila {
 
 export interface CategoriaBalance {
   categoria: Categoria;
+  es_fijo: boolean;
   total: number;
   porcentaje: number | null;
   subcategorias: Array<{

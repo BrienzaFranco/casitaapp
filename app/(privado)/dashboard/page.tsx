@@ -12,12 +12,13 @@ import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { obtenerMesAnterior } from "@/lib/calculos";
 import { ChartCategoriaInteractivo } from "@/components/dashboard/ChartCategoriaInteractivo";
 import { ChartEtiquetasInteractivo } from "@/components/dashboard/ChartEtiquetasInteractivo";
-import { ChartRitmoGasto } from "@/components/dashboard/ChartRitmoGasto";
-import { ChartAportesMensuales } from "@/components/dashboard/ChartAportesMensuales";
+import { GraficoRitmoGasto } from "@/components/dashboard/GraficoRitmoGasto";
+import { GraficoAportesMensuales } from "@/components/dashboard/GraficoAportesMensuales";
 import { ChartGastoMensual } from "@/components/dashboard/ChartGastoMensual";
 import { ChartDesgloseReparto } from "@/components/dashboard/ChartDesgloseReparto";
 import { ChartComparativaPersonal } from "@/components/dashboard/ChartComparativaPersonal";
 import { EstadoPresupuestos } from "@/components/dashboard/EstadoPresupuestos";
+import { DonutFijosVariables } from "@/components/dashboard/DonutFijosVariables";
 import { TreemapSubcategorias } from "@/components/dashboard/TreemapSubcategorias";
 import { TarjetaSaldoAbierto } from "@/components/dashboard/TarjetaSaldoAbierto";
 import { TopDiasGasto } from "@/components/dashboard/TopDiasGasto";
@@ -95,6 +96,30 @@ export default function PaginaDashboard() {
     ? balance.compras.compras.filter((c) => mesClave(c.fecha) === mesAnterior)
     : [];
 
+  // ── ALL hooks BEFORE any early returns ──
+  const sparklineData = useMemo(() => {
+    const porDia = new Map<string, { total: number; franco: number; fabiola: number }>();
+    for (const compra of balance.comprasMes) {
+      const entry = porDia.get(compra.fecha) ?? { total: 0, franco: 0, fabiola: 0 };
+      for (const item of compra.items) {
+        entry.total += item.monto_resuelto;
+        entry.franco += item.pago_franco;
+        entry.fabiola += item.pago_fabiola;
+      }
+      porDia.set(compra.fecha, entry);
+    }
+    return [...porDia.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-7)
+      .map(([fecha, d]) => ({ fecha: fecha.slice(8), ...d }));
+  }, [balance.comprasMes]);
+
+  const totalMes = balance.resumenMes.total;
+  const francoMes = balance.resumenMes.franco_pago;
+  const fabiolaMes = balance.resumenMes.fabiola_pago;
+  const variacion = balance.variacionMensual;
+  const tieneVariacion = variacion.porcentaje !== null && isFinite(variacion.porcentaje);
+
   function exportar() {
     exportarExcel(balance.comprasMes, balance.resumenMes, balance.resumenHistorico, balance.categoriasMes, balance.etiquetasMes, balance.mesSeleccionado);
     toast.success(`Dashboard exportado: ${formatearMesLabel(balance.mesSeleccionado)} (${balance.comprasMes.length} compras)`);
@@ -121,6 +146,7 @@ export default function PaginaDashboard() {
     }
   }
 
+  // ── Early returns AFTER all hooks ──
   if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando) {
     return (
       <div className="space-y-3">
@@ -146,29 +172,6 @@ export default function PaginaDashboard() {
       </section>
     );
   }
-
-  const totalMes = balance.resumenMes.total;
-  const francoMes = balance.resumenMes.franco_pago;
-  const fabiolaMes = balance.resumenMes.fabiola_pago;
-  const variacion = balance.variacionMensual;
-  const tieneVariacion = variacion.porcentaje !== null && isFinite(variacion.porcentaje);
-
-  const sparklineData = useMemo(() => {
-    const porDia = new Map<string, { total: number; franco: number; fabiola: number }>();
-    for (const compra of balance.comprasMes) {
-      const entry = porDia.get(compra.fecha) ?? { total: 0, franco: 0, fabiola: 0 };
-      for (const item of compra.items) {
-        entry.total += item.monto_resuelto;
-        entry.franco += item.pago_franco;
-        entry.fabiola += item.pago_fabiola;
-      }
-      porDia.set(compra.fecha, entry);
-    }
-    return [...porDia.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-7)
-      .map(([fecha, d]) => ({ fecha: fecha.slice(8), ...d }));
-  }, [balance.comprasMes]);
 
   return (
     <section className="space-y-4">
@@ -260,7 +263,7 @@ export default function PaginaDashboard() {
         <TopDiasGasto diasMasGasto={balance.diasMasGasto} comprasMes={balance.comprasMes} />
       </div>
 
-      <ChartRitmoGasto
+      <GraficoRitmoGasto
         comprasMesActual={balance.comprasMes}
         comprasMesAnterior={comprasMesAnterior}
         mesActual={balance.mesSeleccionado}
@@ -272,14 +275,20 @@ export default function PaginaDashboard() {
         <ChartDesgloseReparto comprasMes={balance.comprasMes} nombres={balance.nombres} />
       </div>
 
+      <GraficoAportesMensuales
+        historico={balance.resumenHistorico}
+        nombres={balance.nombres}
+        colorFran={colorFran}
+        colorFabi={colorFabi}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartAportesMensuales
-          historico={balance.resumenHistorico}
-          nombres={balance.nombres}
-          colorFran={colorFran}
-          colorFabi={colorFabi}
-        />
         <EstadoPresupuestos categoriasMes={balance.categoriasMes} />
+        <DonutFijosVariables
+          categoriasMes={balance.categoriasMes}
+          colorFijo={colorFran}
+          colorVariable={colorFabi}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

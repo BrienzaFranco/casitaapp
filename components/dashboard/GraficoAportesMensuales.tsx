@@ -108,12 +108,12 @@ export function GraficoAportesMensuales({ historico, nombres, colorFran, colorFa
                   );
                 }}
               />
-              <Bar dataKey="franco" stackId="a" radius={[0, 0, 0, 0]}>
+              <Bar dataKey="franco" stackId="a" isAnimationActive={false}>
                 {datos.map((_, i) => (
                   <Cell key={`franco-${i}`} fill={colorFran} opacity={0.85} />
                 ))}
               </Bar>
-              <Bar dataKey="fabiola" stackId="a" radius={[6, 6, 0, 0]}>
+              <Bar dataKey="fabiola" stackId="a" radius={[6, 6, 0, 0]} isAnimationActive={false}>
                 {datos.map((_, i) => (
                   <Cell key={`fabiola-${i}`} fill={colorFabi} opacity={0.85} />
                 ))}

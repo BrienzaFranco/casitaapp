@@ -203,6 +203,7 @@ export function calcularCategoriasMes(
 
       return {
         categoria,
+        es_fijo: categoria.es_fijo ?? false,
         total: registro.total,
         porcentaje: categoria.limite_mensual
           ? (registro.total / Number(categoria.limite_mensual)) * 100

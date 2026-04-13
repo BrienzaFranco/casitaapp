@@ -6,6 +6,7 @@ create table if not exists categorias (
   nombre text unique not null,
   color text not null default '#6366f1',
   limite_mensual numeric,
+  es_fijo boolean not null default false,
   creado_en timestamptz not null default now()
 );
 
@@ -538,6 +539,9 @@ values
   ('Otros', '#6b7280')
 on conflict (nombre) do update
 set color = excluded.color;
+
+-- Marcar categorias fijas (gastos recurrentes mes a mes)
+update categorias set es_fijo = true where nombre in ('Vivienda', 'Servicios');
 
 with categorias_base as (
   select id, nombre from categorias
