@@ -125,6 +125,7 @@ export function GraficoRitmoGasto({ comprasMesActual, comprasMesAnterior, mesAct
                   type="monotone"
                   dataKey="acumuladoActual"
                   fill="url(#gradBurnActual)"
+                  isAnimationActive={false}
                 />
               )}
               {tieneDatosAnterior && (
@@ -132,6 +133,7 @@ export function GraficoRitmoGasto({ comprasMesActual, comprasMesAnterior, mesAct
                   type="monotone"
                   dataKey="acumuladoAnterior"
                   fill="url(#gradBurnAnterior)"
+                  isAnimationActive={false}
                 />
               )}
               {tieneDatosActual && (
@@ -143,6 +145,7 @@ export function GraficoRitmoGasto({ comprasMesActual, comprasMesAnterior, mesAct
                   dot={false}
                   activeDot={{ r: 4 }}
                   name={mesActual}
+                  isAnimationActive={false}
                 />
               )}
               {tieneDatosAnterior && (
@@ -155,6 +158,7 @@ export function GraficoRitmoGasto({ comprasMesActual, comprasMesAnterior, mesAct
                   dot={false}
                   name={mesAnterior}
                   opacity={0.5}
+                  isAnimationActive={false}
                 />
               )}
             </LineChart>

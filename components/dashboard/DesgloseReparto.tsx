@@ -71,6 +71,7 @@ export function DesgloseReparto({ comprasMes, nombres }: Props) {
                 nameKey="nombre"
                 innerRadius={45}
                 outerRadius={65}
+                isAnimationActive={false}
               >
                 {datos.map((d, i) => (
                   <Cell key={d.id} fill={d.color} fillOpacity={0.85} />
