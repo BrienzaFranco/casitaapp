@@ -79,6 +79,7 @@ export function DonutFijosVariables({ categoriasMes, colorFijo, colorVariable }:
                 outerRadius={65}
                 startAngle={90}
                 endAngle={-270}
+                isAnimationActive={false}
               >
                 {datos.segmentos.map((d, i) => (
                   <Cell key={d.id} fill={d.color} fillOpacity={0.9} />
