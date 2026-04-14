@@ -1,0 +1,318 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.db{max-width:430px;margin:0 auto;padding-bottom:2.5rem;font-family:var(--font-sans,system-ui,sans-serif)}
+
+/* ── TOPBAR ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:1rem 1rem 0.75rem}
+.month-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);font-size:13px;font-weight:500;color:var(--color-text-primary);cursor:pointer}
+.month-btn svg{opacity:.5}
+.top-actions{display:flex;gap:6px}
+.tbtn{width:34px;height:34px;border-radius:10px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--color-text-secondary)}
+
+/* ── SECTION LABEL ── */
+.slbl{font-size:10px;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--color-text-tertiary);padding:0 1rem;margin:1.25rem 0 .5rem}
+
+/* ── HERO — Gasto total vs presupuesto ── */
+.hero{margin:0 1rem;border-radius:18px;overflow:hidden;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary)}
+.hero-inner{padding:1.25rem 1.25rem .75rem}
+.hero-eyebrow{font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--color-text-tertiary);margin-bottom:.35rem}
+.hero-row{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.hero-spent{font-size:32px;font-weight:500;color:var(--color-text-primary);line-height:1}
+.hero-of{font-size:13px;color:var(--color-text-tertiary);line-height:1;padding-bottom:4px}
+.hero-badge{font-size:11px;font-weight:500;padding:4px 10px;border-radius:99px;white-space:nowrap}
+.bg-warn{background:#FAEEDA;color:#633806}
+.bg-ok{background:#EAF3DE;color:#173404}
+.bg-over{background:#FCEBEB;color:#791F1F}
+.hero-sub{margin-top:.5rem;font-size:12px;color:var(--color-text-secondary)}
+.hero-sub strong{color:var(--color-text-primary);font-weight:500}
+
+/* big progress bar */
+.big-bar{height:10px;background:var(--color-background-secondary);border-radius:0;position:relative;overflow:hidden;margin-top:.85rem}
+.big-bar-fill{height:100%;border-radius:0;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.big-bar-marker{position:absolute;top:0;bottom:0;width:1.5px;background:var(--color-border-secondary);opacity:.5}
+.bar-legend{display:flex;justify-content:space-between;padding:.4rem 1.25rem .85rem;font-size:10px;color:var(--color-text-tertiary)}
+
+/* ── VELOCIDAD — 2 columnas ── */
+.vel-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 1rem}
+.vel-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:14px;padding:.85rem 1rem}
+.vel-lbl{font-size:10px;color:var(--color-text-tertiary);margin-bottom:.3rem}
+.vel-val{font-size:18px;font-weight:500;color:var(--color-text-primary);line-height:1.1}
+.vel-sub{font-size:11px;margin-top:.2rem}
+.tc-ok{color:#0F6E56}
+.tc-warn{color:#854F0B}
+.tc-over{color:#A32D2D}
+.vel-spark{margin-top:7px;height:24px}
+
+/* ── CATEGORÍAS ── */
+.cats{margin:0 1rem}
+
+/* Tarjeta de categoría */
+.ccard{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:14px;padding:.85rem 1rem;margin-bottom:6px;cursor:pointer;transition:border-color .15s}
+.ccard:hover{border-color:var(--color-border-secondary)}
+.ccard.c-over{border-color:#F09595;background:#FCEBEB}
+.ccard.c-warn{border-left:3px solid #EF9F27}
+.ccard.c-ok{}
+.ccard.c-fixed{opacity:.8}
+
+.ccard-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.ccat-left{display:flex;align-items:center;gap:7px}
+.cdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.cname{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.cfixed{font-size:9px;padding:1px 5px;border-radius:99px;background:var(--color-background-secondary);color:var(--color-text-tertiary);margin-left:2px;font-weight:500}
+.cright{text-align:right}
+.cremaining{font-size:13px;font-weight:500}
+.cof{font-size:10px;color:var(--color-text-tertiary);margin-top:1px}
+
+.cbar-track{height:5px;background:var(--color-background-secondary);border-radius:99px;overflow:hidden}
+.cbar-fill{height:100%;border-radius:99px;transition:width .4s}
+.cfill-ok{background:#1D9E75}
+.cfill-warn{background:#EF9F27}
+.cfill-over{background:#E24B4A}
+.cfill-fixed{background:#7F77DD}
+
+.ccard-foot{display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--color-text-tertiary)}
+
+/* Categorías sin límite */
+.nolimit-group{margin-top:8px}
+.nolimit-header{font-size:10px;color:var(--color-text-tertiary);margin-bottom:5px;padding-left:2px}
+.nolimit-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--color-background-secondary);border-radius:10px;margin-bottom:4px}
+.nolimit-left{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary)}
+.nolimit-amt{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+
+/* ── BALANCE ── */
+.bal-card{margin:0 1rem;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:14px;padding:.85rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.bal-avatars{display:flex}
+.bav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;border:2px solid var(--color-background-primary);flex-shrink:0}
+.bav-f{background:#EEEDFE;color:#534AB7;z-index:1}
+.bav-b{background:#E1F5EE;color:#0F6E56;margin-left:-7px}
+.bal-text{font-size:12px;color:var(--color-text-secondary);flex:1}
+.bal-text strong{color:var(--color-text-primary);font-weight:500}
+.bal-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.bal-amount{font-size:15px;font-weight:500}
+.settle-btn{font-size:11px;padding:5px 11px;border-radius:99px;border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);cursor:pointer;white-space:nowrap}
+.settle-btn:hover{background:var(--color-background-secondary)}
+
+/* ── ALERTAS ── */
+.alerts{margin:0 1rem;display:flex;flex-direction:column;gap:6px}
+.alert-item{border-radius:11px;padding:9px 11px;font-size:12px;display:flex;align-items:flex-start;gap:8px;line-height:1.45}
+.alert-item strong{font-weight:500}
+.al-warn{background:#FAEEDA;color:#633806}
+.al-ok{background:#EAF3DE;color:#173404}
+.al-info{background:#E6F1FB;color:#042C53}
+.al-icon{font-size:13px;flex-shrink:0;margin-top:1px}
+
+/* ── DIVIDER ── */
+.divider{height:0.5px;background:var(--color-border-tertiary);margin:1.25rem 1rem 0}
+</style>
+
+<div class="db">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <button class="month-btn">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 5h10" stroke="currentColor" stroke-width="1.2"/><path d="M4 1v2M8 1v2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Abril 2026
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2.5 4L5 6.5L7.5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="top-actions">
+      <div class="tbtn" title="Exportar Excel">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v9M4 7l3.5 3.5L11 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v1.5a.5.5 0 00.5.5h10a.5.5 0 00.5-.5V11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </div>
+      <div class="tbtn" title="Nueva compra">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ① GASTO TOTAL VS PRESUPUESTO -->
+  <div class="slbl">gasto del mes</div>
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="hero-eyebrow">total gastado en abril</div>
+      <div class="hero-row">
+        <div class="hero-spent">$284.500</div>
+        <div class="hero-badge bg-warn">78% usado</div>
+      </div>
+      <div class="hero-sub">Presupuesto: <strong>$365.000</strong> · Quedan <strong>$80.500</strong> para <strong>17 días</strong></div>
+    </div>
+    <div class="big-bar">
+      <div class="big-bar-fill" style="width:78%;background:#EF9F27"></div>
+      <!-- marker en 100% -->
+      <div class="big-bar-marker" style="left:100%"></div>
+    </div>
+    <div class="bar-legend"><span>$0</span><span>$365.000</span></div>
+  </div>
+
+  <!-- ② VELOCIDAD -->
+  <div class="slbl">velocidad de gasto</div>
+  <div class="vel-grid">
+    <div class="vel-card">
+      <div class="vel-lbl">Proyección fin de mes</div>
+      <div class="vel-val tc-warn">$368.200</div>
+      <div class="vel-sub tc-warn">↑ $3.200 sobre el límite</div>
+      <div class="vel-spark">
+        <svg width="100%" height="24" viewBox="0 0 110 24" preserveAspectRatio="none">
+          <!-- línea objetivo -->
+          <line x1="0" y1="2" x2="110" y2="2" stroke="#1D9E75" stroke-width="1" stroke-dasharray="3 2" opacity=".5"/>
+          <!-- ritmo actual -->
+          <polyline fill="none" stroke="#EF9F27" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+            points="0,22 14,20 28,18 42,15 56,12 70,10 84,7 110,3"/>
+        </svg>
+      </div>
+    </div>
+    <div class="vel-card">
+      <div class="vel-lbl">Promedio diario</div>
+      <div class="vel-val">$10.500</div>
+      <div class="vel-sub tc-ok">↓ 12% vs marzo</div>
+      <div class="vel-spark">
+        <svg width="100%" height="24" viewBox="0 0 110 24" preserveAspectRatio="none">
+          <rect x="0"  y="6"  width="14" height="18" rx="2" fill="#B5D4F4" opacity=".7"/>
+          <rect x="16" y="10" width="14" height="14" rx="2" fill="#B5D4F4" opacity=".7"/>
+          <rect x="32" y="4"  width="14" height="20" rx="2" fill="#B5D4F4" opacity=".7"/>
+          <rect x="48" y="9"  width="14" height="15" rx="2" fill="#B5D4F4" opacity=".7"/>
+          <rect x="64" y="2"  width="14" height="22" rx="2" fill="#EF9F27" opacity=".8"/>
+          <rect x="80" y="11" width="14" height="13" rx="2" fill="#1D9E75" opacity=".9"/>
+          <rect x="96" y="14" width="14" height="10" rx="2" fill="#1D9E75" opacity=".9"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ LÍMITES POR CATEGORÍA -->
+  <div class="slbl">límites por categoría</div>
+  <div class="cats">
+
+    <!-- EXCEDIDA -->
+    <div class="ccard c-over">
+      <div class="ccard-top">
+        <div class="ccat-left">
+          <div class="cdot" style="background:#E24B4A"></div>
+          <div class="cname">Salidas / Ocio</div>
+        </div>
+        <div class="cright">
+          <div class="cremaining tc-over">–$8.200 excedido</div>
+          <div class="cof">$38.200 de $30.000</div>
+        </div>
+      </div>
+      <div class="cbar-track"><div class="cbar-fill cfill-over" style="width:100%"></div></div>
+      <div class="ccard-foot"><span>127% del límite</span><span>Excediste el límite</span></div>
+    </div>
+
+    <!-- CASI AL LÍMITE -->
+    <div class="ccard c-warn">
+      <div class="ccard-top">
+        <div class="ccat-left">
+          <div class="cdot" style="background:#EF9F27"></div>
+          <div class="cname">Supermercado</div>
+        </div>
+        <div class="cright">
+          <div class="cremaining tc-warn">$6.000 restante</div>
+          <div class="cof">$74.000 de $80.000</div>
+        </div>
+      </div>
+      <div class="cbar-track"><div class="cbar-fill cfill-warn" style="width:92%"></div></div>
+      <div class="ccard-foot"><span>92%</span><span>Casi al límite</span></div>
+    </div>
+
+    <!-- OK -->
+    <div class="ccard c-ok">
+      <div class="ccard-top">
+        <div class="ccat-left">
+          <div class="cdot" style="background:#1D9E75"></div>
+          <div class="cname">Restaurantes</div>
+        </div>
+        <div class="cright">
+          <div class="cremaining tc-ok">$22.500 restante</div>
+          <div class="cof">$27.500 de $50.000</div>
+        </div>
+      </div>
+      <div class="cbar-track"><div class="cbar-fill cfill-ok" style="width:55%"></div></div>
+      <div class="ccard-foot"><span>55%</span><span></span></div>
+    </div>
+
+    <!-- OK -->
+    <div class="ccard c-ok">
+      <div class="ccard-top">
+        <div class="ccat-left">
+          <div class="cdot" style="background:#1D9E75"></div>
+          <div class="cname">Transporte</div>
+        </div>
+        <div class="cright">
+          <div class="cremaining tc-ok">$18.000 restante</div>
+          <div class="cof">$12.000 de $30.000</div>
+        </div>
+      </div>
+      <div class="cbar-track"><div class="cbar-fill cfill-ok" style="width:40%"></div></div>
+      <div class="ccard-foot"><span>40%</span><span></span></div>
+    </div>
+
+    <!-- FIJO PAGADO -->
+    <div class="ccard c-fixed">
+      <div class="ccard-top">
+        <div class="ccat-left">
+          <div class="cdot" style="background:#7F77DD"></div>
+          <div class="cname">Alquiler <span class="cfixed">FIJO</span></div>
+        </div>
+        <div class="cright">
+          <div class="cremaining" style="color:#534AB7">Pagado ✓</div>
+          <div class="cof">$85.000 de $85.000</div>
+        </div>
+      </div>
+      <div class="cbar-track"><div class="cbar-fill cfill-fixed" style="width:100%"></div></div>
+      <div class="ccard-foot"><span>100%</span><span></span></div>
+    </div>
+
+    <!-- SIN LÍMITE -->
+    <div class="nolimit-group">
+      <div class="nolimit-header">sin límite configurado</div>
+      <div class="nolimit-item">
+        <div class="nolimit-left"><div class="cdot" style="background:#B4B2A9"></div>Farmacia</div>
+        <div class="nolimit-amt">$12.300</div>
+      </div>
+      <div class="nolimit-item">
+        <div class="nolimit-left"><div class="cdot" style="background:#B4B2A9"></div>Ropa</div>
+        <div class="nolimit-amt">$8.900</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ④ BALANCE -->
+  <div class="slbl">balance entre los dos</div>
+  <div class="bal-card">
+    <div class="bal-avatars">
+      <div class="bav bav-b">Fab</div>
+      <div class="bav bav-f">Fra</div>
+    </div>
+    <div class="bal-text">
+      <strong>Fabiola</strong> le debe a <strong>Franco</strong>
+    </div>
+    <div class="bal-right">
+      <div class="bal-amount tc-over">$18.200</div>
+      <button class="settle-btn">Saldar</button>
+    </div>
+  </div>
+
+  <!-- ⑤ ALERTAS -->
+  <div class="slbl">alertas</div>
+  <div class="alerts">
+    <div class="alert-item al-warn">
+      <div class="al-icon">⚠</div>
+      <div><strong>Salidas / Ocio</strong> excedió el límite en $8.200. Llevás 127% del presupuesto.</div>
+    </div>
+    <div class="alert-item al-warn">
+      <div class="al-icon">⚠</div>
+      <div><strong>Supermercado</strong> al 92% del límite. Solo quedan $6.000 para el resto del mes.</div>
+    </div>
+    <div class="alert-item al-ok">
+      <div class="al-icon">✓</div>
+      <div>El gasto diario bajó un 12% respecto a marzo. Buen ritmo.</div>
+    </div>
+    <div class="alert-item al-info">
+      <div class="al-icon">→</div>
+      <div>A este ritmo vas a gastar $3.200 más del presupuesto. Ajustá Ocio o Supermercado.</div>
+    </div>
+  </div>
+
+</div>

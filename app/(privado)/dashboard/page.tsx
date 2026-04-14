@@ -1,90 +1,282 @@
 "use client";
 
-import { useMemo } from "react";
-import { Download, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Download, Plus, Calendar, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { formatearPeso } from "@/lib/formatear";
-import { mesClave, fechaLocalISO } from "@/lib/utiles";
+import { formatearPeso, formatearPorcentaje } from "@/lib/formatear";
+import { mesClave, fechaLocalISO, mesLocalISO } from "@/lib/utiles";
 import { exportarExcel } from "@/lib/exportar";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { obtenerMesAnterior } from "@/lib/calculos";
-import { GraficoRitmoGasto } from "@/components/dashboard/GraficoRitmoGasto";
-import { GraficoAportesMensuales } from "@/components/dashboard/GraficoAportesMensuales";
-import { EstadoPresupuestos } from "@/components/dashboard/EstadoPresupuestos";
-import { DonutFijosVariables } from "@/components/dashboard/DonutFijosVariables";
-import { TreemapSubcategorias } from "@/components/dashboard/TreemapSubcategorias";
-import { ComparativaPersonal } from "@/components/dashboard/ComparativaPersonal";
+import type { CategoriaBalance } from "@/types";
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 function formatearMesLabel(mes: string): string {
+  const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const [anio, mesNum] = mes.split("-");
+  return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
+}
+
+function formatearMesCorto(mes: string): string {
   const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
   const [anio, mesNum] = mes.split("-");
   return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function hexToRgba(hex: string, alpha: number): string {
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// ─── Sparkline SVG Components ───────────────────────────────────────────────
+
+function SparklineProyeccion({ datos, colorLine, colorTarget }: { datos: number[]; colorLine: string; colorTarget: string }) {
+  if (datos.length < 2) return null;
+  const max = Math.max(...datos, 1);
+  const w = 110;
+  const h = 24;
+  const pad = 2;
+  const pts = datos.map((v, i) => {
+    const x = pad + (i / (datos.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((v / max) * (h - pad * 2));
+    return `${x},${y}`;
+  });
+
   return (
-    <p className="font-label text-[10px] font-medium uppercase tracking-widest text-on-surface-variant/70 mb-2">
-      {children}
-    </p>
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+      <line x1={pad} y1={pad} x2={w - pad} y2={pad} stroke={colorTarget} strokeWidth="1" strokeDasharray="3 2" opacity="0.5" />
+      <polyline
+        fill="none"
+        stroke={colorLine}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={pts.join(" ")}
+      />
+    </svg>
   );
 }
 
-function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function SparklineBarras({ datos, maxVal }: { datos: number[]; maxVal: number }) {
+  if (datos.length === 0) return null;
+  const w = 110;
+  const h = 24;
+  const barW = 14;
+  const gap = 2;
+  const totalW = datos.length * (barW + gap) - gap;
+  const offsetX = (w - totalW) / 2;
+
   return (
-    <div className={`bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 ${className}`}>
-      {children}
-    </div>
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+      {datos.map((v, i) => {
+        const barH = maxVal > 0 ? (v / maxVal) * (h - 4) : 0;
+        const x = offsetX + i * (barW + gap);
+        const y = h - 2 - barH;
+        const isCurrent = i === datos.length - 2;
+        const isRecent = i >= datos.length - 2;
+        const color = isCurrent ? "rgba(239,159,39,0.8)" : isRecent ? "rgba(29,158,117,0.9)" : "rgba(181,212,244,0.7)";
+        return <rect key={i} x={x} y={y} width={barW} height={barH} rx="2" fill={color} />;
+      })}
+    </svg>
   );
 }
+
+// ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function PaginaDashboard() {
   const balance = usarBalance();
   const config = usarConfiguracion();
   const colorFran = config.colores.franco;
   const colorFabi = config.colores.fabiola;
+  const [mesSelectorOpen, setMesSelectorOpen] = useState(false);
 
+  // ── Derived data ──
   const mesAnterior = obtenerMesAnterior(balance.mesSeleccionado);
   const comprasMesAnterior = mesAnterior
     ? balance.compras.compras.filter((c) => mesClave(c.fecha) === mesAnterior)
     : [];
 
-  const diasEnMes = new Date(
-    parseInt(balance.mesSeleccionado.split("-")[0]),
-    parseInt(balance.mesSeleccionado.split("-")[1]),
+  const hoy = new Date();
+  const diaDelMes = hoy.getDate();
+  const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+  const diasRestantes = diasEnMes - diaDelMes;
+
+  // Total budget = sum of all category limits
+  const presupuestoTotal = balance.categorias.categorias.reduce(
+    (acc, cat) => acc + (cat.limite_mensual ?? 0),
     0,
-  ).getDate();
+  );
 
-  const promedioDiario = useMemo(() => {
-    return diasEnMes > 0 ? balance.resumenMes.total / diasEnMes : 0;
-  }, [balance.resumenMes.total, diasEnMes]);
+  const totalGastado = balance.resumenMes.total;
+  const restante = presupuestoTotal - totalGastado;
+  const pctUsado = presupuestoTotal > 0 ? (totalGastado / presupuestoTotal) * 100 : 0;
 
-  const mayorCategoria = useMemo(() => {
-    if (!balance.categoriasMes.length) return { nombre: "\u2014", pct: 0 };
-    const top = balance.categoriasMes[0];
-    const pct = balance.resumenMes.total > 0 ? Math.round((top.total / balance.resumenMes.total) * 100) : 0;
-    return { nombre: top.categoria.nombre, pct };
-  }, [balance.categoriasMes, balance.resumenMes.total]);
+  // Daily average
+  const promedioDiario = diasEnMes > 0 ? totalGastado / diasEnMes : 0;
 
-  const variacion = balance.variacionMensual;
-  const tieneVariacion = variacion.porcentaje !== null && isFinite(variacion.porcentaje);
+  // Previous month daily average
+  const totalMesAnterior = comprasMesAnterior.reduce(
+    (acc, c) => acc + c.items.reduce((a, i) => a + i.monto_resuelto, 0), 0,
+  );
+  const diasEnMesAnterior = mesAnterior
+    ? new Date(parseInt(mesAnterior.split("-")[0]), parseInt(mesAnterior.split("-")[1]), 0).getDate()
+    : diasEnMes;
+  const promedioDiarioAnterior = diasEnMesAnterior > 0 ? totalMesAnterior / diasEnMesAnterior : 0;
+  const variacionDiaria = promedioDiarioAnterior > 0
+    ? ((promedioDiario - promedioDiarioAnterior) / promedioDiarioAnterior) * 100
+    : 0;
 
+  // Projection: if we keep current pace, what's end-of-month total?
+  const factorProyeccion = diaDelMes > 0 ? diasEnMes / diaDelMes : 1;
+  const proyeccionFinMes = Math.round(totalGastado * factorProyeccion * 100) / 100;
+  const diffProyeccion = proyeccionFinMes - presupuestoTotal;
+
+  // Sparkline data for projection (cumulative spending day by day)
+  const sparklineProyeccion = useMemo(() => {
+    const porDia = new Map<number, number>();
+    for (const compra of balance.comprasMes) {
+      const dia = new Date(`${compra.fecha}T00:00:00`).getDate();
+      porDia.set(dia, (porDia.get(dia) ?? 0) + compra.items.reduce((a, i) => a + i.monto_resuelto, 0));
+    }
+    let acum = 0;
+    const pts: number[] = [];
+    for (let d = 1; d <= Math.max(diaDelMes, 14); d++) {
+      acum += porDia.get(d) ?? (d <= diaDelMes ? 0 : promedioDiario * 0.3);
+      pts.push(acum);
+    }
+    return pts;
+  }, [balance.comprasMes, diaDelMes, promedioDiario]);
+
+  // Sparkline data for daily average (last 7 days)
+  const sparklineDiario = useMemo(() => {
+    const porDia = new Map<string, number>();
+    for (const compra of balance.comprasMes) {
+      porDia.set(compra.fecha, (porDia.get(compra.fecha) ?? 0) + compra.items.reduce((a, i) => a + i.monto_resuelto, 0));
+    }
+    const ultimos7: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(hoy);
+      d.setDate(d.getDate() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      ultimos7.push(porDia.get(key) ?? 0);
+    }
+    return ultimos7;
+  }, [balance.comprasMes, hoy]);
+
+  // ── Categorized categories ──
+  const categoriasConLimite = useMemo(() => {
+    const conLimite = balance.categoriasMes.filter(
+      (c) => c.categoria.limite_mensual && c.categoria.limite_mensual > 0,
+    );
+
+    // Sort: exceeded first, then warn, then OK, then fixed at bottom
+    const ordenPrioridad = (cat: CategoriaBalance) => {
+      const pct = cat.porcentaje ?? 0;
+      if (pct > 100) return 0; // exceeded → top
+      if (pct >= 80) return 1; // warn
+      if (cat.es_fijo) return 4; // fixed → bottom
+      return 2; // OK
+    };
+
+    return [...conLimite].sort((a, b) => {
+      const oa = ordenPrioridad(a);
+      const ob = ordenPrioridad(b);
+      if (oa !== ob) return oa - ob;
+      // Within same tier, sort by percentage descending
+      return (b.porcentaje ?? 0) - (a.porcentaje ?? 0);
+    });
+  }, [balance.categoriasMes]);
+
+  const categoriasSinLimite = useMemo(() => {
+    return balance.categoriasMes.filter(
+      (c) => (!c.categoria.limite_mensual || c.categoria.limite_mensual <= 0) && c.total > 0,
+    );
+  }, [balance.categoriasMes]);
+
+  // ── Alerts ──
+  const alertas = useMemo(() => {
+    const list: Array<{ tipo: "warn" | "ok" | "info"; texto: React.ReactNode }> = [];
+
+    // Exceeded categories
+    const excedidas = categoriasConLimite.filter((c) => (c.porcentaje ?? 0) > 100);
+    for (const cat of excedidas) {
+      const excedido = cat.total - Number(cat.categoria.limite_mensual);
+      list.push({
+        tipo: "warn",
+        texto: <><strong>{cat.categoria.nombre}</strong> excedio el limite en {formatearPeso(excedido)}. Llevas {formatearPorcentaje(cat.porcentaje ?? 0)} del presupuesto.</>,
+      });
+    }
+
+    // Near-limit categories
+    const casiLimite = categoriasConLimite.filter((c) => {
+      const pct = c.porcentaje ?? 0;
+      return pct >= 80 && pct <= 100;
+    });
+    for (const cat of casiLimite) {
+      const restanteCat = Number(cat.categoria.limite_mensual) - cat.total;
+      list.push({
+        tipo: "warn",
+        texto: <><strong>{cat.categoria.nombre}</strong> al {formatearPorcentaje(cat.porcentaje ?? 0)} del limite. Solo quedan {formatearPeso(restanteCat)} para el resto del mes.</>,
+      });
+    }
+
+    // Good daily trend
+    if (variacionDiaria < -5) {
+      list.push({
+        tipo: "ok",
+        texto: <>El gasto diario bajo un {formatearPorcentaje(Math.abs(variacionDiaria))} respecto a {formatearMesCorto(mesAnterior)}. Buen ritmo.</>,
+      });
+    }
+
+    // Projection warning
+    if (diffProyeccion > 0 && excedidas.length === 0) {
+      list.push({
+        tipo: "info",
+        texto: <>A este ritmo vas a gastar {formatearPeso(diffProyeccion)} mas del presupuesto. Ajusta alguna categoria.</>,
+      });
+    }
+
+    // Balance pending
+    if (balance.saldoAbierto.deudor) {
+      list.push({
+        tipo: "info",
+        texto: <><strong>{balance.saldoAbierto.deudor}</strong> debe {formatearPeso(Math.abs(balance.saldoAbierto.balance))} a <strong>{balance.saldoAbierto.acreedor}</strong>.</>,
+      });
+    }
+
+    // All clear
+    if (list.length === 0) {
+      list.push({
+        tipo: "ok",
+        texto: <>Todo en orden. Sin alertas este mes.</>,
+      });
+    }
+
+    return list;
+  }, [categoriasConLimite, variacionDiaria, diffProyeccion, mesAnterior, balance.saldoAbierto]);
+
+  // ── Handlers ──
   function exportar() {
     exportarExcel(balance.comprasMes, balance.resumenMes, balance.resumenHistorico, balance.categoriasMes, balance.etiquetasMes, balance.mesSeleccionado);
     toast.success(`Exportado: ${formatearMesLabel(balance.mesSeleccionado)} (${balance.comprasMes.length} compras)`);
   }
 
-  async function quedarAMano() {
+  async function saldarBalance() {
     try {
-      const hoy = fechaLocalISO();
+      const hoyStr = fechaLocalISO();
       const resumen = balance.saldoAbierto.deudor
         ? `${balance.saldoAbierto.deudor} debia ${formatearPeso(Math.abs(balance.saldoAbierto.balance))} a ${balance.saldoAbierto.acreedor}`
         : "sin deuda";
 
       await balance.cortes.crearCorte({
-        fecha_corte: hoy,
-        nota: `Quedaron a mano (${hoy}): ${resumen}. Franco pago ${formatearPeso(balance.saldoAbierto.franco_pago)}, Fabiola pago ${formatearPeso(balance.saldoAbierto.fabiola_pago)}.`,
+        fecha_corte: hoyStr,
+        nota: `Quedaron a mano (${hoyStr}): ${resumen}. Franco pago ${formatearPeso(balance.saldoAbierto.franco_pago)}, Fabiola pago ${formatearPeso(balance.saldoAbierto.fabiola_pago)}.`,
         hogar_id: balance.compras.compras[0]?.hogar_id ?? null,
         actualizado_por: balance.usuario.perfil?.nombre ?? "Sistema",
       });
@@ -96,71 +288,13 @@ export default function PaginaDashboard() {
     }
   }
 
-  const insights = useMemo(() => {
-    const list: Array<{ tipo: "warn" | "good" | "info"; texto: React.ReactNode }> = [];
-    const pct = variacion.porcentaje;
-
-    if (pct !== null && pct > 15) {
-      list.push({
-        tipo: "warn",
-        texto: <><strong>{mayorCategoria.nombre} subio {pct}%</strong> vs mes anterior.</>,
-      });
-    }
-
-    if (pct !== null && pct < -10) {
-      list.push({
-        tipo: "good",
-        texto: <><strong>Bajaron {Math.abs(pct)}%</strong> vs mes anterior. Buen control.</>,
-      });
-    }
-
-    const conLimite = balance.categoriasMes.filter(c => c.categoria.limite_mensual && c.categoria.limite_mensual > 0);
-    const excedidas = conLimite.filter(c => (c.porcentaje ?? 0) > 100);
-    if (excedidas.length > 0) {
-      list.push({
-        tipo: "warn",
-        texto: <><strong>{excedidas.length} categoria excedida:</strong> {excedidas.map(c => c.categoria.nombre).join(", ")}.</>,
-      });
-    }
-
-    const bienPresupuesto = conLimite.filter(c => (c.porcentaje ?? 0) < 60);
-    if (bienPresupuesto.length >= 2) {
-      list.push({
-        tipo: "good",
-        texto: <><strong>{bienPresupuesto.length} categorias bajo control</strong> — menos del 60% del limite.</>,
-      });
-    }
-
-    if (balance.saldoAbierto.deudor) {
-      list.push({
-        tipo: "info",
-        texto: <><strong>Balance pendiente:</strong> {balance.saldoAbierto.deudor} debe {formatearPeso(Math.abs(balance.saldoAbierto.balance))} a {balance.saldoAbierto.acreedor}.</>,
-      });
-    }
-
-    if (list.length === 0) {
-      list.push({
-        tipo: "info",
-        texto: <><strong>Sin alertas</strong> — todo parece estar en orden este mes.</>,
-      });
-    }
-
-    return list.slice(0, 3);
-  }, [tieneVariacion, variacion, mayorCategoria, balance.categoriasMes, balance.saldoAbierto]);
-
-  const iconMap = { warn: AlertTriangle, good: CheckCircle2, info: Info };
-  const colorMap = {
-    warn: { bg: "bg-amber-500/10", text: "text-amber-500", icon: "text-amber-500" },
-    good: { bg: "bg-emerald-500/10", text: "text-emerald-500", icon: "text-emerald-500" },
-    info: { bg: "bg-blue-500/10", text: "text-blue-500", icon: "text-blue-500" },
-  };
-
+  // ── Loading / empty states ──
   if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando) {
     return (
-      <div className="space-y-3">
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <Skeleton className="h-48 w-full rounded-xl" />
+      <div className="space-y-3 px-4 pt-4">
+        <Skeleton className="h-10 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-28 w-full rounded-xl" />
       </div>
     );
   }
@@ -168,203 +302,376 @@ export default function PaginaDashboard() {
   const sinCompras = !balance.compras.cargando && balance.compras.compras.length === 0;
   if (sinCompras) {
     return (
-      <section className="space-y-3">
-        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-5">
+      <section className="px-4 pt-4">
+        <div className="rounded-xl border border-outline-variant/10 p-5 bg-surface-container-lowest">
           <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 mb-1">Dashboard</p>
-          <h2 className="font-headline text-2xl font-semibold tracking-tight text-on-surface">Dashboard de gastos</h2>
-          <p className="text-sm text-on-surface-variant mt-1">Sin compras registradas.</p>
+          <h2 className="font-headline text-2xl font-semibold tracking-tight text-on-surface mt-0.5">Sin compras registradas</h2>
+          <p className="text-sm text-on-surface-variant mt-1">Agrega tu primera compra para ver las metricas aqui.</p>
         </div>
       </section>
     );
   }
 
+  // ── Color helpers for hero bar ──
+  const heroBadgeClass = pctUsado > 100
+    ? "bg-[#FCEBEB] text-[#791F1F]"
+    : pctUsado > 75
+      ? "bg-[#FAEEDA] text-[#633806]"
+      : "bg-[#EAF3DE] text-[#173404]";
+
+  const heroBarColor = pctUsado > 100
+    ? "#E24B4A"
+    : pctUsado > 75
+      ? "#EF9F27"
+      : "#1D9E75";
+
+  const proyeccionColor = diffProyeccion > 0 ? "tc-warn" : "tc-ok";
+
+  // ── Render ──
   return (
-    <section className="space-y-5 pb-20 md:pb-8">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70">Metricas</p>
-          <h2 className="font-headline text-2xl font-bold tracking-tight text-on-surface mt-0.5">
+    <div className="max-w-[430px] mx-auto pb-10" style={{ fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
+
+      {/* ── TOPBAR ── */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMesSelectorOpen(!mesSelectorOpen)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium bg-surface-container-low border-[0.5px] border-outline-variant/20 text-on-surface hover:bg-surface-container"
+          >
+            <Calendar className="h-3 w-3 opacity-50" />
             {formatearMesLabel(balance.mesSeleccionado)}
-          </h2>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="opacity-50">
+              <path d="M2.5 4L5 6.5L7.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          {mesSelectorOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50">
+              <input
+                type="month"
+                value={balance.mesSeleccionado}
+                onChange={(e) => { balance.setMesSeleccionado(e.target.value); setMesSelectorOpen(false); }}
+                onBlur={() => setTimeout(() => setMesSelectorOpen(false), 200)}
+                autoFocus
+                className="h-9 rounded-lg bg-surface-container-low px-3 font-label text-xs tabular-nums outline-none text-on-surface border border-outline-variant/15 shadow-lg"
+              />
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="month"
-            value={balance.mesSeleccionado}
-            onChange={(e) => balance.setMesSeleccionado(e.target.value)}
-            className="h-8 rounded-lg bg-surface-container-low px-3 font-label text-xs tabular-nums outline-none text-on-surface border border-outline-variant/15"
-          />
+        <div className="flex gap-1.5">
           <button
             type="button"
             onClick={exportar}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-surface-container-high font-label text-[10px] font-bold uppercase tracking-wider text-on-surface hover:bg-surface-container-highest transition-colors"
+            className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"
+            title="Exportar Excel"
           >
-            <Download className="h-3.5 w-3.5" /> Exportar
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+              <path d="M7.5 1v9M4 7l3.5 3.5L11 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M2 11v1.5a.5.5 0 00.5.5h10a.5.5 0 00.5-.5V11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => window.location.href = "/nueva-compra"}
+            className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"
+            title="Nueva compra"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {/* Gasto total */}
-        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-3.5">
-          <p className="font-label text-[11px] text-on-surface-variant/70 mb-1">Gasto total</p>
-          <p className="font-headline text-xl font-semibold tracking-tight text-on-surface tabular-nums">
-            {formatearPeso(balance.resumenMes.total)}
+      {/* ── SECTION LABEL ── */}
+      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
+        gasto del mes
+      </p>
+
+      {/* ── HERO: Gasto vs Presupuesto ── */}
+      <div className="mx-4 rounded-[18px] overflow-hidden bg-surface-container-lowest border-[0.5px] border-outline-variant/10">
+        <div className="px-5 py-5 pb-3">
+          <p className="text-[10px] font-medium uppercase tracking-[.08em] text-on-surface-variant/50 mb-1">
+            total gastado en {formatearMesLabel(balance.mesSeleccionado).split(" ")[0].toLowerCase()}
           </p>
-          {tieneVariacion && (
-            <div className="flex items-center gap-1 mt-1.5">
-              {variacion.diferencia > 0 ? (
-                <TrendingUp className="h-3.5 w-3.5 text-error" />
-              ) : variacion.diferencia < 0 ? (
-                <TrendingDown className="h-3.5 w-3.5 text-success" />
-              ) : (
-                <Minus className="h-3.5 w-3.5 text-on-surface-variant/50" />
-              )}
-              <span className={`font-label text-[11px] tabular-nums ${
-                variacion.diferencia > 0 ? "text-error" : variacion.diferencia < 0 ? "text-success" : "text-on-surface-variant/60"
-              }`}>
-                {variacion.diferencia > 0 ? "+" : ""}{variacion.porcentaje !== null ? Math.abs(variacion.porcentaje) : 0}% vs mes ant.
+          <div className="flex items-end justify-between gap-2">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[32px] font-medium leading-none text-on-surface tracking-tight">
+                {formatearPeso(totalGastado)}
               </span>
+              {presupuestoTotal > 0 && (
+                <span className="text-[13px] text-on-surface-variant/50 leading-none pb-1">
+                  de {formatearPeso(presupuestoTotal)}
+                </span>
+              )}
             </div>
+            {presupuestoTotal > 0 && (
+              <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${heroBadgeClass}`}>
+                {formatearPorcentaje(Math.round(pctUsado))} usado
+              </span>
+            )}
+          </div>
+          {presupuestoTotal > 0 && (
+            <p className="text-[12px] text-on-surface-variant/70 mt-2">
+              Quedan <strong className="text-on-surface font-medium">{formatearPeso(restante)}</strong> para{" "}
+              <strong className="text-on-surface font-medium">{diasRestantes} dias</strong>
+            </p>
+          )}
+        </div>
+
+        {/* Big progress bar */}
+        {presupuestoTotal > 0 && (
+          <>
+            <div className="h-[10px] bg-surface-container-low relative overflow-hidden">
+              <div
+                className="h-full transition-all duration-500"
+                style={{ width: `${Math.min(pctUsado, 100)}%`, background: heroBarColor }}
+              />
+              {/* 100% marker */}
+              <div className="absolute top-0 bottom-0 w-[1.5px] bg-outline-variant/30" style={{ left: "100%" }} />
+            </div>
+            <div className="flex justify-between px-5 pb-3 pt-1 text-[10px] text-on-surface-variant/40">
+              <span>$0</span>
+              <span>{formatearPeso(presupuestoTotal)}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── VELOCIDAD ── */}
+      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
+        velocidad de gasto
+      </p>
+      <div className="grid grid-cols-2 gap-2 px-4">
+        {/* Proyección */}
+        <div className="bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3">
+          <p className="text-[10px] text-on-surface-variant/50 mb-1">Proyeccion fin de mes</p>
+          {presupuestoTotal > 0 ? (
+            <>
+              <p className={`text-[18px] font-medium leading-tight ${proyeccionColor === "tc-warn" ? "text-[#854F0B]" : "text-[#0F6E56]"}`}>
+                {formatearPeso(proyeccionFinMes)}
+              </p>
+              <p className={`text-[11px] mt-0.5 ${diffProyeccion > 0 ? "text-[#854F0B]" : "text-[#0F6E56]"}`}>
+                {diffProyeccion > 0 ? `↑ ${formatearPeso(diffProyeccion)} sobre el limite` : `↓ ${formatearPeso(Math.abs(diffProyeccion))} bajo el limite`}
+              </p>
+              <div className="mt-[7px] h-6">
+                <SparklineProyeccion
+                  datos={sparklineProyeccion}
+                  colorLine={diffProyeccion > 0 ? "#EF9F27" : "#1D9E75"}
+                  colorTarget="#1D9E75"
+                />
+              </div>
+            </>
+          ) : (
+            <p className="text-[18px] font-medium leading-tight text-on-surface-variant/40">Sin limite</p>
           )}
         </div>
 
         {/* Promedio diario */}
-        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-3.5">
-          <p className="font-label text-[11px] text-on-surface-variant/70 mb-1">Promedio diario</p>
-          <p className="font-headline text-xl font-semibold tracking-tight text-on-surface tabular-nums">
+        <div className="bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3">
+          <p className="text-[10px] text-on-surface-variant/50 mb-1">Promedio diario</p>
+          <p className="text-[18px] font-medium leading-tight text-on-surface">
             {formatearPeso(Math.round(promedioDiario))}
           </p>
-          <p className="font-label text-[11px] text-on-surface-variant/50 mt-1.5">{diasEnMes} dias</p>
-        </div>
-
-        {/* Mayor categoria */}
-        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-3.5">
-          <p className="font-label text-[11px] text-on-surface-variant/70 mb-1">Mayor categoria</p>
-          <p className="font-headline text-xl font-semibold tracking-tight text-on-surface">
-            {mayorCategoria.nombre}
-          </p>
-          <p className="font-label text-[11px] tabular-nums text-on-surface-variant/60 mt-1.5">
-            {mayorCategoria.pct}% del total
-          </p>
-        </div>
-
-        {/* Balance pendiente */}
-        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-3.5">
-          <p className="font-label text-[11px] text-on-surface-variant/70 mb-1">Balance pendiente</p>
-          {balance.resumenMes.deudor ? (
-            <>
-              <p className="font-headline text-lg font-semibold tracking-tight tabular-nums" style={{ color: colorFabi }}>
-                {formatearPeso(Math.abs(balance.resumenMes.balance))}
-              </p>
-              <p className="font-label text-[11px] text-on-surface-variant/60 mt-1">
-                {balance.resumenMes.deudor} debe a {balance.resumenMes.acreedor}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="font-headline text-lg font-semibold tracking-tight text-success">
-                Al dia
-              </p>
-              <p className="font-label text-[11px] text-on-surface-variant/50 mt-1">Sin deuda</p>
-            </>
+          {mesAnterior && promedioDiarioAnterior > 0 && (
+            <p className={`text-[11px] mt-0.5 ${variacionDiaria < 0 ? "text-[#0F6E56]" : "text-[#854F0B]"}`}>
+              {variacionDiaria < 0 ? "↓" : "↑"} {formatearPorcentaje(Math.abs(Math.round(variacionDiaria)))} vs {formatearMesCorto(mesAnterior)}
+            </p>
           )}
+          <div className="mt-[7px] h-6">
+            <SparklineBarras
+              datos={sparklineDiario}
+              maxVal={Math.max(...sparklineDiario, 1)}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Balance por usuario */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl p-3.5" style={{ background: `${colorFran}12` }}>
-          <p className="font-label text-[11px] font-medium" style={{ color: colorFran }}>{balance.nombres.franco}</p>
-          <p className="font-headline text-lg font-semibold tabular-nums mt-0.5" style={{ color: colorFran }}>
-            {formatearPeso(balance.resumenMes.franco_pago)}
-          </p>
-          <p className="font-label text-[10px] text-on-surface-variant/50 mt-0.5">pago este mes</p>
-        </div>
-        <div className="rounded-xl p-3.5" style={{ background: `${colorFabi}12` }}>
-          <p className="font-label text-[11px] font-medium" style={{ color: colorFabi }}>{balance.nombres.fabiola}</p>
-          <p className="font-headline text-lg font-semibold tabular-nums mt-0.5" style={{ color: colorFabi }}>
-            {formatearPeso(balance.resumenMes.fabiola_pago)}
-          </p>
-          <p className="font-label text-[10px] text-on-surface-variant/50 mt-0.5">pago este mes</p>
-        </div>
-      </div>
+      {/* ── CATEGORÍAS CON LÍMITE ── */}
+      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
+        limites por categoria
+      </p>
+      <div className="px-4">
+        {categoriasConLimite.map((cat) => {
+          const limite = Number(cat.categoria.limite_mensual);
+          const pct = cat.porcentaje ?? 0;
+          const restanteCat = limite - cat.total;
+          const excedido = pct > 100;
+          const casiLimite = pct >= 80 && pct <= 100;
+          const esFijo = cat.es_fijo;
 
-      {/* Fila 2: Tendencia + Donut */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
-        <Card>
-          <SectionTitle>Tendencia de gasto</SectionTitle>
-          <GraficoRitmoGasto
-            comprasMesActual={balance.comprasMes}
-            comprasMesAnterior={comprasMesAnterior}
-            mesActual={balance.mesSeleccionado}
-            mesAnterior={mesAnterior || "\u2014"}
-          />
-        </Card>
-        <Card>
-          <SectionTitle>Fijos vs variables</SectionTitle>
-          <DonutFijosVariables
-            categoriasMes={balance.categoriasMes}
-            colorFijo={colorFran}
-            colorVariable={colorFabi}
-          />
-        </Card>
-      </div>
+          // Card classes
+          let cardClass = "bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3 mb-1.5 cursor-pointer transition-colors hover:border-outline-variant/20";
+          if (excedido) cardClass += " border-[#F09595] bg-[#FCEBEB]/40";
+          if (casiLimite && !excedido) cardClass += " border-l-[3px] border-l-[#EF9F27]";
+          if (esFijo) cardClass += " opacity-80";
 
-      {/* Fila 3: Aportes mensuales */}
-      <GraficoAportesMensuales
-        historico={balance.resumenHistorico}
-        nombres={balance.nombres}
-        colorFran={colorFran}
-        colorFabi={colorFabi}
-      />
+          // Bar fill color
+          let barColor = "#1D9E75";
+          if (excedido) barColor = "#E24B4A";
+          else if (casiLimite) barColor = "#EF9F27";
+          if (esFijo && pct >= 100) barColor = "#7F77DD";
 
-      {/* Fila 4: Presupuestos + Treemap */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
-        <Card>
-          <SectionTitle>Presupuesto vs real</SectionTitle>
-          <EstadoPresupuestos categoriasMes={balance.categoriasMes} />
-        </Card>
-        <Card>
-          <SectionTitle>Top subcategorias</SectionTitle>
-          <TreemapSubcategorias categoriasMes={balance.categoriasMes} />
-        </Card>
-      </div>
+          // Remaining text color
+          let remColor = "#0F6E56";
+          if (excedido) remColor = "#A32D2D";
+          else if (casiLimite) remColor = "#854F0B";
+          if (esFijo && pct >= 100) remColor = "#534AB7";
 
-      {/* Comparativa personal */}
-      <Card>
-        <SectionTitle>Comparativa personal</SectionTitle>
-        <ComparativaPersonal
-          comprasMes={balance.comprasMes}
-          categorias={balance.categorias.categorias}
-          nombres={balance.nombres}
-          colorFran={colorFran}
-          colorFabi={colorFabi}
-        />
-      </Card>
-
-      {/* Insights automaticos */}
-      <Card>
-        <SectionTitle>Insights automaticos</SectionTitle>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {insights.map((insight, i) => {
-            const Icon = iconMap[insight.tipo];
-            const colors = colorMap[insight.tipo];
-            return (
-              <div key={i} className="flex gap-3 items-start">
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${colors.bg}`}>
-                  <Icon className={`h-3.5 w-3.5 ${colors.icon}`} />
+          return (
+            <div key={cat.categoria.id} className={cardClass}>
+              <div className="flex items-center justify-between mb-[7px]">
+                <div className="flex items-center gap-2">
+                  <div className="w-[9px] h-[9px] rounded-full shrink-0" style={{ backgroundColor: cat.categoria.color }} />
+                  <span className="text-[13px] font-medium text-on-surface">
+                    {cat.categoria.nombre}
+                  </span>
+                  {esFijo && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant/50 font-medium">
+                      FIJO
+                    </span>
+                  )}
                 </div>
-                <p className="font-label text-xs text-on-surface-variant/80 leading-relaxed">
-                  {insight.texto}
-                </p>
+                <div className="text-right">
+                  {excedido ? (
+                    <div className="text-[13px] font-medium text-[#A32D2D]">
+                      –{formatearPeso(Math.abs(restanteCat))} excedido
+                    </div>
+                  ) : esFijo && pct >= 100 ? (
+                    <div className="text-[13px] font-medium text-[#534AB7]">
+                      Pagado ✓
+                    </div>
+                  ) : (
+                    <div className="text-[13px] font-medium" style={{ color: remColor }}>
+                      {formatearPeso(restanteCat)} restante
+                    </div>
+                  )}
+                  <div className="text-[10px] text-on-surface-variant/40 mt-0.5">
+                    {formatearPeso(cat.total)} de {formatearPeso(limite)}
+                  </div>
+                </div>
               </div>
-            );
-          })}
+
+              {/* Progress bar */}
+              <div className="h-[5px] bg-surface-container-low rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-400"
+                  style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }}
+                />
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-between mt-1 text-[10px] text-on-surface-variant/40">
+                <span>{formatearPorcentaje(Math.round(pct))} del limite</span>
+                <span>
+                  {excedido ? "Excediste el limite" : casiLimite ? "Casi al limite" : ""}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Sin límite */}
+        {categoriasSinLimite.length > 0 && (
+          <div className="mt-2">
+            <p className="text-[10px] text-on-surface-variant/40 mb-1 pl-0.5">sin limite configurado</p>
+            {categoriasSinLimite.map((cat) => (
+              <div
+                key={cat.categoria.id}
+                className="flex items-center justify-between px-2.5 py-[7px] bg-surface-container-low rounded-[10px] mb-1"
+              >
+                <div className="flex items-center gap-1.5">
+                  <div className="w-[9px] h-[9px] rounded-full shrink-0" style={{ backgroundColor: cat.categoria.color }} />
+                  <span className="text-[12px] text-on-surface-variant/70">{cat.categoria.nombre}</span>
+                </div>
+                <span className="text-[12px] font-medium text-on-surface">{formatearPeso(cat.total)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── BALANCE ── */}
+      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
+        balance entre los dos
+      </p>
+      <div className="mx-4 bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3 flex items-center justify-between gap-2.5">
+        {/* Avatars */}
+        <div className="flex">
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0"
+            style={{ backgroundColor: hexToRgba(colorFran, 0.15), color: colorFran, zIndex: 1 }}
+          >
+            {balance.nombres.franco.slice(0, 3)}
+          </div>
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0 -ml-[7px]"
+            style={{ backgroundColor: hexToRgba(colorFabi, 0.15), color: colorFabi }}
+          >
+            {balance.nombres.fabiola.slice(0, 3)}
+          </div>
         </div>
-      </Card>
-    </section>
+
+        {/* Text */}
+        {balance.resumenMes.deudor ? (
+          <div className="flex-1 text-[12px] text-on-surface-variant/70">
+            <strong className="text-on-surface font-medium">{balance.resumenMes.deudor}</strong> le debe a{" "}
+            <strong className="text-on-surface font-medium">{balance.resumenMes.acreedor}</strong>
+          </div>
+        ) : (
+          <div className="flex-1 text-[12px] text-on-surface-variant/70">
+            Al dia, <strong className="text-on-surface font-medium">sin deuda</strong>
+          </div>
+        )}
+
+        {/* Amount + button */}
+        {balance.resumenMes.deudor ? (
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[15px] font-medium text-[#A32D2D]">
+              {formatearPeso(Math.abs(balance.resumenMes.balance))}
+            </span>
+            <button
+              type="button"
+              onClick={saldarBalance}
+              className="text-[11px] px-2.5 py-1 rounded-full border-[0.5px] border-outline-variant/20 bg-transparent text-on-surface-variant/70 hover:bg-surface-container-low transition-colors whitespace-nowrap"
+            >
+              Saldar
+            </button>
+          </div>
+        ) : (
+          <div className="text-[15px] font-medium text-[#0F6E56] shrink-0">
+            Al dia ✓
+          </div>
+        )}
+      </div>
+
+      {/* ── ALERTAS ── */}
+      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
+        alertas
+      </p>
+      <div className="px-4 flex flex-col gap-1.5">
+        {alertas.map((alerta, i) => {
+          const iconMap = { warn: "⚠", ok: "✓", info: "→" };
+          const bgMap = {
+            warn: "bg-[#FAEEDA] text-[#633806]",
+            ok: "bg-[#EAF3DE] text-[#173404]",
+            info: "bg-[#E6F1FB] text-[#042C53]",
+          };
+
+          return (
+            <div
+              key={i}
+              className={`rounded-[11px] px-2.5 py-2 text-[12px] flex items-start gap-2 leading-[1.45] ${bgMap[alerta.tipo]}`}
+            >
+              <span className="text-[13px] shrink-0 mt-px">{iconMap[alerta.tipo]}</span>
+              <span>{alerta.texto}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Divider */}
+      <div className="h-px bg-outline-variant/10 mx-4 mt-5" />
+    </div>
   );
 }
