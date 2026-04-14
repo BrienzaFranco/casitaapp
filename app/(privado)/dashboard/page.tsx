@@ -5,25 +5,31 @@ import { Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearPeso, formatearPorcentaje } from "@/lib/formatear";
-import { mesClave, fechaLocalISO, mesLocalISO } from "@/lib/utiles";
+import { mesClave, fechaLocalISO } from "@/lib/utiles";
 import { exportarExcel } from "@/lib/exportar";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { obtenerMesAnterior } from "@/lib/calculos";
 import type { CategoriaBalance, Compra } from "@/types";
 
-// New components
+// Dashboard components
 import {
   FiltroGlobal,
   type FiltroActivo,
-  type PersonaFiltro,
   montoFiltrado,
 } from "@/components/dashboard/FiltroGlobal";
+import {
+  SelectorPeriodo,
+  type PeriodoActivo,
+  filtrarPorPeriodo,
+} from "@/components/dashboard/SelectorPeriodo";
 import { KPIStrip } from "@/components/dashboard/KPIStrip";
+import { DeltaBadge } from "@/components/dashboard/DeltaBadge";
 import { GraficoDiarioComparativo } from "@/components/dashboard/GraficoDiarioComparativo";
 import { DrawerCategoria } from "@/components/dashboard/DrawerCategoria";
 import { DistribucionPersona } from "@/components/dashboard/DistribucionPersona";
 import { TopGastosMes } from "@/components/dashboard/TopGastosMes";
+import { generarInsights } from "@/lib/insights";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -47,6 +53,12 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+function formatearMesLabelCorto(mes: string): string {
+  const meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const [anio, mesNum] = mes.split("-");
+  return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
+}
+
 // ─── Sparkline SVG Components ───────────────────────────────────────────────
 
 function SparklineProyeccion({ datos, colorLine, colorTarget }: { datos: number[]; colorLine: string; colorTarget: string }) {
@@ -64,14 +76,7 @@ function SparklineProyeccion({ datos, colorLine, colorTarget }: { datos: number[
   return (
     <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
       <line x1={pad} y1={pad} x2={w - pad} y2={pad} stroke={colorTarget} strokeWidth="1" strokeDasharray="3 2" opacity="0.5" />
-      <polyline
-        fill="none"
-        stroke={colorLine}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        points={pts.join(" ")}
-      />
+      <polyline fill="none" stroke={colorLine} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" points={pts.join(" ")} />
     </svg>
   );
 }
@@ -107,15 +112,22 @@ export default function PaginaDashboard() {
   const config = usarConfiguracion();
   const colorFran = config.colores.franco;
   const colorFabi = config.colores.fabiola;
-  const [mesSelectorOpen, setMesSelectorOpen] = useState(false);
 
-  // ── Filter state ──
-  const [filtro, setFiltro] = useState<FiltroActivo>({ persona: "todos", categoriaId: null, etiquetaId: null });
+  // ── Filter + period state ──
+  const [filtro, setFiltro] = useState<FiltroActivo>({ personas: [], categorias: [], etiquetas: [] });
+  const [periodo, setPeriodo] = useState<PeriodoActivo>({ tipo: "este-mes", label: "Este mes" });
   const [categoriaDrawer, setCategoriaDrawer] = useState<CategoriaBalance["categoria"] | null>(null);
   const [diaFiltro, setDiaFiltro] = useState<number | null>(null);
 
-  function handlePersonaClick(persona: PersonaFiltro) {
-    setFiltro((prev) => ({ ...prev, persona: persona === prev.persona ? "todos" : persona }));
+  function handlePersonaClick(persona: "franco" | "fabiola" | "todos") {
+    if (persona === "todos") {
+      setFiltro((prev) => ({ ...prev, personas: [] }));
+    } else {
+      setFiltro((prev) => ({
+        ...prev,
+        personas: prev.personas.includes(persona) ? [] : [persona],
+      }));
+    }
   }
 
   function handleDiaClick(dia: number) {
@@ -124,31 +136,48 @@ export default function PaginaDashboard() {
 
   // ── Derived data ──
   const mesAnterior = obtenerMesAnterior(balance.mesSeleccionado);
-  const comprasMesAnterior = mesAnterior
-    ? balance.compras.compras.filter((c) => mesClave(c.fecha) === mesAnterior)
-    : [];
+  const mesAnteriorLabel = mesAnterior ? formatearMesCorto(mesAnterior) : "";
+
+  // Determine which purchases to use based on period
+  const comprasPeriodo = useMemo(() => {
+    if (periodo.tipo === "este-mes") return balance.comprasMes;
+    if (periodo.tipo === "mes-anterior") {
+      return mesAnterior ? balance.compras.compras.filter((c) => mesClave(c.fecha) === mesAnterior) : [];
+    }
+    // Custom periods: filter all purchases by date
+    return filtrarPorPeriodo(balance.compras.compras, {
+      tipo: periodo.tipo,
+      desde: periodo.desde,
+      hasta: periodo.hasta,
+    });
+  }, [periodo, balance.comprasMes, balance.compras.compras, mesAnterior]);
+
+  const comprasMesAnteriorData = useMemo(
+    () => (mesAnterior ? balance.compras.compras.filter((c) => mesClave(c.fecha) === mesAnterior) : []),
+    [balance.compras.compras, mesAnterior],
+  );
 
   const hoy = new Date();
   const diaDelMes = hoy.getDate();
   const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
   const diasRestantes = diasEnMes - diaDelMes;
 
-  // Total budget = sum of all category limits
+  // Total budget
   const presupuestoTotal = balance.categorias.categorias.reduce(
     (acc, cat) => acc + (cat.limite_mensual ?? 0),
     0,
   );
 
-  // Totals with persona filter
-  const totalGastado = montoFiltrado(balance.comprasMes, filtro);
+  // Totals with filter
+  const totalGastado = montoFiltrado(comprasPeriodo, filtro);
   const restante = presupuestoTotal - totalGastado;
   const pctUsado = presupuestoTotal > 0 ? (totalGastado / presupuestoTotal) * 100 : 0;
 
   // Daily average
   const promedioDiario = diasEnMes > 0 ? totalGastado / diasEnMes : 0;
 
-  // Previous month total
-  const totalMesAnterior = montoFiltrado(comprasMesAnterior, filtro);
+  // Previous month
+  const totalMesAnterior = montoFiltrado(comprasMesAnteriorData, filtro);
   const diasEnMesAnterior = mesAnterior
     ? new Date(parseInt(mesAnterior.split("-")[0]), parseInt(mesAnterior.split("-")[1]), 0).getDate()
     : diasEnMes;
@@ -162,14 +191,20 @@ export default function PaginaDashboard() {
   const proyeccionFinMes = Math.round(totalGastado * factorProyeccion * 100) / 100;
   const diffProyeccion = proyeccionFinMes - presupuestoTotal;
 
-  // Sparkline data for projection
+  // Drafts
+  const numBorradores = balance.compras.compras.filter((c) => c.estado === "borrador").length;
+  const totalBorradores = balance.compras.compras
+    .filter((c) => c.estado === "borrador")
+    .reduce((acc, c) => acc + c.items.reduce((a, i) => a + i.monto_resuelto, 0), 0);
+
+  // Sparkline data
   const sparklineProyeccion = useMemo(() => {
     const porDia = new Map<number, number>();
-    for (const compra of balance.comprasMes) {
+    for (const compra of comprasPeriodo) {
       const dia = new Date(`${compra.fecha}T00:00:00`).getDate();
-      const monto = filtro.persona === "franco"
+      const monto = filtro.personas.length === 1 && filtro.personas[0] === "franco"
         ? compra.items.reduce((a, i) => a + i.pago_franco, 0)
-        : filtro.persona === "fabiola"
+        : filtro.personas.length === 1 && filtro.personas[0] === "fabiola"
           ? compra.items.reduce((a, i) => a + i.pago_fabiola, 0)
           : compra.items.reduce((a, i) => a + i.monto_resuelto, 0);
       porDia.set(dia, (porDia.get(dia) ?? 0) + monto);
@@ -181,15 +216,14 @@ export default function PaginaDashboard() {
       pts.push(acum);
     }
     return pts;
-  }, [balance.comprasMes, diaDelMes, promedioDiario, filtro.persona]);
+  }, [comprasPeriodo, diaDelMes, promedioDiario, filtro.personas]);
 
-  // Sparkline data for daily average (last 7 days)
   const sparklineDiario = useMemo(() => {
     const porDia = new Map<string, number>();
-    for (const compra of balance.comprasMes) {
-      const monto = filtro.persona === "franco"
+    for (const compra of comprasPeriodo) {
+      const monto = filtro.personas.length === 1 && filtro.personas[0] === "franco"
         ? compra.items.reduce((a, i) => a + i.pago_franco, 0)
-        : filtro.persona === "fabiola"
+        : filtro.personas.length === 1 && filtro.personas[0] === "fabiola"
           ? compra.items.reduce((a, i) => a + i.pago_fabiola, 0)
           : compra.items.reduce((a, i) => a + i.monto_resuelto, 0);
       porDia.set(compra.fecha, (porDia.get(compra.fecha) ?? 0) + monto);
@@ -202,14 +236,13 @@ export default function PaginaDashboard() {
       ultimos7.push(porDia.get(key) ?? 0);
     }
     return ultimos7;
-  }, [balance.comprasMes, hoy, filtro.persona]);
+  }, [comprasPeriodo, hoy, filtro.personas]);
 
-  // ── Categorized categories ──
+  // ── Categories ──
   const categoriasConLimite = useMemo(() => {
     const conLimite = balance.categoriasMes.filter(
       (c) => c.categoria.limite_mensual && c.categoria.limite_mensual > 0,
     );
-
     const ordenPrioridad = (cat: CategoriaBalance) => {
       const pct = cat.porcentaje ?? 0;
       if (pct > 100) return 0;
@@ -217,7 +250,6 @@ export default function PaginaDashboard() {
       if (cat.es_fijo) return 4;
       return 2;
     };
-
     return [...conLimite].sort((a, b) => {
       const oa = ordenPrioridad(a);
       const ob = ordenPrioridad(b);
@@ -232,101 +264,45 @@ export default function PaginaDashboard() {
     );
   }, [balance.categoriasMes]);
 
-  // ── Compras for daily chart (with optional day filter) ──
+  // ── Compras for daily chart ──
   const comprasMesParaGrafico = useMemo(() => {
-    if (!diaFiltro) return balance.comprasMes;
-    return balance.comprasMes.filter((c) => {
-      const dia = new Date(`${c.fecha}T00:00:00`).getDate();
-      return dia === diaFiltro;
-    });
-  }, [balance.comprasMes, diaFiltro]);
+    if (!diaFiltro) return comprasPeriodo;
+    return comprasPeriodo.filter((c) => new Date(`${c.fecha}T00:00:00`).getDate() === diaFiltro);
+  }, [comprasPeriodo, diaFiltro]);
 
   const comprasMesAnteriorParaGrafico = useMemo(() => {
-    if (!diaFiltro) return comprasMesAnterior;
-    return comprasMesAnterior.filter((c) => {
-      const dia = new Date(`${c.fecha}T00:00:00`).getDate();
-      return dia === diaFiltro;
-    });
-  }, [comprasMesAnterior, diaFiltro]);
+    if (!diaFiltro) return comprasMesAnteriorData;
+    return comprasMesAnteriorData.filter((c) => new Date(`${c.fecha}T00:00:00`).getDate() === diaFiltro);
+  }, [comprasMesAnteriorData, diaFiltro]);
 
-  // ── Alerts ──
-  const alertas = useMemo(() => {
-    const list: Array<{ tipo: "warn" | "ok" | "info"; texto: React.ReactNode }> = [];
+  // ── Insights ──
+  const insights = useMemo(() => generarInsights({
+    categoriasConLimite,
+    totalGastado,
+    presupuestoTotal,
+    diffProyeccion,
+    proyeccionFinMes,
+    variacionDiaria,
+    mesAnteriorKey: balance.mesSeleccionado,
+    totalMesAnterior,
+    deudor: balance.saldoAbierto.deudor,
+    acreedor: balance.saldoAbierto.acreedor,
+    saldoAbiertoBalance: balance.saldoAbierto.balance,
+    numBorradores,
+    totalBorradores,
+    comprasMes: comprasPeriodo,
+    resumenHistorico: balance.resumenHistorico,
+    diasDelMes: diasEnMes,
+    diaDelMes,
+  }), [categoriasConLimite, totalGastado, presupuestoTotal, diffProyeccion, proyeccionFinMes, variacionDiaria, balance.mesSeleccionado, totalMesAnterior, balance.saldoAbierto, numBorradores, totalBorradores, comprasPeriodo, balance.resumenHistorico, diasEnMes, diaDelMes]);
 
-    const excedidas = categoriasConLimite.filter((c) => (c.porcentaje ?? 0) > 100);
-    for (const cat of excedidas) {
-      const excedido = cat.total - Number(cat.categoria.limite_mensual);
-      list.push({
-        tipo: "warn",
-        texto: <><strong>{cat.categoria.nombre}</strong> excedió el límite en {formatearPeso(excedido)}. Llevás {formatearPorcentaje(cat.porcentaje ?? 0)} del presupuesto.</>,
-      });
-    }
-
-    const casiLimite = categoriasConLimite.filter((c) => {
-      const pct = c.porcentaje ?? 0;
-      return pct >= 80 && pct <= 100;
-    });
-    for (const cat of casiLimite) {
-      const restanteCat = Number(cat.categoria.limite_mensual) - cat.total;
-      list.push({
-        tipo: "warn",
-        texto: <><strong>{cat.categoria.nombre}</strong> al {formatearPorcentaje(cat.porcentaje ?? 0)} del límite. Solo quedan {formatearPeso(restanteCat)} para el resto del mes.</>,
-      });
-    }
-
-    if (variacionDiaria < -5) {
-      list.push({
-        tipo: "ok",
-        texto: <>El gasto diario bajó un {formatearPorcentaje(Math.abs(variacionDiaria))} respecto a {formatearMesCorto(mesAnterior)}. Buen ritmo.</>,
-      });
-    }
-
-    if (diffProyeccion > 0 && excedidas.length === 0) {
-      list.push({
-        tipo: "info",
-        texto: <>A este ritmo vas a gastar {formatearPeso(diffProyeccion)} más del presupuesto. Ajustá alguna categoría.</>,
-      });
-    }
-
-    if (balance.saldoAbierto.deudor) {
-      list.push({
-        tipo: "info",
-        texto: <><strong>{balance.saldoAbierto.deudor}</strong> debe {formatearPeso(Math.abs(balance.saldoAbierto.balance))} a <strong>{balance.saldoAbierto.acreedor}</strong>.</>,
-      });
-    }
-
-    // Borradors count
-    const numBorradores = balance.compras.compras.filter((c) => c.estado === "borrador").length;
-    if (numBorradores > 0) {
-      list.push({
-        tipo: "info",
-        texto: <>Tenés <strong>{numBorradores}</strong> {numBorradores === 1 ? "compra en borrador" : "compras en borrador"} sin confirmar.</>,
-      });
-    }
-
-    // Balance days without settlement
-    if (balance.saldoAbierto.deudor) {
-      // Approximate days
-      list.push({
-        tipo: "info",
-        texto: <>El balance lleva pendiente desde el último corte.</>,
-      });
-    }
-
-    if (list.length === 0) {
-      list.push({
-        tipo: "ok",
-        texto: <>Todo en orden. Sin alertas este mes.</>,
-      });
-    }
-
-    return list;
-  }, [categoriasConLimite, variacionDiaria, diffProyeccion, mesAnterior, balance.saldoAbierto, balance.compras.compras]);
+  const insightsVisibles = insights.slice(0, 3);
+  const insightsOcultos = insights.slice(3);
 
   // ── Handlers ──
   function exportar() {
-    exportarExcel(balance.comprasMes, balance.resumenMes, balance.resumenHistorico, balance.categoriasMes, balance.etiquetasMes, balance.mesSeleccionado);
-    toast.success(`Exportado: ${formatearMesLabel(balance.mesSeleccionado)} (${balance.comprasMes.length} compras)`);
+    exportarExcel(comprasPeriodo, balance.resumenMes, balance.resumenHistorico, balance.categoriasMes, balance.etiquetasMes, balance.mesSeleccionado);
+    toast.success(`Exportado (${comprasPeriodo.length} compras)`);
   }
 
   async function saldarBalance() {
@@ -350,7 +326,7 @@ export default function PaginaDashboard() {
     }
   }
 
-  // ── Loading / empty states ──
+  // ── Loading / empty ──
   if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando) {
     return (
       <div className="space-y-3 px-4 pt-4">
@@ -375,14 +351,16 @@ export default function PaginaDashboard() {
   }
 
   // ── Color helpers ──
-  const heroBadgeClass = pctUsado > 100
-    ? "bg-[#FCEBEB] text-[#791F1F]"
-    : pctUsado > 75
-      ? "bg-[#FAEEDA] text-[#633806]"
-      : "bg-[#EAF3DE] text-[#173404]";
-
+  const heroBadgeClass = pctUsado > 100 ? "bg-[#FCEBEB] text-[#791F1F]" : pctUsado > 75 ? "bg-[#FAEEDA] text-[#633806]" : "bg-[#EAF3DE] text-[#173404]";
   const heroBarColor = pctUsado > 100 ? "#E24B4A" : pctUsado > 75 ? "#EF9F27" : "#1D9E75";
-  const proyeccionColor = diffProyeccion > 0 ? "tc-warn" : "tc-ok";
+
+  const insightIconMap: Record<string, string> = { warning: "⚠", positive: "✓", info: "→", anomaly: "📌" };
+  const insightBgMap: Record<string, string> = {
+    warning: "bg-[#FCEBEB] text-[#791F1F]",
+    positive: "bg-[#EAF3DE] text-[#173404]",
+    info: "bg-[#E6F1FB] text-[#042C53]",
+    anomaly: "bg-[#FAEEDA] text-[#633806]",
+  };
 
   // ── Render ──
   return (
@@ -390,57 +368,23 @@ export default function PaginaDashboard() {
 
       {/* ── TOPBAR ── */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setMesSelectorOpen(!mesSelectorOpen)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium bg-surface-container-low border-[0.5px] border-outline-variant/20 text-on-surface hover:bg-surface-container"
-          >
-            <Calendar className="h-3 w-3 opacity-50" />
-            {formatearMesLabel(balance.mesSeleccionado)}
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="opacity-50">
-              <path d="M2.5 4L5 6.5L7.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          {mesSelectorOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50">
-              <input
-                type="month"
-                value={balance.mesSeleccionado}
-                onChange={(e) => { balance.setMesSeleccionado(e.target.value); setMesSelectorOpen(false); }}
-                onBlur={() => setTimeout(() => setMesSelectorOpen(false), 200)}
-                autoFocus
-                className="h-9 rounded-lg bg-surface-container-low px-3 font-label text-xs tabular-nums outline-none text-on-surface border border-outline-variant/15 shadow-lg"
-              />
-            </div>
-          )}
-        </div>
+        <SelectorPeriodo
+          periodo={periodo}
+          setPeriodo={setPeriodo}
+          mesActualLabel={formatearMesLabel(balance.mesSeleccionado)}
+          mesAnteriorLabel={mesAnteriorLabel}
+        />
         <div className="flex gap-1.5">
-          <button
-            type="button"
-            onClick={exportar}
-            className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"
-            title="Exportar Excel"
-          >
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-              <path d="M7.5 1v9M4 7l3.5 3.5L11 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M2 11v1.5a.5.5 0 00.5.5h10a.5.5 0 00.5-.5V11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-            </svg>
+          <button type="button" onClick={exportar} className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors" title="Exportar Excel">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v9M4 7l3.5 3.5L11 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /><path d="M2 11v1.5a.5.5 0 00.5.5h10a.5.5 0 00.5-.5V11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
           </button>
-          <button
-            type="button"
-            onClick={() => window.location.href = "/nueva-compra"}
-            className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"
-            title="Nueva compra"
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
+          <button type="button" onClick={() => window.location.href = "/nueva-compra"} className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors" title="Nueva compra">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
           </button>
         </div>
       </div>
 
-      {/* ── FILTROS GLOBALES ── */}
+      {/* ── FILTROS ── */}
       <FiltroGlobal
         filtro={filtro}
         setFiltro={(f) => { setFiltro(f); setDiaFiltro(null); }}
@@ -448,14 +392,14 @@ export default function PaginaDashboard() {
         etiquetas={balance.categorias.etiquetas}
       />
 
-      {/* ── GASTO DEL MES (Hero) ── */}
+      {/* ── HERO ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-3 mb-2">
-        gasto del mes
+        gasto del período
       </p>
       <div className="mx-4 rounded-[18px] overflow-hidden bg-surface-container-lowest border-[0.5px] border-outline-variant/10">
         <div className="px-5 py-5 pb-3">
           <p className="text-[10px] font-medium uppercase tracking-[.08em] text-on-surface-variant/50 mb-1">
-            total gastado en {formatearMesLabel(balance.mesSeleccionado).split(" ")[0].toLowerCase()}
+            total gastado
           </p>
           <div className="flex items-end justify-between gap-2">
             <div className="flex items-baseline gap-1.5">
@@ -479,6 +423,11 @@ export default function PaginaDashboard() {
               Presupuesto: <strong className="text-on-surface font-medium">{formatearPeso(presupuestoTotal)}</strong> · Quedan{" "}
               <strong className="text-on-surface font-medium">{formatearPeso(restante)}</strong> para{" "}
               <strong className="text-on-surface font-medium">{diasRestantes} días</strong>
+              {totalMesAnterior > 0 && (
+                <span className="ml-1.5">
+                  <DeltaBadge actual={totalGastado} anterior={totalMesAnterior} />
+                </span>
+              )}
             </p>
           )}
         </div>
@@ -486,10 +435,7 @@ export default function PaginaDashboard() {
         {presupuestoTotal > 0 && (
           <>
             <div className="h-[10px] bg-surface-container-low relative overflow-hidden">
-              <div
-                className="h-full transition-all duration-500"
-                style={{ width: `${Math.min(pctUsado, 100)}%`, background: heroBarColor }}
-              />
+              <div className="h-full transition-all duration-500" style={{ width: `${Math.min(pctUsado, 100)}%`, background: heroBarColor }} />
               <div className="absolute top-0 bottom-0 w-[1.5px] bg-outline-variant/30" style={{ left: "100%" }} />
             </div>
             <div className="flex justify-between px-5 pb-3 pt-1 text-[10px] text-on-surface-variant/40">
@@ -500,21 +446,29 @@ export default function PaginaDashboard() {
         )}
       </div>
 
-      {/* ── KPI STRIP ── */}
+      {/* ── KPIs ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
         métricas
       </p>
       <KPIStrip
-        comprasMes={balance.comprasMes}
+        comprasMes={comprasPeriodo}
         filtro={filtro}
         presupuestoTotal={presupuestoTotal}
         diasRestantes={diasRestantes}
         diasEnMes={diasEnMes}
+        diaDelMes={diaDelMes}
         totalMesAnterior={totalMesAnterior}
         diasEnMesAnterior={diasEnMesAnterior}
+        proyeccionFinMes={proyeccionFinMes}
+        numBorradores={numBorradores}
+        totalBorradores={totalBorradores}
+        onPersonaClick={handlePersonaClick}
+        onBorradoresClick={() => window.location.href = "/borradores"}
+        colorFran={colorFran}
+        colorFabi={colorFabi}
       />
 
-      {/* ── GRÁFICO DIARIO COMPARATIVO ── */}
+      {/* ── GRÁFICO DIARIO ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
         ritmo diario
       </p>
@@ -528,12 +482,12 @@ export default function PaginaDashboard() {
         colorAnterior={colorFabi}
       />
 
-      {/* ── DISTRIBUCIÓN POR PERSONA ── */}
+      {/* ── DISTRIBUCIÓN ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
         quién pagó qué
       </p>
       <DistribucionPersona
-        comprasMes={balance.comprasMes}
+        comprasMes={comprasPeriodo}
         filtro={filtro}
         resumenMes={balance.resumenMes}
         colorFran={colorFran}
@@ -541,7 +495,7 @@ export default function PaginaDashboard() {
         onPersonaClick={handlePersonaClick}
       />
 
-      {/* ── LÍMITES POR CATEGORÍA ── */}
+      {/* ── CATEGORÍAS ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
         límites por categoría
       </p>
@@ -571,55 +525,30 @@ export default function PaginaDashboard() {
           if (pagadoFijo) remColor = "#534AB7";
 
           return (
-            <div
-              key={cat.categoria.id}
-              className={cardClass}
-              onClick={() => setCategoriaDrawer(cat.categoria)}
-            >
+            <div key={cat.categoria.id} className={cardClass} onClick={() => setCategoriaDrawer(cat.categoria)}>
               <div className="flex items-center justify-between mb-[7px]">
                 <div className="flex items-center gap-2">
                   <div className="w-[9px] h-[9px] rounded-full shrink-0" style={{ backgroundColor: cat.categoria.color }} />
-                  <span className="text-[13px] font-medium text-on-surface">
-                    {cat.categoria.nombre}
-                  </span>
-                  {esFijo && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant/50 font-medium">
-                      FIJO
-                    </span>
-                  )}
+                  <span className="text-[13px] font-medium text-on-surface">{cat.categoria.nombre}</span>
+                  {esFijo && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant/50 font-medium">FIJO</span>}
                 </div>
                 <div className="text-right">
                   {excedido ? (
-                    <div className="text-[13px] font-medium text-[#A32D2D]">
-                      –{formatearPeso(Math.abs(restanteCat))} excedido
-                    </div>
+                    <div className="text-[13px] font-medium text-[#A32D2D]">–{formatearPeso(Math.abs(restanteCat))} excedido</div>
                   ) : pagadoFijo ? (
-                    <div className="text-[13px] font-medium text-[#534AB7]">
-                      Pagado ✓
-                    </div>
+                    <div className="text-[13px] font-medium text-[#534AB7]">Pagado ✓</div>
                   ) : (
-                    <div className="text-[13px] font-medium" style={{ color: remColor }}>
-                      {formatearPeso(restanteCat)} restante
-                    </div>
+                    <div className="text-[13px] font-medium" style={{ color: remColor }}>{formatearPeso(restanteCat)} restante</div>
                   )}
-                  <div className="text-[10px] text-on-surface-variant/40 mt-0.5">
-                    {formatearPeso(cat.total)} de {formatearPeso(limite)}
-                  </div>
+                  <div className="text-[10px] text-on-surface-variant/40 mt-0.5">{formatearPeso(cat.total)} de {formatearPeso(limite)}</div>
                 </div>
               </div>
-
               <div className="h-[5px] bg-surface-container-low rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-400"
-                  style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }}
-                />
+                <div className="h-full rounded-full transition-all duration-400" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }} />
               </div>
-
               <div className="flex justify-between mt-1 text-[10px] text-on-surface-variant/40">
                 <span>{formatearPorcentaje(Math.round(pct))} del limite</span>
-                <span>
-                  {excedido ? "Excediste el limite" : casiLimite ? "Casi al limite" : ""}
-                </span>
+                <span>{excedido ? "Excediste el limite" : casiLimite ? "Casi al limite" : ""}</span>
               </div>
             </div>
           );
@@ -631,7 +560,7 @@ export default function PaginaDashboard() {
             {categoriasSinLimite.map((cat) => (
               <div
                 key={cat.categoria.id}
-                className="flex items-center justify-between px-2.5 py-[7px] bg-surface-container-low rounded-[10px] mb-1"
+                className="flex items-center justify-between px-2.5 py-[7px] bg-surface-container-low rounded-[10px] mb-1 cursor-pointer hover:bg-surface-container"
                 onClick={() => setCategoriaDrawer(cat.categoria)}
               >
                 <div className="flex items-center gap-1.5">
@@ -650,7 +579,7 @@ export default function PaginaDashboard() {
         ranking de gastos
       </p>
       <div className="mx-4">
-        <TopGastosMes comprasMes={balance.comprasMes} filtro={filtro} />
+        <TopGastosMes comprasMes={comprasPeriodo} filtro={filtro} />
       </div>
 
       {/* ── BALANCE ── */}
@@ -659,16 +588,10 @@ export default function PaginaDashboard() {
       </p>
       <div className="mx-4 bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3 flex items-center justify-between gap-2.5">
         <div className="flex">
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0"
-            style={{ backgroundColor: hexToRgba(colorFran, 0.15), color: colorFran, zIndex: 1 }}
-          >
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0" style={{ backgroundColor: hexToRgba(colorFran, 0.15), color: colorFran, zIndex: 1 }}>
             {balance.nombres.franco.slice(0, 3)}
           </div>
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0 -ml-[7px]"
-            style={{ backgroundColor: hexToRgba(colorFabi, 0.15), color: colorFabi }}
-          >
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0 -ml-[7px]" style={{ backgroundColor: hexToRgba(colorFabi, 0.15), color: colorFabi }}>
             {balance.nombres.fabiola.slice(0, 3)}
           </div>
         </div>
@@ -679,54 +602,60 @@ export default function PaginaDashboard() {
             <strong className="text-on-surface font-medium">{balance.resumenMes.acreedor}</strong>
           </div>
         ) : (
-          <div className="flex-1 text-[12px] text-on-surface-variant/70">
-            Al dia, <strong className="text-on-surface font-medium">sin deuda</strong>
-          </div>
+          <div className="flex-1 text-[12px] text-on-surface-variant/70">Al dia, <strong className="text-on-surface font-medium">sin deuda</strong></div>
         )}
 
         {balance.resumenMes.deudor ? (
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[15px] font-medium text-[#A32D2D]">
-              {formatearPeso(Math.abs(balance.resumenMes.balance))}
-            </span>
-            <button
-              type="button"
-              onClick={saldarBalance}
-              className="text-[11px] px-2.5 py-1 rounded-full border-[0.5px] border-outline-variant/20 bg-transparent text-on-surface-variant/70 hover:bg-surface-container-low transition-colors whitespace-nowrap"
-            >
-              Saldar
-            </button>
+            <span className="text-[15px] font-medium text-[#A32D2D]">{formatearPeso(Math.abs(balance.resumenMes.balance))}</span>
+            <button type="button" onClick={saldarBalance} className="text-[11px] px-2.5 py-1 rounded-full border-[0.5px] border-outline-variant/20 bg-transparent text-on-surface-variant/70 hover:bg-surface-container-low transition-colors whitespace-nowrap">Saldar</button>
           </div>
         ) : (
-          <div className="text-[15px] font-medium text-[#0F6E56] shrink-0">
-            Al dia ✓
-          </div>
+          <div className="text-[15px] font-medium text-[#0F6E56] shrink-0">Al dia ✓</div>
         )}
       </div>
 
-      {/* ── ALERTAS ── */}
+      {/* ── INSIGHTS ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-        alertas
+        insights
       </p>
       <div className="px-4 flex flex-col gap-1.5">
-        {alertas.map((alerta, i) => {
-          const iconMap = { warn: "⚠", ok: "✓", info: "→" };
-          const bgMap = {
-            warn: "bg-[#FAEEDA] text-[#633806]",
-            ok: "bg-[#EAF3DE] text-[#173404]",
-            info: "bg-[#E6F1FB] text-[#042C53]",
-          };
-
-          return (
-            <div
-              key={i}
-              className={`rounded-[11px] px-2.5 py-2 text-[12px] flex items-start gap-2 leading-[1.45] ${bgMap[alerta.tipo]}`}
-            >
-              <span className="text-[13px] shrink-0 mt-px">{iconMap[alerta.tipo]}</span>
-              <span>{alerta.texto}</span>
+        {insightsVisibles.map((insight, i) => (
+          <div key={i} className={`rounded-[11px] px-2.5 py-2 text-[12px] flex items-start gap-2 leading-[1.45] ${insightBgMap[insight.tipo]}`}>
+            <span className="text-[13px] shrink-0 mt-px">{insightIconMap[insight.tipo]}</span>
+            <div className="flex-1">
+              <strong>{insight.titulo}</strong>
+              <span className="ml-1">{insight.detalle}</span>
+              {insight.accion && (
+                <button
+                  type="button"
+                  onClick={insight.accion.onClick}
+                  className="ml-1.5 underline opacity-70 hover:opacity-100 transition-opacity"
+                >
+                  {insight.accion.label}
+                </button>
+              )}
             </div>
-          );
-        })}
+          </div>
+        ))}
+        {insightsOcultos.length > 0 && (
+          <details className="group">
+            <summary className="text-[11px] text-on-surface-variant/50 cursor-pointer py-1 hover:text-on-surface-variant/70">
+              Ver {insightsOcultos.length} más
+            </summary>
+            <div className="flex flex-col gap-1.5 mt-1">
+              {insightsOcultos.map((insight, i) => (
+                <div key={i} className={`rounded-[11px] px-2.5 py-2 text-[12px] flex items-start gap-2 leading-[1.45] ${insightBgMap[insight.tipo]}`}>
+                  <span className="text-[13px] shrink-0 mt-px">{insightIconMap[insight.tipo]}</span>
+                  <div>
+                    <strong>{insight.titulo}</strong>
+                    <span className="ml-1">{insight.detalle}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
 
       {/* Divider */}
@@ -736,8 +665,8 @@ export default function PaginaDashboard() {
       {categoriaDrawer && (
         <DrawerCategoria
           categoria={categoriaDrawer}
-          comprasMes={balance.comprasMes}
-          comprasMesAnterior={comprasMesAnterior}
+          comprasMes={comprasPeriodo}
+          comprasMesAnterior={comprasMesAnteriorData}
           comprasHistorico={balance.compras.compras}
           filtro={filtro}
           onClose={() => setCategoriaDrawer(null)}

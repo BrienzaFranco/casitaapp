@@ -17,10 +17,12 @@ export function TopGastosMes({ comprasMes, filtro }: Props) {
 
   const itemsOrdenados = useMemo(() => {
     const items = obtenerItemsFiltrados(comprasMes, filtro);
+    const soloFranco = filtro.personas.length === 1 && filtro.personas[0] === "franco";
+    const soloFabiola = filtro.personas.length === 1 && filtro.personas[0] === "fabiola";
     return items
       .map((item) => ({
         ...item,
-        montoVisible: filtro.persona === "franco" ? item.pago_franco : filtro.persona === "fabiola" ? item.pago_fabiola : item.monto_resuelto,
+        montoVisible: soloFranco ? item.pago_franco : soloFabiola ? item.pago_fabiola : item.monto_resuelto,
       }))
       .sort((a, b) => b.montoVisible - a.montoVisible)
       .slice(0, 10);

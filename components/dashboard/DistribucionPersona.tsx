@@ -34,11 +34,11 @@ export function DistribucionPersona({
 }: Props) {
   // Total paid by each person (filtered)
   const francoPago = useMemo(
-    () => montoFiltrado(comprasMes, { ...filtro, persona: "franco" }),
+    () => montoFiltrado(comprasMes, { ...filtro, personas: ["franco"] }),
     [comprasMes, filtro],
   );
   const fabiolaPago = useMemo(
-    () => montoFiltrado(comprasMes, { ...filtro, persona: "fabiola" }),
+    () => montoFiltrado(comprasMes, { ...filtro, personas: ["fabiola"] }),
     [comprasMes, filtro],
   );
   const totalPagado = francoPago + fabiolaPago || 1;
@@ -68,13 +68,13 @@ export function DistribucionPersona({
         <div className="flex items-center justify-between mb-1">
           <button
             type="button"
-            onClick={() => onPersonaClick(filtro.persona === "franco" ? "todos" : "franco")}
+            onClick={() => onPersonaClick(filtro.personas.includes("franco") ? "todos" : "franco")}
             className="flex items-center gap-1.5 text-[11px] font-medium transition-colors"
             style={{ color: colorFran }}
           >
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colorFran }} />
             Franco
-            {filtro.persona === "franco" && (
+            {filtro.personas.includes("franco") && (
               <span className="text-[9px] text-on-surface-variant/40">(activo)</span>
             )}
           </button>
@@ -104,13 +104,13 @@ export function DistribucionPersona({
         <div className="flex items-center justify-between mb-1">
           <button
             type="button"
-            onClick={() => onPersonaClick(filtro.persona === "fabiola" ? "todos" : "fabiola")}
+            onClick={() => onPersonaClick(filtro.personas.includes("fabiola") ? "todos" : "fabiola")}
             className="flex items-center gap-1.5 text-[11px] font-medium transition-colors"
             style={{ color: colorFabi }}
           >
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colorFabi }} />
             Fabiola
-            {filtro.persona === "fabiola" && (
+            {filtro.personas.includes("fabiola") && (
               <span className="text-[9px] text-on-surface-variant/40">(activo)</span>
             )}
           </button>

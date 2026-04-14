@@ -77,14 +77,16 @@ export function GraficoDiarioComparativo({
   const datos: DiaDato[] = useMemo(() => {
     // Build daily spending maps
     const porDiaActual = new Map<number, number>();
+    const soloFranco = filtro.personas.length === 1 && filtro.personas[0] === "franco";
+    const soloFabiola = filtro.personas.length === 1 && filtro.personas[0] === "fabiola";
     for (const compra of comprasMes) {
       const dia = new Date(`${compra.fecha}T00:00:00`).getDate();
-      if (filtro.persona === "franco") {
+      if (soloFranco) {
         const totalDia = compra.items.reduce(
           (acc, item) => acc + item.pago_franco, 0,
         );
         porDiaActual.set(dia, (porDiaActual.get(dia) ?? 0) + totalDia);
-      } else if (filtro.persona === "fabiola") {
+      } else if (soloFabiola) {
         const totalDia = compra.items.reduce(
           (acc, item) => acc + item.pago_fabiola, 0,
         );
@@ -122,7 +124,7 @@ export function GraficoDiarioComparativo({
     }
 
     return resultado;
-  }, [comprasMes, comprasMesAnterior, filtro.persona]);
+  }, [comprasMes, comprasMesAnterior, filtro.personas]);
 
   const maxValor = Math.max(...datos.map((d) => Math.max(d.actual, d.anterior)), 1);
 
