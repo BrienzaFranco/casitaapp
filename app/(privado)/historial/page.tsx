@@ -6,239 +6,163 @@ import { ListaCompras } from "@/components/compras/ListaCompras";
 import { GraficoTendenciaDiaria } from "@/components/historial/GraficoTendenciaDiaria";
 import { HojaCompras } from "@/components/historial/HojaCompras";
 import { Modal } from "@/components/ui/Modal";
-import { Select } from "@/components/ui/Select";
-import { calcularSerieGastoDiario, deducirNombresParticipantes, filtrarComprasHistorial } from "@/lib/calculos";
+import { calcularSerieGastoDiario, deducirNombresParticipantes } from "@/lib/calculos";
 import { combinarClases } from "@/lib/utiles";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarUsuario } from "@/hooks/usarUsuario";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
-
-function generarUltimosMeses(cantidad: number) {
-  const meses: Array<{ valor: string; etiqueta: string }> = [];
-  const hoy = new Date();
-  for (let i = 0; i < cantidad; i += 1) {
-    const fecha = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
-    meses.push({
-      valor: `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`,
-      etiqueta: fecha.toLocaleDateString("es-AR", { month: "short", year: "2-digit" }),
-    });
-  }
-  return meses;
-}
+import {
+  FiltroGlobal,
+  type FiltroActivo,
+  montoFiltrado,
+} from "@/components/dashboard/FiltroGlobal";
+import {
+  SelectorPeriodo,
+  type PeriodoActivo,
+  filtrarPorPeriodo,
+} from "@/components/dashboard/SelectorPeriodo";
 
 export default function PaginaHistorial() {
-  const compras = usarCompras();
+  const comprasHook = usarCompras();
   const categorias = usarCategorias();
   const usuario = usarUsuario();
   const config = usarConfiguracion();
   const nombres = deducirNombresParticipantes(usuario.perfiles);
-  const [mes, setMes] = useState("");
-  const [fechaDesde, setFechaDesde] = useState("");
-  const [fechaHasta, setFechaHasta] = useState("");
-  const [filtroPersona, setFiltroPersona] = useState<"franco" | "fabiola" | null>(null);
-  const [categoriaId, setCategoriaId] = useState("");
-  const [etiquetaId, setEtiquetaId] = useState("");
-  const [etiquetaCompraId, setEtiquetaCompraId] = useState("");
-  const [compraAEliminar, setCompraAEliminar] = useState<string | null>(null);
   const [vista, setVista] = useState<"hoja" | "tarjetas">("tarjetas");
-  const ultimosMeses = generarUltimosMeses(6);
+  const [compraAEliminar, setCompraAEliminar] = useState<string | null>(null);
 
-  const filtradas = filtrarComprasHistorial(compras.compras, {
-    mes, fecha_desde: fechaDesde || undefined, fecha_hasta: fechaHasta || undefined,
-    categoria_id: categoriaId, etiqueta_id: etiquetaId,
-    etiqueta_compra_id: etiquetaCompraId, persona: filtroPersona,
-  });
+  // ── Filter state ──
+  const [filtro, setFiltro] = useState<FiltroActivo>({ personas: [], categorias: [], etiquetas: [], subcategorias: [] });
+  const [periodo, setPeriodo] = useState<PeriodoActivo>({ tipo: "este-mes", label: "Este mes" });
+
+  // ── Apply period filter ──
+  const comprasFiltradasPorPeriodo = useMemo(() => {
+    return filtrarPorPeriodo(comprasHook.compras, {
+      tipo: periodo.tipo,
+      desde: periodo.desde,
+      hasta: periodo.hasta,
+    });
+  }, [comprasHook.compras, periodo]);
+
+  // ── Apply filter logic ──
+  const filtradas = useMemo(() => {
+    let resultado = comprasFiltradasPorPeriodo;
+
+    // Category filter
+    if (filtro.categorias.length > 0) {
+      resultado = resultado.filter((c) =>
+        c.items.some((i) => i.categoria_id && filtro.categorias.includes(i.categoria_id)),
+      );
+    }
+
+    // Subcategory filter
+    if (filtro.subcategorias.length > 0) {
+      resultado = resultado.filter((c) =>
+        c.items.some((i) => i.subcategoria_id && filtro.subcategorias.includes(i.subcategoria_id)),
+      );
+    }
+
+    // Tag filter
+    if (filtro.etiquetas.length > 0) {
+      resultado = resultado.filter((c) =>
+        c.items.some((i) => i.etiquetas?.some((e) => filtro.etiquetas.includes(e.id))) ||
+        c.etiquetas_compra?.some((e) => filtro.etiquetas.includes(e.id)),
+      );
+    }
+
+    // Persona filter
+    if (filtro.personas.length === 1) {
+      const persona = filtro.personas[0];
+      resultado = resultado.filter((c) => {
+        if (persona === "franco") {
+          return c.items.some((i) => i.pago_franco > 0);
+        }
+        return c.items.some((i) => i.pago_fabiola > 0);
+      });
+    }
+
+    return resultado;
+  }, [comprasFiltradasPorPeriodo, filtro]);
+
   const serieTendencia = useMemo(() => calcularSerieGastoDiario(filtradas), [filtradas]);
-  const hayFiltrosActivos = Boolean(mes || fechaDesde || fechaHasta || categoriaId || etiquetaId || etiquetaCompraId || filtroPersona);
-  const modoVacio = !compras.compras.length && !hayFiltrosActivos ? "onboarding" : "filtros";
+  const hayFiltrosActivos = filtro.personas.length > 0 || filtro.categorias.length > 0 || filtro.etiquetas.length > 0 || filtro.subcategorias.length > 0 || periodo.tipo !== "este-mes";
+  const modoVacio = !comprasHook.compras.length && !hayFiltrosActivos ? "onboarding" : "filtros";
 
   async function eliminarCompra() {
     if (!compraAEliminar) return;
-    await compras.eliminarCompra(compraAEliminar);
+    await comprasHook.eliminarCompra(compraAEliminar);
     toast.success("Compra eliminada");
     setCompraAEliminar(null);
   }
 
-  // Limpiar mes cuando se usa fecha exacta
-  function onFechaDesdeChange(v: string) {
-    setFechaDesde(v);
-    if (v) setMes("");
-  }
-  function onFechaHastaChange(v: string) {
-    setFechaHasta(v);
-    if (v) setMes("");
-  }
-  function onMesChange(v: string) {
-    setMes(v);
-    if (v) { setFechaDesde(""); setFechaHasta(""); }
-  }
-
+  // ── Render ──
   return (
     <section className="space-y-4">
+      {/* Topbar */}
+      <div className="flex items-center justify-between">
+        <h1 className="font-headline text-lg font-semibold tracking-tight text-on-surface">Historial</h1>
+        <SelectorPeriodo
+          periodo={periodo}
+          setPeriodo={setPeriodo}
+          mesActualLabel={(() => {
+            const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            const hoy = new Date();
+            return `${meses[hoy.getMonth()]} ${hoy.getFullYear()}`;
+          })()}
+        />
+      </div>
+
       {/* Filters */}
-      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3">
-        <div className="space-y-3">
-          {/* Person filter */}
-          <div className="flex items-center gap-3 text-xs">
-            <span className="font-label text-[9px] uppercase tracking-wider text-outline shrink-0">Quien</span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setFiltroPersona(null)}
-                className={combinarClases(
-                  "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
-                  filtroPersona === null
-                    ? "text-secondary border-secondary"
-                    : "text-on-surface-variant border-transparent hover:text-on-surface",
-                )}
-              >
-                Todos
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiltroPersona("franco")}
-                className={combinarClases(
-                  "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
-                  filtroPersona === "franco"
-                    ? "text-secondary border-secondary"
-                    : "text-on-surface-variant border-transparent hover:text-on-surface",
-                )}
-              >
-                {nombres.franco}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiltroPersona("fabiola")}
-                className={combinarClases(
-                  "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
-                  filtroPersona === "fabiola"
-                    ? "text-secondary border-secondary"
-                    : "text-on-surface-variant border-transparent hover:text-on-surface",
-                )}
-              >
-                {nombres.fabiola}
-              </button>
-            </div>
-          </div>
+      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3 space-y-3">
+        <FiltroGlobal
+          filtro={filtro}
+          setFiltro={setFiltro}
+          categorias={categorias.categorias}
+          etiquetas={categorias.etiquetas}
+          subcategorias={categorias.subcategorias}
+        />
 
-          {/* Month filter */}
-          <div className="flex items-center gap-3 text-xs">
-            <span className="font-label text-[9px] uppercase tracking-wider text-outline shrink-0">Mes</span>
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
-              <button
-                type="button"
-                onClick={() => onMesChange("")}
-                className={combinarClases(
-                  "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 shrink-0 transition-colors",
-                  mes === "" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
-                )}
-              >
-                Todos
-              </button>
-              {ultimosMeses.map((m) => (
-                <button
-                  key={m.valor}
-                  type="button"
-                  onClick={() => onMesChange(m.valor)}
-                  className={combinarClases(
-                    "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 shrink-0 transition-colors",
-                    mes === m.valor ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
-                  )}
-                >
-                  {m.etiqueta}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Date range */}
-          <div className="flex items-center gap-3 text-xs">
-            <span className="font-label text-[9px] uppercase tracking-wider text-outline shrink-0">Fechas</span>
-            <div className="flex items-center gap-2">
-              <input
-                type="date" value={fechaDesde} onChange={e => onFechaDesdeChange(e.target.value)}
-                className="h-7 rounded bg-surface-container-low px-2 font-label text-xs tabular-nums text-on-surface outline-none"
-                placeholder="Desde"
-              />
-              <span className="text-on-surface-variant/40">→</span>
-              <input
-                type="date" value={fechaHasta} onChange={e => onFechaHastaChange(e.target.value)}
-                className="h-7 rounded bg-surface-container-low px-2 font-label text-xs tabular-nums text-on-surface outline-none"
-                placeholder="Hasta"
-              />
-              {(fechaDesde || fechaHasta) && (
-                <button type="button" onClick={() => { setFechaDesde(""); setFechaHasta(""); }}
-                  className="text-[9px] text-on-surface-variant hover:text-on-surface underline">
-                  Limpiar
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* View toggle */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setVista("tarjetas")}
-              className={combinarClases(
-                "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
-                vista === "tarjetas" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
-              )}
-            >
-              Tarjetas
-            </button>
-            <button
-              type="button"
-              onClick={() => setVista("hoja")}
-              className={combinarClases(
-                "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
-                vista === "hoja" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
-              )}
-            >
-              Hoja
-            </button>
-          </div>
-
-          {/* Category / Etiqueta selects */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Select
-              etiqueta="Categoria"
-              value={categoriaId}
-              onChange={(e) => setCategoriaId(e.target.value)}
-              placeholder="Todas"
-              opciones={categorias.categorias.map((c) => ({ etiqueta: c.nombre, valor: c.id }))}
-            />
-            <Select
-              etiqueta="Etiqueta"
-              value={etiquetaId}
-              onChange={(e) => setEtiquetaId(e.target.value)}
-              placeholder="Todas"
-              opciones={categorias.etiquetas.map((e) => ({ etiqueta: e.nombre, valor: e.id }))}
-            />
-            <Select
-              etiqueta="Tag compra"
-              value={etiquetaCompraId}
-              onChange={(e) => setEtiquetaCompraId(e.target.value)}
-              placeholder="Todos"
-              opciones={categorias.etiquetas.map((e) => ({ etiqueta: e.nombre, valor: e.id }))}
-            />
-          </div>
+        {/* View toggle */}
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setVista("tarjetas")}
+            className={combinarClases(
+              "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
+              vista === "tarjetas" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
+            )}
+          >
+            Tarjetas
+          </button>
+          <button
+            type="button"
+            onClick={() => setVista("hoja")}
+            className={combinarClases(
+              "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
+              vista === "hoja" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
+            )}
+          >
+            Hoja
+          </button>
+          <span className="text-[10px] text-on-surface-variant/40 ml-auto">
+            {filtradas.length} {filtradas.length === 1 ? "compra" : "compras"}
+          </span>
         </div>
       </div>
 
       {/* Chart */}
-      {!compras.cargando && filtradas.length ? (
+      {!comprasHook.cargando && filtradas.length ? (
         <GraficoTendenciaDiaria registros={serieTendencia} compras={filtradas} nombres={nombres} colorFranco={config.colores.franco} colorFabiola={config.colores.fabiola} />
       ) : null}
 
       {/* List */}
-      {vista === "hoja" && !compras.cargando && filtradas.length ? (
+      {vista === "hoja" && !comprasHook.cargando && filtradas.length ? (
         <HojaCompras compras={filtradas} />
       ) : (
         <ListaCompras
           compras={filtradas}
-          cargando={compras.cargando}
+          cargando={comprasHook.cargando}
           nombres={nombres}
           onEliminar={setCompraAEliminar}
           modoVacio={modoVacio}
