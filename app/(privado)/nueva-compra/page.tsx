@@ -4,7 +4,7 @@ import { useDeferredValue } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import type { Compra, CompraEditable } from "@/types";
-import { FormularioCompra } from "@/components/compras/FormularioCompra";
+import { FormularioCompraPC } from "@/components/compras/FormularioCompraPC";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { deducirNombresParticipantes } from "@/lib/calculos";
 import { vibrarExito } from "@/lib/haptics";
@@ -94,7 +94,7 @@ export default function PaginaNuevaCompra() {
   }));
 
   return (
-    <FormularioCompra
+    <FormularioCompraPC
       key={compraInicial?.id ?? "nueva-compra"}
       categorias={categorias.categorias}
       subcategorias={categorias.subcategorias}
