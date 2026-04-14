@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Plus, Calendar, CheckCircle2, AlertTriangle, Info } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearPeso, formatearPorcentaje } from "@/lib/formatear";
@@ -209,7 +209,7 @@ export default function PaginaDashboard() {
       const excedido = cat.total - Number(cat.categoria.limite_mensual);
       list.push({
         tipo: "warn",
-        texto: <><strong>{cat.categoria.nombre}</strong> excedio el limite en {formatearPeso(excedido)}. Llevas {formatearPorcentaje(cat.porcentaje ?? 0)} del presupuesto.</>,
+        texto: <><strong>{cat.categoria.nombre}</strong> excedió el límite en {formatearPeso(excedido)}. Llevás {formatearPorcentaje(cat.porcentaje ?? 0)} del presupuesto.</>,
       });
     }
 
@@ -222,7 +222,7 @@ export default function PaginaDashboard() {
       const restanteCat = Number(cat.categoria.limite_mensual) - cat.total;
       list.push({
         tipo: "warn",
-        texto: <><strong>{cat.categoria.nombre}</strong> al {formatearPorcentaje(cat.porcentaje ?? 0)} del limite. Solo quedan {formatearPeso(restanteCat)} para el resto del mes.</>,
+        texto: <><strong>{cat.categoria.nombre}</strong> al {formatearPorcentaje(cat.porcentaje ?? 0)} del límite. Solo quedan {formatearPeso(restanteCat)} para el resto del mes.</>,
       });
     }
 
@@ -230,7 +230,7 @@ export default function PaginaDashboard() {
     if (variacionDiaria < -5) {
       list.push({
         tipo: "ok",
-        texto: <>El gasto diario bajo un {formatearPorcentaje(Math.abs(variacionDiaria))} respecto a {formatearMesCorto(mesAnterior)}. Buen ritmo.</>,
+        texto: <>El gasto diario bajó un {formatearPorcentaje(Math.abs(variacionDiaria))} respecto a {formatearMesCorto(mesAnterior)}. Buen ritmo.</>,
       });
     }
 
@@ -238,7 +238,7 @@ export default function PaginaDashboard() {
     if (diffProyeccion > 0 && excedidas.length === 0) {
       list.push({
         tipo: "info",
-        texto: <>A este ritmo vas a gastar {formatearPeso(diffProyeccion)} mas del presupuesto. Ajusta alguna categoria.</>,
+        texto: <>A este ritmo vas a gastar {formatearPeso(diffProyeccion)} más del presupuesto. Ajustá alguna categoría.</>,
       });
     }
 
@@ -383,7 +383,7 @@ export default function PaginaDashboard() {
         </div>
       </div>
 
-      {/* ── SECTION LABEL ── */}
+      {/* ── SECTION LABEL: gasto del mes ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
         gasto del mes
       </p>
@@ -413,8 +413,9 @@ export default function PaginaDashboard() {
           </div>
           {presupuestoTotal > 0 && (
             <p className="text-[12px] text-on-surface-variant/70 mt-2">
-              Quedan <strong className="text-on-surface font-medium">{formatearPeso(restante)}</strong> para{" "}
-              <strong className="text-on-surface font-medium">{diasRestantes} dias</strong>
+              Presupuesto: <strong className="text-on-surface font-medium">{formatearPeso(presupuestoTotal)}</strong> · Quedan{" "}
+              <strong className="text-on-surface font-medium">{formatearPeso(restante)}</strong> para{" "}
+              <strong className="text-on-surface font-medium">{diasRestantes} días</strong>
             </p>
           )}
         </div>
@@ -487,9 +488,9 @@ export default function PaginaDashboard() {
         </div>
       </div>
 
-      {/* ── CATEGORÍAS CON LÍMITE ── */}
+      {/* ── LÍMITES POR CATEGORÍA ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-        limites por categoria
+        límites por categoría
       </p>
       <div className="px-4">
         {categoriasConLimite.map((cat) => {
@@ -499,24 +500,25 @@ export default function PaginaDashboard() {
           const excedido = pct > 100;
           const casiLimite = pct >= 80 && pct <= 100;
           const esFijo = cat.es_fijo;
+          const pagadoFijo = esFijo && cat.total >= limite && pct <= 105;
 
           // Card classes
           let cardClass = "bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3 mb-1.5 cursor-pointer transition-colors hover:border-outline-variant/20";
           if (excedido) cardClass += " border-[#F09595] bg-[#FCEBEB]/40";
           if (casiLimite && !excedido) cardClass += " border-l-[3px] border-l-[#EF9F27]";
-          if (esFijo) cardClass += " opacity-80";
+          if (esFijo && !excedido) cardClass += " opacity-80";
 
           // Bar fill color
           let barColor = "#1D9E75";
           if (excedido) barColor = "#E24B4A";
           else if (casiLimite) barColor = "#EF9F27";
-          if (esFijo && pct >= 100) barColor = "#7F77DD";
+          if (pagadoFijo) barColor = "#7F77DD";
 
           // Remaining text color
           let remColor = "#0F6E56";
           if (excedido) remColor = "#A32D2D";
           else if (casiLimite) remColor = "#854F0B";
-          if (esFijo && pct >= 100) remColor = "#534AB7";
+          if (pagadoFijo) remColor = "#534AB7";
 
           return (
             <div key={cat.categoria.id} className={cardClass}>
@@ -537,7 +539,7 @@ export default function PaginaDashboard() {
                     <div className="text-[13px] font-medium text-[#A32D2D]">
                       –{formatearPeso(Math.abs(restanteCat))} excedido
                     </div>
-                  ) : esFijo && pct >= 100 ? (
+                  ) : pagadoFijo ? (
                     <div className="text-[13px] font-medium text-[#534AB7]">
                       Pagado ✓
                     </div>
