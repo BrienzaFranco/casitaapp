@@ -142,8 +142,8 @@ export function DrawerCategoria({
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center" onClick={onClose}>
       <div
-        className="bg-surface-container-lowest w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl transition-transform duration-250"
-        style={{ transform: "translateY(0)", transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)" }}
+        className="bg-surface-container-lowest w-full max-w-lg overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl"
+        style={{ maxHeight: "85dvh", transform: "translateY(0)", transition: "transform 250ms cubic-bezier(0.4, 0, 0.2, 1)" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -182,7 +182,7 @@ export function DrawerCategoria({
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto" style={{ WebkitOverflowScrolling: "touch" }}>
           {/* TAB 1: Gastos */}
           {tabActivo === "gastos" && (
             <div className="px-4 py-3">

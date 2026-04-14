@@ -12,6 +12,7 @@ export interface FiltroActivo {
   personas: PersonaFiltro[]; // empty = todos
   categorias: string[]; // ids
   etiquetas: string[]; // ids
+  subcategorias: string[]; // ids (conditional on selected categories)
 }
 
 // ─── Dropdown with search + multi-select + click-outside ────────────────────
@@ -158,10 +159,16 @@ interface Props {
   setFiltro: (f: FiltroActivo) => void;
   categorias: Categoria[];
   etiquetas: Etiqueta[];
+  subcategorias: { id: string; nombre: string; categoria_id: string }[];
 }
 
-export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas }: Props) {
-  const tieneFiltro = filtro.personas.length > 0 || filtro.categorias.length > 0 || filtro.etiquetas.length > 0;
+export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas, subcategorias }: Props) {
+  const tieneFiltro = filtro.personas.length > 0 || filtro.categorias.length > 0 || filtro.etiquetas.length > 0 || filtro.subcategorias.length > 0;
+
+  // Subcategorias conditional on selected categories
+  const subsDisponibles = filtro.categorias.length > 0
+    ? subcategorias.filter((s) => filtro.categorias.includes(s.categoria_id))
+    : [];
 
   function etiquetasActivas(): { label: string; onClear: () => void }[] {
     const partes: { label: string; onClear: () => void }[] = [];
@@ -178,6 +185,10 @@ export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas }: Props
     for (const etId of filtro.etiquetas) {
       const et = etiquetas.find((e) => e.id === etId);
       if (et) partes.push({ label: et.nombre, onClear: () => setFiltro({ ...filtro, etiquetas: filtro.etiquetas.filter((e) => e !== etId) }) });
+    }
+    for (const subId of filtro.subcategorias) {
+      const sub = subcategorias.find((s) => s.id === subId);
+      if (sub) partes.push({ label: sub.nombre, onClear: () => setFiltro({ ...filtro, subcategorias: filtro.subcategorias.filter((s) => s !== subId) }) });
     }
     return partes;
   }
@@ -233,6 +244,21 @@ export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas }: Props
             selected={filtro.etiquetas}
             onChange={(etiquetas) => setFiltro({ ...filtro, etiquetas })}
           />
+
+          {/* Subcategoria dropdown (conditional on selected categories) */}
+          {subsDisponibles.length > 0 && (
+            <DropdownFiltro
+              label="Subcat."
+              icon={
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                  <path d="M2 3h7M2 5.5h7M2 8h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+              }
+              options={subsDisponibles.map((s) => ({ id: s.id, label: s.nombre }))}
+              selected={filtro.subcategorias}
+              onChange={(subcategorias) => setFiltro({ ...filtro, subcategorias })}
+            />
+          )}
         </div>
       </div>
 
@@ -258,7 +284,7 @@ export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas }: Props
             ))}
             <button
               type="button"
-              onClick={() => setFiltro({ personas: [], categorias: [], etiquetas: [] })}
+              onClick={() => setFiltro({ personas: [], categorias: [], etiquetas: [], subcategorias: [] })}
               className="text-[10px] text-[#042C53]/60 hover:text-[#042C53] ml-auto shrink-0"
             >
               Limpiar todo
@@ -296,6 +322,12 @@ export function filtrarCompras(compras: Compra[], filtro: FiltroActivo) {
       if (!hasTag) return false;
     }
 
+    // Subcategory filter: if any selected, at least one item must match
+    if (filtro.subcategorias.length > 0) {
+      const hasSub = c.items.some((i) => i.subcategoria_id && filtro.subcategorias.includes(i.subcategoria_id));
+      if (!hasSub) return false;
+    }
+
     return true;
   });
 }
@@ -321,6 +353,9 @@ export function montoFiltrado(compras: Compra[], filtro: FiltroActivo): number {
         item.etiquetas?.some((e) => filtro.etiquetas.includes(e.id)) ||
         compra.etiquetas_compra?.some((e) => filtro.etiquetas.includes(e.id));
       if (filtro.etiquetas.length > 0 && !tieneTag) continue;
+
+      // Subcategory filter
+      if (filtro.subcategorias.length > 0 && (!item.subcategoria_id || !filtro.subcategorias.includes(item.subcategoria_id))) continue;
 
       // Persona filter
       let montoItem = item.monto_resuelto;
@@ -354,6 +389,9 @@ export function obtenerItemsFiltrados(
         item.etiquetas?.some((e) => filtro.etiquetas.includes(e.id)) ||
         compra.etiquetas_compra?.some((e) => filtro.etiquetas.includes(e.id));
       if (filtro.etiquetas.length > 0 && !tieneTag) continue;
+
+      // Subcategory filter
+      if (filtro.subcategorias.length > 0 && (!item.subcategoria_id || !filtro.subcategorias.includes(item.subcategoria_id))) continue;
 
       // Persona filter: skip items where the person pays nothing
       if (soloFranco && item.pago_franco <= 0) continue;

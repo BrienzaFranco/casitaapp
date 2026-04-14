@@ -114,7 +114,7 @@ export default function PaginaDashboard() {
   const colorFabi = config.colores.fabiola;
 
   // ── Filter + period state ──
-  const [filtro, setFiltro] = useState<FiltroActivo>({ personas: [], categorias: [], etiquetas: [] });
+  const [filtro, setFiltro] = useState<FiltroActivo>({ personas: [], categorias: [], etiquetas: [], subcategorias: [] });
   const [periodo, setPeriodo] = useState<PeriodoActivo>({ tipo: "este-mes", label: "Este mes" });
   const [categoriaDrawer, setCategoriaDrawer] = useState<CategoriaBalance["categoria"] | null>(null);
   const [diaFiltro, setDiaFiltro] = useState<number | null>(null);
@@ -390,6 +390,7 @@ export default function PaginaDashboard() {
         setFiltro={(f) => { setFiltro(f); setDiaFiltro(null); }}
         categorias={balance.categorias.categorias}
         etiquetas={balance.categorias.etiquetas}
+        subcategorias={balance.categorias.subcategorias}
       />
 
       {/* ── HERO ── */}
