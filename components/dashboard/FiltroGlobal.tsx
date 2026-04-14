@@ -6,7 +6,7 @@ import type { Categoria, Compra, Etiqueta, Item } from "@/types";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type PersonaFiltro = "franco" | "fabiola";
+export type PersonaFiltro = "franco" | "fabiola" | "solo_franco" | "solo_fabiola";
 
 export interface FiltroActivo {
   personas: PersonaFiltro[]; // empty = todos
@@ -172,11 +172,14 @@ export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas, subcate
 
   function etiquetasActivas(): { label: string; onClear: () => void }[] {
     const partes: { label: string; onClear: () => void }[] = [];
-    if (filtro.personas.length === 1) {
-      const p = filtro.personas[0];
-      partes.push({ label: p === "franco" ? "Franco" : "Fabiola", onClear: () => setFiltro({ ...filtro, personas: [] }) });
-    } else if (filtro.personas.length === 2) {
-      partes.push({ label: "Franco + Fabiola", onClear: () => setFiltro({ ...filtro, personas: [] }) });
+    const labelMap: Record<PersonaFiltro, string> = {
+      franco: "Franco",
+      fabiola: "Fabiola",
+      solo_franco: "Solo Franco",
+      solo_fabiola: "Solo Fabiola",
+    };
+    for (const p of filtro.personas) {
+      partes.push({ label: labelMap[p] || p, onClear: () => setFiltro({ ...filtro, personas: filtro.personas.filter((x) => x !== p) }) });
     }
     for (const catId of filtro.categorias) {
       const cat = categorias.find((c) => c.id === catId);
@@ -200,7 +203,7 @@ export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas, subcate
         <div className="max-w-[430px] mx-auto px-4 py-2 flex items-center gap-1.5 flex-wrap">
           {/* Persona dropdown */}
           <DropdownFiltro
-            label="Todos"
+            label="Persona"
             icon={
               <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
                 <circle cx="5.5" cy="3.5" r="2" stroke="currentColor" strokeWidth="1.2" />
@@ -208,8 +211,10 @@ export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas, subcate
               </svg>
             }
             options={[
-              { id: "franco", label: "Franco" },
-              { id: "fabiola", label: "Fabiola" },
+              { id: "franco", label: "Franco (incluye 50/50)" },
+              { id: "fabiola", label: "Fabiola (incluye 50/50)" },
+              { id: "solo_franco", label: "Solo Franco" },
+              { id: "solo_fabiola", label: "Solo Fabiola" },
             ]}
             selected={filtro.personas}
             onChange={(personas) => setFiltro({ ...filtro, personas: personas as PersonaFiltro[] })}
@@ -334,14 +339,19 @@ export function filtrarCompras(compras: Compra[], filtro: FiltroActivo) {
 
 /**
  * Calculate total amount for filtered data.
- * Persona filter: empty = todos (uses monto_resuelto).
- * Single persona: uses that person's share.
- * Both personas: sum both shares.
+ * Persona filter:
+ *   - "franco" → pago_franco (incluye mitad de 50/50)
+ *   - "fabiola" → pago_fabiola (incluye mitad de 50/50)
+ *   - "solo_franco" → monto_resuelto solo si tipo_reparto === "solo_franco"
+ *   - "solo_fabiola" → monto_resuelto solo si tipo_reparto === "solo_fabiola"
+ *   - empty → monto_resuelto (todos)
  */
 export function montoFiltrado(compras: Compra[], filtro: FiltroActivo): number {
   let total = 0;
   const soloFranco = filtro.personas.length === 1 && filtro.personas[0] === "franco";
   const soloFabiola = filtro.personas.length === 1 && filtro.personas[0] === "fabiola";
+  const soloFrancoOnly = filtro.personas.length === 1 && filtro.personas[0] === "solo_franco";
+  const soloFabiolaOnly = filtro.personas.length === 1 && filtro.personas[0] === "solo_fabiola";
 
   for (const compra of compras) {
     for (const item of compra.items) {
@@ -361,6 +371,8 @@ export function montoFiltrado(compras: Compra[], filtro: FiltroActivo): number {
       let montoItem = item.monto_resuelto;
       if (soloFranco) montoItem = item.pago_franco;
       else if (soloFabiola) montoItem = item.pago_fabiola;
+      else if (soloFrancoOnly && item.tipo_reparto !== "solo_franco") continue;
+      else if (soloFabiolaOnly && item.tipo_reparto !== "solo_fabiola") continue;
       // Both or none = use monto_resuelto
 
       total += montoItem;
@@ -380,6 +392,8 @@ export function obtenerItemsFiltrados(
   const items: (Item & { compraFecha: string; compraLugar: string; compraPagador: string })[] = [];
   const soloFranco = filtro.personas.length === 1 && filtro.personas[0] === "franco";
   const soloFabiola = filtro.personas.length === 1 && filtro.personas[0] === "fabiola";
+  const soloFrancoOnly = filtro.personas.length === 1 && filtro.personas[0] === "solo_franco";
+  const soloFabiolaOnly = filtro.personas.length === 1 && filtro.personas[0] === "solo_fabiola";
 
   for (const compra of compras) {
     for (const item of compra.items) {
@@ -393,9 +407,11 @@ export function obtenerItemsFiltrados(
       // Subcategory filter
       if (filtro.subcategorias.length > 0 && (!item.subcategoria_id || !filtro.subcategorias.includes(item.subcategoria_id))) continue;
 
-      // Persona filter: skip items where the person pays nothing
+      // Persona filter: skip items where the person doesn't apply
       if (soloFranco && item.pago_franco <= 0) continue;
       if (soloFabiola && item.pago_fabiola <= 0) continue;
+      if (soloFrancoOnly && item.tipo_reparto !== "solo_franco") continue;
+      if (soloFabiolaOnly && item.tipo_reparto !== "solo_fabiola") continue;
 
       items.push({
         ...item,

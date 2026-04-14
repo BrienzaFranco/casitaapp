@@ -130,8 +130,8 @@ export function SelectorPeriodo({ periodo, setPeriodo, mesActualLabel, mesAnteri
       </button>
 
       {open && (
-        <div className="absolute top-full right-0 mt-1 z-50 w-56 bg-surface-container-lowest border border-outline-variant/15 rounded-[12px] shadow-xl overflow-hidden">
-          <div className="py-1">
+        <div className="absolute top-full right-0 mt-1 z-50 w-64 bg-surface-container-lowest border border-outline-variant/15 rounded-[12px] shadow-xl overflow-hidden">
+          <div className="py-1 max-h-64 overflow-y-auto">
             {opciones.map((op) => {
               const activo = periodo.tipo === op.id;
               return (
@@ -161,14 +161,14 @@ export function SelectorPeriodo({ periodo, setPeriodo, mesActualLabel, mesAnteri
                   type="date"
                   value={rangoDesde}
                   onChange={(e) => setRangoDesde(e.target.value)}
-                  className="flex-1 h-7 rounded-[6px] bg-surface-container-low px-2 text-[11px] outline-none text-on-surface border border-outline-variant/15"
+                  className="flex-1 min-w-0 h-7 rounded-[6px] bg-surface-container-low px-1.5 text-[11px] outline-none text-on-surface border border-outline-variant/15"
                 />
-                <span className="text-[10px] text-on-surface-variant/40">→</span>
+                <span className="text-[10px] text-on-surface-variant/40 shrink-0">→</span>
                 <input
                   type="date"
                   value={rangoHasta}
                   onChange={(e) => setRangoHasta(e.target.value)}
-                  className="flex-1 h-7 rounded-[6px] bg-surface-container-low px-2 text-[11px] outline-none text-on-surface border border-outline-variant/15"
+                  className="flex-1 min-w-0 h-7 rounded-[6px] bg-surface-container-low px-1.5 text-[11px] outline-none text-on-surface border border-outline-variant/15"
                 />
               </div>
               {rangoDesde && rangoHasta && (
