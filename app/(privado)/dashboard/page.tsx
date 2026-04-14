@@ -10,7 +10,20 @@ import { exportarExcel } from "@/lib/exportar";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { obtenerMesAnterior } from "@/lib/calculos";
-import type { CategoriaBalance } from "@/types";
+import type { CategoriaBalance, Compra } from "@/types";
+
+// New components
+import {
+  FiltroGlobal,
+  type FiltroActivo,
+  type PersonaFiltro,
+  montoFiltrado,
+} from "@/components/dashboard/FiltroGlobal";
+import { KPIStrip } from "@/components/dashboard/KPIStrip";
+import { GraficoDiarioComparativo } from "@/components/dashboard/GraficoDiarioComparativo";
+import { DrawerCategoria } from "@/components/dashboard/DrawerCategoria";
+import { DistribucionPersona } from "@/components/dashboard/DistribucionPersona";
+import { TopGastosMes } from "@/components/dashboard/TopGastosMes";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -96,6 +109,19 @@ export default function PaginaDashboard() {
   const colorFabi = config.colores.fabiola;
   const [mesSelectorOpen, setMesSelectorOpen] = useState(false);
 
+  // ── Filter state ──
+  const [filtro, setFiltro] = useState<FiltroActivo>({ persona: "todos", categoriaId: null, etiquetaId: null });
+  const [categoriaDrawer, setCategoriaDrawer] = useState<CategoriaBalance["categoria"] | null>(null);
+  const [diaFiltro, setDiaFiltro] = useState<number | null>(null);
+
+  function handlePersonaClick(persona: PersonaFiltro) {
+    setFiltro((prev) => ({ ...prev, persona: persona === prev.persona ? "todos" : persona }));
+  }
+
+  function handleDiaClick(dia: number) {
+    setDiaFiltro((prev) => (prev === dia ? null : dia));
+  }
+
   // ── Derived data ──
   const mesAnterior = obtenerMesAnterior(balance.mesSeleccionado);
   const comprasMesAnterior = mesAnterior
@@ -113,17 +139,16 @@ export default function PaginaDashboard() {
     0,
   );
 
-  const totalGastado = balance.resumenMes.total;
+  // Totals with persona filter
+  const totalGastado = montoFiltrado(balance.comprasMes, filtro);
   const restante = presupuestoTotal - totalGastado;
   const pctUsado = presupuestoTotal > 0 ? (totalGastado / presupuestoTotal) * 100 : 0;
 
   // Daily average
   const promedioDiario = diasEnMes > 0 ? totalGastado / diasEnMes : 0;
 
-  // Previous month daily average
-  const totalMesAnterior = comprasMesAnterior.reduce(
-    (acc, c) => acc + c.items.reduce((a, i) => a + i.monto_resuelto, 0), 0,
-  );
+  // Previous month total
+  const totalMesAnterior = montoFiltrado(comprasMesAnterior, filtro);
   const diasEnMesAnterior = mesAnterior
     ? new Date(parseInt(mesAnterior.split("-")[0]), parseInt(mesAnterior.split("-")[1]), 0).getDate()
     : diasEnMes;
@@ -132,17 +157,22 @@ export default function PaginaDashboard() {
     ? ((promedioDiario - promedioDiarioAnterior) / promedioDiarioAnterior) * 100
     : 0;
 
-  // Projection: if we keep current pace, what's end-of-month total?
+  // Projection
   const factorProyeccion = diaDelMes > 0 ? diasEnMes / diaDelMes : 1;
   const proyeccionFinMes = Math.round(totalGastado * factorProyeccion * 100) / 100;
   const diffProyeccion = proyeccionFinMes - presupuestoTotal;
 
-  // Sparkline data for projection (cumulative spending day by day)
+  // Sparkline data for projection
   const sparklineProyeccion = useMemo(() => {
     const porDia = new Map<number, number>();
     for (const compra of balance.comprasMes) {
       const dia = new Date(`${compra.fecha}T00:00:00`).getDate();
-      porDia.set(dia, (porDia.get(dia) ?? 0) + compra.items.reduce((a, i) => a + i.monto_resuelto, 0));
+      const monto = filtro.persona === "franco"
+        ? compra.items.reduce((a, i) => a + i.pago_franco, 0)
+        : filtro.persona === "fabiola"
+          ? compra.items.reduce((a, i) => a + i.pago_fabiola, 0)
+          : compra.items.reduce((a, i) => a + i.monto_resuelto, 0);
+      porDia.set(dia, (porDia.get(dia) ?? 0) + monto);
     }
     let acum = 0;
     const pts: number[] = [];
@@ -151,13 +181,18 @@ export default function PaginaDashboard() {
       pts.push(acum);
     }
     return pts;
-  }, [balance.comprasMes, diaDelMes, promedioDiario]);
+  }, [balance.comprasMes, diaDelMes, promedioDiario, filtro.persona]);
 
   // Sparkline data for daily average (last 7 days)
   const sparklineDiario = useMemo(() => {
     const porDia = new Map<string, number>();
     for (const compra of balance.comprasMes) {
-      porDia.set(compra.fecha, (porDia.get(compra.fecha) ?? 0) + compra.items.reduce((a, i) => a + i.monto_resuelto, 0));
+      const monto = filtro.persona === "franco"
+        ? compra.items.reduce((a, i) => a + i.pago_franco, 0)
+        : filtro.persona === "fabiola"
+          ? compra.items.reduce((a, i) => a + i.pago_fabiola, 0)
+          : compra.items.reduce((a, i) => a + i.monto_resuelto, 0);
+      porDia.set(compra.fecha, (porDia.get(compra.fecha) ?? 0) + monto);
     }
     const ultimos7: number[] = [];
     for (let i = 6; i >= 0; i--) {
@@ -167,7 +202,7 @@ export default function PaginaDashboard() {
       ultimos7.push(porDia.get(key) ?? 0);
     }
     return ultimos7;
-  }, [balance.comprasMes, hoy]);
+  }, [balance.comprasMes, hoy, filtro.persona]);
 
   // ── Categorized categories ──
   const categoriasConLimite = useMemo(() => {
@@ -175,20 +210,18 @@ export default function PaginaDashboard() {
       (c) => c.categoria.limite_mensual && c.categoria.limite_mensual > 0,
     );
 
-    // Sort: exceeded first, then warn, then OK, then fixed at bottom
     const ordenPrioridad = (cat: CategoriaBalance) => {
       const pct = cat.porcentaje ?? 0;
-      if (pct > 100) return 0; // exceeded → top
-      if (pct >= 80) return 1; // warn
-      if (cat.es_fijo) return 4; // fixed → bottom
-      return 2; // OK
+      if (pct > 100) return 0;
+      if (pct >= 80) return 1;
+      if (cat.es_fijo) return 4;
+      return 2;
     };
 
     return [...conLimite].sort((a, b) => {
       const oa = ordenPrioridad(a);
       const ob = ordenPrioridad(b);
       if (oa !== ob) return oa - ob;
-      // Within same tier, sort by percentage descending
       return (b.porcentaje ?? 0) - (a.porcentaje ?? 0);
     });
   }, [balance.categoriasMes]);
@@ -199,11 +232,27 @@ export default function PaginaDashboard() {
     );
   }, [balance.categoriasMes]);
 
+  // ── Compras for daily chart (with optional day filter) ──
+  const comprasMesParaGrafico = useMemo(() => {
+    if (!diaFiltro) return balance.comprasMes;
+    return balance.comprasMes.filter((c) => {
+      const dia = new Date(`${c.fecha}T00:00:00`).getDate();
+      return dia === diaFiltro;
+    });
+  }, [balance.comprasMes, diaFiltro]);
+
+  const comprasMesAnteriorParaGrafico = useMemo(() => {
+    if (!diaFiltro) return comprasMesAnterior;
+    return comprasMesAnterior.filter((c) => {
+      const dia = new Date(`${c.fecha}T00:00:00`).getDate();
+      return dia === diaFiltro;
+    });
+  }, [comprasMesAnterior, diaFiltro]);
+
   // ── Alerts ──
   const alertas = useMemo(() => {
     const list: Array<{ tipo: "warn" | "ok" | "info"; texto: React.ReactNode }> = [];
 
-    // Exceeded categories
     const excedidas = categoriasConLimite.filter((c) => (c.porcentaje ?? 0) > 100);
     for (const cat of excedidas) {
       const excedido = cat.total - Number(cat.categoria.limite_mensual);
@@ -213,7 +262,6 @@ export default function PaginaDashboard() {
       });
     }
 
-    // Near-limit categories
     const casiLimite = categoriasConLimite.filter((c) => {
       const pct = c.porcentaje ?? 0;
       return pct >= 80 && pct <= 100;
@@ -226,7 +274,6 @@ export default function PaginaDashboard() {
       });
     }
 
-    // Good daily trend
     if (variacionDiaria < -5) {
       list.push({
         tipo: "ok",
@@ -234,7 +281,6 @@ export default function PaginaDashboard() {
       });
     }
 
-    // Projection warning
     if (diffProyeccion > 0 && excedidas.length === 0) {
       list.push({
         tipo: "info",
@@ -242,7 +288,6 @@ export default function PaginaDashboard() {
       });
     }
 
-    // Balance pending
     if (balance.saldoAbierto.deudor) {
       list.push({
         tipo: "info",
@@ -250,7 +295,24 @@ export default function PaginaDashboard() {
       });
     }
 
-    // All clear
+    // Borradors count
+    const numBorradores = balance.compras.compras.filter((c) => c.estado === "borrador").length;
+    if (numBorradores > 0) {
+      list.push({
+        tipo: "info",
+        texto: <>Tenés <strong>{numBorradores}</strong> {numBorradores === 1 ? "compra en borrador" : "compras en borrador"} sin confirmar.</>,
+      });
+    }
+
+    // Balance days without settlement
+    if (balance.saldoAbierto.deudor) {
+      // Approximate days
+      list.push({
+        tipo: "info",
+        texto: <>El balance lleva pendiente desde el último corte.</>,
+      });
+    }
+
     if (list.length === 0) {
       list.push({
         tipo: "ok",
@@ -259,7 +321,7 @@ export default function PaginaDashboard() {
     }
 
     return list;
-  }, [categoriasConLimite, variacionDiaria, diffProyeccion, mesAnterior, balance.saldoAbierto]);
+  }, [categoriasConLimite, variacionDiaria, diffProyeccion, mesAnterior, balance.saldoAbierto, balance.compras.compras]);
 
   // ── Handlers ──
   function exportar() {
@@ -312,19 +374,14 @@ export default function PaginaDashboard() {
     );
   }
 
-  // ── Color helpers for hero bar ──
+  // ── Color helpers ──
   const heroBadgeClass = pctUsado > 100
     ? "bg-[#FCEBEB] text-[#791F1F]"
     : pctUsado > 75
       ? "bg-[#FAEEDA] text-[#633806]"
       : "bg-[#EAF3DE] text-[#173404]";
 
-  const heroBarColor = pctUsado > 100
-    ? "#E24B4A"
-    : pctUsado > 75
-      ? "#EF9F27"
-      : "#1D9E75";
-
+  const heroBarColor = pctUsado > 100 ? "#E24B4A" : pctUsado > 75 ? "#EF9F27" : "#1D9E75";
   const proyeccionColor = diffProyeccion > 0 ? "tc-warn" : "tc-ok";
 
   // ── Render ──
@@ -383,12 +440,18 @@ export default function PaginaDashboard() {
         </div>
       </div>
 
-      {/* ── SECTION LABEL: gasto del mes ── */}
-      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
+      {/* ── FILTROS GLOBALES ── */}
+      <FiltroGlobal
+        filtro={filtro}
+        setFiltro={(f) => { setFiltro(f); setDiaFiltro(null); }}
+        categorias={balance.categorias.categorias}
+        etiquetas={balance.categorias.etiquetas}
+      />
+
+      {/* ── GASTO DEL MES (Hero) ── */}
+      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-3 mb-2">
         gasto del mes
       </p>
-
-      {/* ── HERO: Gasto vs Presupuesto ── */}
       <div className="mx-4 rounded-[18px] overflow-hidden bg-surface-container-lowest border-[0.5px] border-outline-variant/10">
         <div className="px-5 py-5 pb-3">
           <p className="text-[10px] font-medium uppercase tracking-[.08em] text-on-surface-variant/50 mb-1">
@@ -420,7 +483,6 @@ export default function PaginaDashboard() {
           )}
         </div>
 
-        {/* Big progress bar */}
         {presupuestoTotal > 0 && (
           <>
             <div className="h-[10px] bg-surface-container-low relative overflow-hidden">
@@ -428,7 +490,6 @@ export default function PaginaDashboard() {
                 className="h-full transition-all duration-500"
                 style={{ width: `${Math.min(pctUsado, 100)}%`, background: heroBarColor }}
               />
-              {/* 100% marker */}
               <div className="absolute top-0 bottom-0 w-[1.5px] bg-outline-variant/30" style={{ left: "100%" }} />
             </div>
             <div className="flex justify-between px-5 pb-3 pt-1 text-[10px] text-on-surface-variant/40">
@@ -439,54 +500,46 @@ export default function PaginaDashboard() {
         )}
       </div>
 
-      {/* ── VELOCIDAD ── */}
+      {/* ── KPI STRIP ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-        velocidad de gasto
+        métricas
       </p>
-      <div className="grid grid-cols-2 gap-2 px-4">
-        {/* Proyección */}
-        <div className="bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3">
-          <p className="text-[10px] text-on-surface-variant/50 mb-1">Proyeccion fin de mes</p>
-          {presupuestoTotal > 0 ? (
-            <>
-              <p className={`text-[18px] font-medium leading-tight ${proyeccionColor === "tc-warn" ? "text-[#854F0B]" : "text-[#0F6E56]"}`}>
-                {formatearPeso(proyeccionFinMes)}
-              </p>
-              <p className={`text-[11px] mt-0.5 ${diffProyeccion > 0 ? "text-[#854F0B]" : "text-[#0F6E56]"}`}>
-                {diffProyeccion > 0 ? `↑ ${formatearPeso(diffProyeccion)} sobre el limite` : `↓ ${formatearPeso(Math.abs(diffProyeccion))} bajo el limite`}
-              </p>
-              <div className="mt-[7px] h-6">
-                <SparklineProyeccion
-                  datos={sparklineProyeccion}
-                  colorLine={diffProyeccion > 0 ? "#EF9F27" : "#1D9E75"}
-                  colorTarget="#1D9E75"
-                />
-              </div>
-            </>
-          ) : (
-            <p className="text-[18px] font-medium leading-tight text-on-surface-variant/40">Sin limite</p>
-          )}
-        </div>
+      <KPIStrip
+        comprasMes={balance.comprasMes}
+        filtro={filtro}
+        presupuestoTotal={presupuestoTotal}
+        diasRestantes={diasRestantes}
+        diasEnMes={diasEnMes}
+        totalMesAnterior={totalMesAnterior}
+        diasEnMesAnterior={diasEnMesAnterior}
+      />
 
-        {/* Promedio diario */}
-        <div className="bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3">
-          <p className="text-[10px] text-on-surface-variant/50 mb-1">Promedio diario</p>
-          <p className="text-[18px] font-medium leading-tight text-on-surface">
-            {formatearPeso(Math.round(promedioDiario))}
-          </p>
-          {mesAnterior && promedioDiarioAnterior > 0 && (
-            <p className={`text-[11px] mt-0.5 ${variacionDiaria < 0 ? "text-[#0F6E56]" : "text-[#854F0B]"}`}>
-              {variacionDiaria < 0 ? "↓" : "↑"} {formatearPorcentaje(Math.abs(Math.round(variacionDiaria)))} vs {formatearMesCorto(mesAnterior)}
-            </p>
-          )}
-          <div className="mt-[7px] h-6">
-            <SparklineBarras
-              datos={sparklineDiario}
-              maxVal={Math.max(...sparklineDiario, 1)}
-            />
-          </div>
-        </div>
-      </div>
+      {/* ── GRÁFICO DIARIO COMPARATIVO ── */}
+      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
+        ritmo diario
+      </p>
+      <GraficoDiarioComparativo
+        comprasMes={comprasMesParaGrafico}
+        comprasMesAnterior={comprasMesAnteriorParaGrafico}
+        filtro={filtro}
+        promedioDiario={promedioDiario}
+        onDiaClick={handleDiaClick}
+        colorActual={colorFran}
+        colorAnterior={colorFabi}
+      />
+
+      {/* ── DISTRIBUCIÓN POR PERSONA ── */}
+      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
+        quién pagó qué
+      </p>
+      <DistribucionPersona
+        comprasMes={balance.comprasMes}
+        filtro={filtro}
+        resumenMes={balance.resumenMes}
+        colorFran={colorFran}
+        colorFabi={colorFabi}
+        onPersonaClick={handlePersonaClick}
+      />
 
       {/* ── LÍMITES POR CATEGORÍA ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
@@ -502,26 +555,27 @@ export default function PaginaDashboard() {
           const esFijo = cat.es_fijo;
           const pagadoFijo = esFijo && cat.total >= limite && pct <= 105;
 
-          // Card classes
           let cardClass = "bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3 mb-1.5 cursor-pointer transition-colors hover:border-outline-variant/20";
           if (excedido) cardClass += " border-[#F09595] bg-[#FCEBEB]/40";
           if (casiLimite && !excedido) cardClass += " border-l-[3px] border-l-[#EF9F27]";
           if (esFijo && !excedido) cardClass += " opacity-80";
 
-          // Bar fill color
           let barColor = "#1D9E75";
           if (excedido) barColor = "#E24B4A";
           else if (casiLimite) barColor = "#EF9F27";
           if (pagadoFijo) barColor = "#7F77DD";
 
-          // Remaining text color
           let remColor = "#0F6E56";
           if (excedido) remColor = "#A32D2D";
           else if (casiLimite) remColor = "#854F0B";
           if (pagadoFijo) remColor = "#534AB7";
 
           return (
-            <div key={cat.categoria.id} className={cardClass}>
+            <div
+              key={cat.categoria.id}
+              className={cardClass}
+              onClick={() => setCategoriaDrawer(cat.categoria)}
+            >
               <div className="flex items-center justify-between mb-[7px]">
                 <div className="flex items-center gap-2">
                   <div className="w-[9px] h-[9px] rounded-full shrink-0" style={{ backgroundColor: cat.categoria.color }} />
@@ -554,7 +608,6 @@ export default function PaginaDashboard() {
                 </div>
               </div>
 
-              {/* Progress bar */}
               <div className="h-[5px] bg-surface-container-low rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-400"
@@ -562,7 +615,6 @@ export default function PaginaDashboard() {
                 />
               </div>
 
-              {/* Footer */}
               <div className="flex justify-between mt-1 text-[10px] text-on-surface-variant/40">
                 <span>{formatearPorcentaje(Math.round(pct))} del limite</span>
                 <span>
@@ -573,7 +625,6 @@ export default function PaginaDashboard() {
           );
         })}
 
-        {/* Sin límite */}
         {categoriasSinLimite.length > 0 && (
           <div className="mt-2">
             <p className="text-[10px] text-on-surface-variant/40 mb-1 pl-0.5">sin limite configurado</p>
@@ -581,6 +632,7 @@ export default function PaginaDashboard() {
               <div
                 key={cat.categoria.id}
                 className="flex items-center justify-between px-2.5 py-[7px] bg-surface-container-low rounded-[10px] mb-1"
+                onClick={() => setCategoriaDrawer(cat.categoria)}
               >
                 <div className="flex items-center gap-1.5">
                   <div className="w-[9px] h-[9px] rounded-full shrink-0" style={{ backgroundColor: cat.categoria.color }} />
@@ -593,12 +645,19 @@ export default function PaginaDashboard() {
         )}
       </div>
 
+      {/* ── TOP GASTOS ── */}
+      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
+        ranking de gastos
+      </p>
+      <div className="mx-4">
+        <TopGastosMes comprasMes={balance.comprasMes} filtro={filtro} />
+      </div>
+
       {/* ── BALANCE ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
         balance entre los dos
       </p>
       <div className="mx-4 bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3 flex items-center justify-between gap-2.5">
-        {/* Avatars */}
         <div className="flex">
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0"
@@ -614,7 +673,6 @@ export default function PaginaDashboard() {
           </div>
         </div>
 
-        {/* Text */}
         {balance.resumenMes.deudor ? (
           <div className="flex-1 text-[12px] text-on-surface-variant/70">
             <strong className="text-on-surface font-medium">{balance.resumenMes.deudor}</strong> le debe a{" "}
@@ -626,7 +684,6 @@ export default function PaginaDashboard() {
           </div>
         )}
 
-        {/* Amount + button */}
         {balance.resumenMes.deudor ? (
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[15px] font-medium text-[#A32D2D]">
@@ -674,6 +731,18 @@ export default function PaginaDashboard() {
 
       {/* Divider */}
       <div className="h-px bg-outline-variant/10 mx-4 mt-5" />
+
+      {/* ── CATEGORY DRAWER ── */}
+      {categoriaDrawer && (
+        <DrawerCategoria
+          categoria={categoriaDrawer}
+          comprasMes={balance.comprasMes}
+          comprasMesAnterior={comprasMesAnterior}
+          comprasHistorico={balance.compras.compras}
+          filtro={filtro}
+          onClose={() => setCategoriaDrawer(null)}
+        />
+      )}
     </div>
   );
 }
