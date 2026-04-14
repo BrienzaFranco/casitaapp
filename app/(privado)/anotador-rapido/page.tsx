@@ -289,7 +289,7 @@ export default function PaginaAnotadorRapido() {
   if (!modo) {
     return (
       <div className="min-h-screen bg-surface">
-        <div className="max-w-md mx-auto px-4 pt-6 pb-8 space-y-6">
+        <div className="max-w-md mx-auto px-4 pt-12 pb-8 space-y-6">
           <div>
             <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/50">Registro rápido</p>
             <h1 className="font-headline text-2xl font-bold tracking-tight text-on-surface mt-1">
@@ -304,25 +304,27 @@ export default function PaginaAnotadorRapido() {
             className="w-full py-5 rounded-[16px] bg-secondary text-on-secondary font-headline text-lg font-bold shadow-lg shadow-secondary/20 active:scale-[0.98] transition-transform"
           >
             ⚡ Paso a paso
-            <p className="text-xs font-label font-normal opacity-70 mt-0.5">Pulgar-friendly</p>
+            <p className="text-xs font-label font-normal opacity-70 mt-0.5">Elegí quién pagó, cuánto, qué y dónde</p>
           </button>
 
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => imgRef.current?.click()}
-              className="py-4 rounded-[14px] bg-surface-container-low border border-outline-variant/15 text-on-surface font-headline text-sm font-medium active:scale-[0.97] transition-transform"
+              className="py-5 rounded-[14px] bg-surface-container-low border border-outline-variant/15 text-on-surface font-headline text-sm font-medium active:scale-[0.97] transition-transform text-center"
             >
-              <Camera className="h-5 w-5 mx-auto mb-1 opacity-60" />
+              <Camera className="h-5 w-5 mx-auto mb-1.5 opacity-50" />
               Foto del ticket
+              <p className="text-[9px] font-label text-on-surface-variant/50 mt-0.5 leading-tight">Sacá foto y completá los datos a mano</p>
             </button>
             <button
               type="button"
               onClick={() => { setModo("voz"); iniciarVoz(); }}
-              className="py-4 rounded-[14px] bg-surface-container-low border border-outline-variant/15 text-on-surface font-headline text-sm font-medium active:scale-[0.97] transition-transform"
+              className="py-5 rounded-[14px] bg-surface-container-low border border-outline-variant/15 text-on-surface font-headline text-sm font-medium active:scale-[0.97] transition-transform text-center"
             >
-              <Mic className="h-5 w-5 mx-auto mb-1 opacity-60" />
+              <Mic className="h-5 w-5 mx-auto mb-1.5 opacity-50" />
               Nota de voz
+              <p className="text-[9px] font-label text-on-surface-variant/50 mt-0.5 leading-tight">Grabá y completá los datos a mano</p>
             </button>
           </div>
 
