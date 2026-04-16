@@ -193,6 +193,11 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
     await resolverConModo(mensaje, "completo");
   }, [resolverConModo]);
 
+  const responderRapido = useCallback(async (mensaje: string) => {
+    if (!resultado?.draft) return;
+    await resolverConModo(mensaje, "rapido", resultado.draft);
+  }, [resultado?.draft, resolverConModo]);
+
   const responderCompleto = useCallback(async (mensaje: string) => {
     if (!resultado?.draft) return;
     await resolverConModo(mensaje, "completo", resultado.draft);
@@ -246,10 +251,10 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
     faltanMontosEnRapido,
     ejecutarRapido,
     iniciarCompleto,
+    responderRapido,
     responderCompleto,
     pasarRapidoACompleto,
     buildCompraEditable,
     reset,
   };
 }
-
