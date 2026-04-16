@@ -10,9 +10,14 @@ import type {
 } from "@/lib/ai/contracts";
 
 const MODELO_DEFAULT = "minimax/minimax-m2.7";
+const CACHE_TTL_MS = 1000 * 60 * 5;
+const TIMEOUT_FETCH_MS = 8000;
 
 interface CuerpoEntrada {
   message?: string;
+  mode?: "rapido" | "completo";
+  sessionId?: string;
+  history?: Array<{ role?: string; content?: string }>;
   draft?: unknown;
   context?: {
     categorias?: Array<{ id: string; nombre: string }>;
@@ -74,6 +79,52 @@ interface RespuestaIaRaw {
   pagador?: PagadorCompra | null;
   items?: ItemIaRaw[];
 }
+
+interface OpenRouterUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  cost?: number;
+  total_cost?: number;
+}
+
+interface OpenRouterResponse {
+  choices?: Array<{ message?: { content?: string } }>;
+  usage?: OpenRouterUsage;
+}
+
+interface FlagsIa {
+  promptV2: boolean;
+  networkGuard: boolean;
+  history: boolean;
+  catalogCompact: boolean;
+  questionPlanner: boolean;
+}
+
+interface ConfigIa {
+  modelo: string;
+  flags: FlagsIa;
+  promptVersion: string;
+}
+
+interface CatalogoContexto {
+  categorias: Array<{ id: string; nombre: string }>;
+  subcategorias: Array<{ id: string; categoria_id: string; nombre: string }>;
+}
+
+interface RegistroContextoCache {
+  contexto: CatalogoContexto;
+  ts: number;
+}
+
+interface RegistroResumenCatalogo {
+  resumenCategorias: string;
+  resumenSubcategorias: string;
+  ts: number;
+}
+
+const cacheContextoSesion = new Map<string, RegistroContextoCache>();
+const cacheResumenCatalogo = new Map<string, RegistroResumenCatalogo>();
 
 const FIELDS: RegistroIaCorrectionField[] = [
   "lugar",
@@ -271,57 +322,194 @@ function inferirIntent(
   return "crear_o_actualizar";
 }
 
-async function obtenerModeloActual() {
-  const cliente = await crearClienteSupabaseServidor();
-  const { data } = await cliente
-    .from("configuracion")
-    .select("valor")
-    .eq("clave", "ia_modelo_openrouter")
-    .maybeSingle();
-
-  const desdeConfig = data?.valor && typeof data.valor === "string"
-    ? data.valor
-    : data?.valor && typeof data.valor === "object" && "modelo" in data.valor
-      ? String((data.valor as { modelo: unknown }).modelo ?? "")
-      : "";
-
-  return desdeConfig || process.env.OPENROUTER_MODEL || MODELO_DEFAULT;
+function extraerModelo(valor: unknown): string {
+  if (typeof valor === "string") return valor;
+  if (valor && typeof valor === "object" && "modelo" in valor) {
+    return String((valor as { modelo?: unknown }).modelo ?? "");
+  }
+  return "";
 }
 
-export async function POST(request: Request) {
+function extraerBoolean(valor: unknown, fallback: boolean): boolean {
+  if (typeof valor === "boolean") return valor;
+  if (typeof valor === "string") {
+    const n = valor.trim().toLowerCase();
+    if (n === "true") return true;
+    if (n === "false") return false;
+  }
+  if (valor && typeof valor === "object" && "enabled" in valor) {
+    const enabled = (valor as { enabled?: unknown }).enabled;
+    if (typeof enabled === "boolean") return enabled;
+  }
+  return fallback;
+}
+
+function extraerTexto(valor: unknown, fallback: string): string {
+  if (typeof valor === "string" && valor.trim()) return valor.trim();
+  if (valor && typeof valor === "object" && "version" in valor) {
+    const v = String((valor as { version?: unknown }).version ?? "").trim();
+    if (v) return v;
+  }
+  return fallback;
+}
+
+async function obtenerConfigIa(): Promise<ConfigIa> {
   const cliente = await crearClienteSupabaseServidor();
-  const {
-    data: { user },
-  } = await cliente.auth.getUser();
+  const claves = [
+    "ia_modelo_openrouter",
+    "ia_prompt_v2_enabled",
+    "ia_network_guard_enabled",
+    "ia_history_enabled",
+    "ia_catalog_compact_enabled",
+    "ia_fullmode_question_planner_v2",
+    "ia_prompt_version",
+  ];
 
-  if (!user) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const { data } = await cliente
+    .from("configuracion")
+    .select("clave, valor")
+    .in("clave", claves);
+
+  const mapa = new Map<string, unknown>();
+  (data ?? []).forEach((row) => {
+    mapa.set(String((row as { clave?: unknown }).clave ?? ""), (row as { valor?: unknown }).valor);
+  });
+
+  const modelo = extraerModelo(mapa.get("ia_modelo_openrouter")) || process.env.OPENROUTER_MODEL || MODELO_DEFAULT;
+
+  return {
+    modelo,
+    promptVersion: extraerTexto(mapa.get("ia_prompt_version"), "v2"),
+    flags: {
+      promptV2: extraerBoolean(mapa.get("ia_prompt_v2_enabled"), true),
+      networkGuard: extraerBoolean(mapa.get("ia_network_guard_enabled"), true),
+      history: extraerBoolean(mapa.get("ia_history_enabled"), true),
+      catalogCompact: extraerBoolean(mapa.get("ia_catalog_compact_enabled"), true),
+      questionPlanner: extraerBoolean(mapa.get("ia_fullmode_question_planner_v2"), true),
+    },
+  };
+}
+
+function limpiarCaches() {
+  const ahora = Date.now();
+  for (const [clave, valor] of cacheContextoSesion.entries()) {
+    if (ahora - valor.ts > CACHE_TTL_MS) cacheContextoSesion.delete(clave);
+  }
+  for (const [clave, valor] of cacheResumenCatalogo.entries()) {
+    if (ahora - valor.ts > CACHE_TTL_MS) cacheResumenCatalogo.delete(clave);
+  }
+}
+
+function resolverContextoCatalogo(body: CuerpoEntrada): CatalogoContexto {
+  limpiarCaches();
+
+  const sessionId = String(body.sessionId ?? "").trim();
+  const categoriasBody = body.context?.categorias?.slice(0, 80) ?? [];
+  const subcategoriasBody = body.context?.subcategorias?.slice(0, 160) ?? [];
+
+  if (sessionId && (categoriasBody.length || subcategoriasBody.length)) {
+    cacheContextoSesion.set(sessionId, {
+      ts: Date.now(),
+      contexto: {
+        categorias: categoriasBody,
+        subcategorias: subcategoriasBody,
+      },
+    });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "OPENROUTER_API_KEY no configurada" }, { status: 503 });
+  if (sessionId && !categoriasBody.length && !subcategoriasBody.length) {
+    const cache = cacheContextoSesion.get(sessionId);
+    if (cache && Date.now() - cache.ts <= CACHE_TTL_MS) {
+      return cache.contexto;
+    }
   }
 
-  const body = await request.json() as CuerpoEntrada;
-  const message = String(body.message ?? "").trim();
-  if (!message) {
-    return NextResponse.json({ error: "Falta message" }, { status: 400 });
+  return {
+    categorias: categoriasBody,
+    subcategorias: subcategoriasBody,
+  };
+}
+
+function firmaCatalogo(contexto: CatalogoContexto): string {
+  const baseCategorias = contexto.categorias
+    .map((c) => `${c.id}:${normalizar(c.nombre)}`)
+    .join("|");
+  const baseSubcategorias = contexto.subcategorias
+    .map((s) => `${s.id}:${s.categoria_id}:${normalizar(s.nombre)}`)
+    .join("|");
+  return `${baseCategorias}::${baseSubcategorias}`;
+}
+
+function obtenerResumenCatalogo(contexto: CatalogoContexto, compactar: boolean) {
+  const firma = firmaCatalogo(contexto);
+  const cache = cacheResumenCatalogo.get(firma);
+  if (cache && Date.now() - cache.ts <= CACHE_TTL_MS) {
+    return {
+      resumenCategorias: cache.resumenCategorias,
+      resumenSubcategorias: cache.resumenSubcategorias,
+    };
   }
 
-  const modelo = await obtenerModeloActual();
-  const categorias = body.context?.categorias?.slice(0, 80) ?? [];
-  const subcategorias = body.context?.subcategorias?.slice(0, 140) ?? [];
+  const resumenCategorias = contexto.categorias.map((c) => `${c.id}:${c.nombre}`).join(", ") || "sin lista";
+  const resumenSubcategorias = compactar
+    ? (contexto.subcategorias.map((s) => `${s.id}:${s.nombre}`).join(", ") || "sin lista")
+    : (contexto.subcategorias.map((s) => `${s.id}:${s.categoria_id}:${s.nombre}`).join(", ") || "sin lista");
 
-  const promptSistema = [
+  cacheResumenCatalogo.set(firma, {
+    resumenCategorias,
+    resumenSubcategorias,
+    ts: Date.now(),
+  });
+
+  return { resumenCategorias, resumenSubcategorias };
+}
+
+function construirPromptSistema(params: {
+  mode: "rapido" | "completo";
+  categorias: string;
+  subcategorias: string;
+  flags: FlagsIa;
+  promptVersion: string;
+}) {
+  if (!params.flags.promptV2) {
+    return [
+      "Sos un agente de registro de gastos para una app domestica.",
+      "Respondes SOLO con JSON valido (sin markdown).",
+      "Si es consulta sin cambios, devolve intent=pregunta y answer.",
+      "Si es carga/actualizacion, devolve intent=crear_o_actualizar y draftPatch.",
+      "Si es correccion, devolve intent=corregir y operations.",
+      "No inventes categorias/subcategorias fuera del catalogo.",
+      `Categorias disponibles (id:nombre): ${params.categorias}.`,
+      `Subcategorias disponibles: ${params.subcategorias}.`,
+    ].join("\n");
+  }
+
+  const lineas = [
     "Sos un agente de registro de gastos para una app domestica.",
+    "Objetivo: resolver en la menor cantidad de preguntas posible y dejar un draft usable.",
     "Respondes SOLO con JSON valido (sin markdown).",
-    "Tu salida decide estructura final del draft.",
-    "Si el usuario pide correccion, devolve intent=corregir y operations.",
-    "Si es consulta sin cambios, devolve intent=pregunta y answer.",
-    "Si es carga/actualizacion, devolve intent=crear_o_actualizar y draftPatch.",
-    "No inventes categorias/subcategorias fuera del catalogo (usar IDs existentes).",
-    "Si la correccion es ambigua, no edites: devolve resolution con opciones.",
+    `Version de prompt: ${params.promptVersion}`,
+    "Inferencia proactiva: completa lugar, pagador y categorias cuando la evidencia sea alta.",
+    "No pidas confirmacion de datos con evidencia alta.",
+    "Solo preguntes si falta un dato critico sin senal clara.",
+    "Si hay ambiguedad real (2+ candidatos), no adivines: devolve resolution con opciones.",
+    "No inventes categorias/subcategorias fuera del catalogo (usar IDs existentes o nombres del catalogo).",
+    "Si el usuario corrige algo, usa intent=corregir y operations.",
+    "Si el usuario solo consulta, usa intent=pregunta y answer.",
+    "Si carga o actualiza datos, usa intent=crear_o_actualizar y draftPatch.",
+  ];
+
+  if (params.mode === "rapido") {
+    lineas.push("Modo rapido: prioriza dejar el draft guardable en un solo mensaje cuando haya total o items.");
+    lineas.push("No abras preguntas no criticas en modo rapido.");
+  } else {
+    lineas.push("Modo completo: pedir solo datos faltantes criticos en orden total > lugar > pagador > items > montos por item.");
+    if (params.flags.questionPlanner) {
+      lineas.push("Si faltan 2 campos compatibles, consolidalos en UNA sola pregunta.");
+    }
+  }
+
+  lineas.push(
     "Formato JSON:",
     "{",
     '  "intent": "crear_o_actualizar|corregir|pregunta",',
@@ -363,25 +551,36 @@ export async function POST(request: Request) {
     "  },",
     '  "warnings": ["string"]',
     "}",
-    `Categorias disponibles (id:nombre): ${categorias.map((c) => `${c.id}:${c.nombre}`).join(", ") || "sin lista"}.`,
-    `Subcategorias disponibles (id:categoria_id:nombre): ${subcategorias.map((s) => `${s.id}:${s.categoria_id}:${s.nombre}`).join(", ") || "sin lista"}.`,
-  ].join("\n");
+    `Categorias disponibles (id:nombre): ${params.categorias}.`,
+    `Subcategorias disponibles: ${params.subcategorias}.`,
+  );
 
-  const payload = {
-    model: modelo,
-    temperature: 0.1,
-    max_tokens: 520,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: promptSistema },
-      {
-        role: "user",
-        content: `Mensaje usuario:\n${message}\n\nDraft actual:\n${JSON.stringify(body.draft ?? {}, null, 2)}`,
-      },
-    ],
-  };
+  return lineas.join("\n");
+}
 
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+function sanitizarHistory(history: CuerpoEntrada["history"]): Array<{ role: "user" | "assistant"; content: string }> {
+  return (history ?? [])
+    .map((turno) => ({
+      role: turno?.role === "assistant" ? "assistant" as const : "user" as const,
+      content: String(turno?.content ?? "").trim(),
+    }))
+    .filter((turno) => Boolean(turno.content))
+    .slice(-6)
+    .map((turno) => ({ ...turno, content: turno.content.slice(0, 400) }));
+}
+
+async function fetchConTimeout(url: string, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function llamarOpenRouter(payload: object, apiKey: string, usarGuard: boolean) {
+  const init: RequestInit = {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -390,21 +589,330 @@ export async function POST(request: Request) {
       "X-Title": "CasitaApp",
     },
     body: JSON.stringify(payload),
-  });
+  };
 
-  if (!res.ok) {
-    const errTxt = await res.text();
-    return NextResponse.json({ error: "OpenRouter error", detail: errTxt }, { status: 502 });
+  if (!usarGuard) {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", init);
+    return { response, retries: 0, timeout: false };
   }
 
-  const json = await res.json() as {
-    choices?: Array<{ message?: { content?: string } }>;
+  let timeout = false;
+  try {
+    const response = await fetchConTimeout("https://openrouter.ai/api/v1/chat/completions", init, TIMEOUT_FETCH_MS);
+    return { response, retries: 0, timeout: false };
+  } catch {
+    timeout = true;
+  }
+
+  const response = await fetchConTimeout("https://openrouter.ai/api/v1/chat/completions", init, TIMEOUT_FETCH_MS);
+  return { response, retries: 1, timeout };
+}
+
+function costoEstimado(usage: OpenRouterUsage | undefined): number {
+  if (!usage) return 0;
+  if (typeof usage.cost === "number" && Number.isFinite(usage.cost)) return usage.cost;
+  if (typeof usage.total_cost === "number" && Number.isFinite(usage.total_cost)) return usage.total_cost;
+  return 0;
+}
+
+async function registrarLogIa(payload: {
+  userId: string;
+  sessionId: string;
+  modo: "rapido" | "completo";
+  intent: string;
+  canSave: boolean;
+  camposCompletados: number;
+  faltantesCount: number;
+  latenciaMs: number;
+  modelo: string;
+  promptVersion: string;
+  retryCount: number;
+  providerStatus: number;
+  fallbackUsed: boolean;
+  errorCode: string | null;
+  tokensIn: number;
+  tokensOut: number;
+  tokensTotal: number;
+  costoEstUsd: number;
+}) {
+  try {
+    const cliente = await crearClienteSupabaseServidor();
+    await cliente.from("ia_logs").insert({
+      session_id: payload.sessionId,
+      user_id: payload.userId,
+      modo: payload.modo,
+      intent: payload.intent,
+      can_save: payload.canSave,
+      campos_completados: payload.camposCompletados,
+      faltantes_count: payload.faltantesCount,
+      latencia_ms: payload.latenciaMs,
+      modelo: payload.modelo,
+      prompt_version: payload.promptVersion,
+      retry_count: payload.retryCount,
+      provider_status: payload.providerStatus,
+      fallback_used: payload.fallbackUsed,
+      error_code: payload.errorCode,
+      tokens_in: payload.tokensIn,
+      tokens_out: payload.tokensOut,
+      tokens_total: payload.tokensTotal,
+      costo_est_usd: payload.costoEstUsd,
+    });
+  } catch {
+    // log best-effort, no bloquear flujo
+  }
+}
+
+function countCamposCompletados(draft: DraftPatchRaw | undefined) {
+  if (!draft) return 0;
+  let total = 0;
+  if (draft.lugar) total += 1;
+  if (draft.total != null) total += 1;
+  if (draft.pagador) total += 1;
+  if ((draft.items ?? []).length > 0) total += 1;
+  return total;
+}
+
+export async function POST(request: Request) {
+  const inicio = Date.now();
+  const cliente = await crearClienteSupabaseServidor();
+  const {
+    data: { user },
+  } = await cliente.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: "OPENROUTER_API_KEY no configurada" }, { status: 503 });
+  }
+
+  const body = await request.json() as CuerpoEntrada;
+  const message = String(body.message ?? "").trim();
+  if (!message) {
+    return NextResponse.json({ error: "Falta message" }, { status: 400 });
+  }
+
+  const modo: "rapido" | "completo" = body.mode === "completo" ? "completo" : "rapido";
+  const sessionId = String(body.sessionId ?? "").trim() || `ria-${user.id}-${Date.now()}`;
+
+  const config = await obtenerConfigIa();
+  const contexto = resolverContextoCatalogo(body);
+
+  if (!contexto.categorias.length && !contexto.subcategorias.length) {
+    const latenciaMs = Date.now() - inicio;
+    void registrarLogIa({
+      userId: user.id,
+      sessionId,
+      modo,
+      intent: "error",
+      canSave: false,
+      camposCompletados: 0,
+      faltantesCount: 1,
+      latenciaMs,
+      modelo: config.modelo,
+      promptVersion: config.promptVersion,
+      retryCount: 0,
+      providerStatus: 0,
+      fallbackUsed: true,
+      errorCode: "context_missing",
+      tokensIn: 0,
+      tokensOut: 0,
+      tokensTotal: 0,
+      costoEstUsd: 0,
+    });
+
+    return NextResponse.json({
+      error: {
+        code: "context_missing",
+        message: "No hay catalogo cargado para resolver categorias. Reintenta.",
+        retryable: true,
+      },
+      meta: {
+        sessionId,
+        model: config.modelo,
+        promptVersion: config.promptVersion,
+        retryCount: 0,
+        latencyMs: latenciaMs,
+      },
+    });
+  }
+
+  const { resumenCategorias, resumenSubcategorias } = obtenerResumenCatalogo(contexto, config.flags.catalogCompact);
+
+  const promptSistema = construirPromptSistema({
+    mode: modo,
+    categorias: resumenCategorias,
+    subcategorias: resumenSubcategorias,
+    flags: config.flags,
+    promptVersion: config.promptVersion,
+  });
+
+  const history = config.flags.history ? sanitizarHistory(body.history) : [];
+
+  const payload = {
+    model: config.modelo,
+    temperature: 0.1,
+    max_tokens: 520,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: promptSistema },
+      ...history.map((turno) => ({ role: turno.role, content: turno.content })),
+      {
+        role: "user",
+        content: `Modo: ${modo}\nMensaje usuario:\n${message}\n\nDraft actual:\n${JSON.stringify(body.draft ?? {}, null, 2)}`,
+      },
+    ],
   };
+
+  let providerStatus = 0;
+  let retryCount = 0;
+  let fallbackUsed = false;
+  let errorCode: string | null = null;
+
+  let openRouterRes: Response;
+  try {
+    const orCall = await llamarOpenRouter(payload, apiKey, config.flags.networkGuard);
+    openRouterRes = orCall.response;
+    retryCount = orCall.retries;
+    if (orCall.timeout) fallbackUsed = true;
+  } catch {
+    const latenciaMs = Date.now() - inicio;
+    errorCode = "provider_unreachable";
+    fallbackUsed = true;
+    void registrarLogIa({
+      userId: user.id,
+      sessionId,
+      modo,
+      intent: "error",
+      canSave: false,
+      camposCompletados: 0,
+      faltantesCount: 1,
+      latenciaMs,
+      modelo: config.modelo,
+      promptVersion: config.promptVersion,
+      retryCount,
+      providerStatus,
+      fallbackUsed,
+      errorCode,
+      tokensIn: 0,
+      tokensOut: 0,
+      tokensTotal: 0,
+      costoEstUsd: 0,
+    });
+
+    return NextResponse.json({
+      error: {
+        code: errorCode,
+        message: "No se pudo conectar con IA. Podes reintentar.",
+        retryable: true,
+      },
+      meta: {
+        sessionId,
+        model: config.modelo,
+        promptVersion: config.promptVersion,
+        retryCount,
+        latencyMs: latenciaMs,
+      },
+    });
+  }
+
+  providerStatus = openRouterRes.status;
+
+  if (!openRouterRes.ok) {
+    const errTxt = await openRouterRes.text();
+    const latenciaMs = Date.now() - inicio;
+    errorCode = "provider_error";
+    fallbackUsed = true;
+
+    void registrarLogIa({
+      userId: user.id,
+      sessionId,
+      modo,
+      intent: "error",
+      canSave: false,
+      camposCompletados: 0,
+      faltantesCount: 1,
+      latenciaMs,
+      modelo: config.modelo,
+      promptVersion: config.promptVersion,
+      retryCount,
+      providerStatus,
+      fallbackUsed,
+      errorCode,
+      tokensIn: 0,
+      tokensOut: 0,
+      tokensTotal: 0,
+      costoEstUsd: 0,
+    });
+
+    return NextResponse.json({
+      error: {
+        code: errorCode,
+        message: `OpenRouter error: ${errTxt.slice(0, 180)}`,
+        retryable: true,
+      },
+      meta: {
+        sessionId,
+        model: config.modelo,
+        promptVersion: config.promptVersion,
+        retryCount,
+        latencyMs: latenciaMs,
+      },
+    });
+  }
+
+  const json = await openRouterRes.json() as OpenRouterResponse;
   const contenido = json.choices?.[0]?.message?.content ?? "";
   const raw = extraerJsonSeguro(contenido);
 
+  const usage = json.usage;
+  const tokensIn = Number(usage?.prompt_tokens ?? 0);
+  const tokensOut = Number(usage?.completion_tokens ?? 0);
+  const tokensTotal = Number(usage?.total_tokens ?? (tokensIn + tokensOut));
+  const costoEstUsd = costoEstimado(usage);
+
   if (!raw) {
-    return NextResponse.json({ error: "No se pudo parsear JSON del modelo" }, { status: 502 });
+    const latenciaMs = Date.now() - inicio;
+    errorCode = "model_json_invalid";
+    fallbackUsed = true;
+
+    void registrarLogIa({
+      userId: user.id,
+      sessionId,
+      modo,
+      intent: "error",
+      canSave: false,
+      camposCompletados: 0,
+      faltantesCount: 1,
+      latenciaMs,
+      modelo: config.modelo,
+      promptVersion: config.promptVersion,
+      retryCount,
+      providerStatus,
+      fallbackUsed,
+      errorCode,
+      tokensIn,
+      tokensOut,
+      tokensTotal,
+      costoEstUsd,
+    });
+
+    return NextResponse.json({
+      error: {
+        code: errorCode,
+        message: "No se pudo interpretar la respuesta de IA. Reintenta.",
+        retryable: true,
+      },
+      meta: {
+        sessionId,
+        model: config.modelo,
+        promptVersion: config.promptVersion,
+        retryCount,
+        latencyMs: latenciaMs,
+      },
+    });
   }
 
   const draftRaw: DraftPatchRaw | undefined = raw.draftPatch
@@ -413,11 +921,11 @@ export async function POST(request: Request) {
       : undefined);
 
   const draftSanitizado = draftRaw
-    ? sanitizarPatch(draftRaw, categorias, subcategorias)
+    ? sanitizarPatch(draftRaw, contexto.categorias, contexto.subcategorias)
     : { draftPatch: undefined };
 
   const operations = (raw.operations ?? [])
-    .map((op) => sanitizarOperation(op, categorias, subcategorias))
+    .map((op) => sanitizarOperation(op, contexto.categorias, contexto.subcategorias))
     .filter((op): op is RegistroIaCorrectionOp => Boolean(op));
 
   const answer = raw.answer ? String(raw.answer).trim() : "";
@@ -428,6 +936,30 @@ export async function POST(request: Request) {
     ...((raw.warnings ?? []).map((w) => String(w))),
   ];
 
+  const latenciaMs = Date.now() - inicio;
+  const camposCompletados = countCamposCompletados(draftRaw);
+
+  void registrarLogIa({
+    userId: user.id,
+    sessionId,
+    modo,
+    intent,
+    canSave: intent !== "pregunta",
+    camposCompletados,
+    faltantesCount: 0,
+    latenciaMs,
+    modelo: config.modelo,
+    promptVersion: config.promptVersion,
+    retryCount,
+    providerStatus,
+    fallbackUsed,
+    errorCode,
+    tokensIn,
+    tokensOut,
+    tokensTotal,
+    costoEstUsd,
+  });
+
   return NextResponse.json({
     intent,
     answer,
@@ -435,7 +967,13 @@ export async function POST(request: Request) {
     operations,
     resolution,
     warnings,
-    model: modelo,
+    model: config.modelo,
+    meta: {
+      sessionId,
+      model: config.modelo,
+      promptVersion: config.promptVersion,
+      retryCount,
+      latencyMs: latenciaMs,
+    },
   });
 }
-

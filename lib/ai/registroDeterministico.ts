@@ -483,8 +483,9 @@ export function obtenerFaltantes(draft: RegistroIaDraft, modo: ModoRegistroIa): 
     return faltantes;
   }
 
-  const tieneInfo = Boolean(draft.lugar) || Boolean(draft.total && draft.total > 0) || draft.items.length > 0;
-  if (!tieneInfo) faltantes.push("items");
+  const tieneTotal = Boolean(draft.total && draft.total > 0);
+  const tieneItems = draft.items.length > 0;
+  if (!tieneTotal && !tieneItems) faltantes.push("items");
   return faltantes;
 }
 
@@ -493,6 +494,12 @@ export function puedeGuardar(draft: RegistroIaDraft, modo: ModoRegistroIa): bool
 }
 
 export function preguntaSiguiente(faltantes: CampoFaltanteRegistroIa[]): string | null {
+  if (faltantes.includes("total") && faltantes.includes("lugar")) {
+    return "¿En qué lugar fue y cuál fue el total de la compra?";
+  }
+  if (faltantes.includes("pagador") && faltantes.includes("total")) {
+    return "¿Quién pagó (Franco, Fabiola o compartido) y cuál fue el total?";
+  }
   if (faltantes.includes("lugar")) return "¿En qué lugar fue la compra?";
   if (faltantes.includes("pagador")) return "¿Quién pagó: Franco, Fabiola o compartido?";
   if (faltantes.includes("total")) return "¿Cuál fue el total de la compra?";

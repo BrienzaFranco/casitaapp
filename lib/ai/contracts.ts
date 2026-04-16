@@ -78,3 +78,17 @@ export interface RegistroIaContexto {
   categorias: Array<{ id: string; nombre: string }>;
   subcategorias: Array<{ id: string; categoria_id: string; nombre: string }>;
 }
+
+export interface RegistroIaError {
+  code: string;
+  message: string;
+  retryable: boolean;
+}
+
+export interface RegistroIaMeta {
+  promptVersion?: string;
+  retryCount?: number;
+  latencyMs?: number;
+  model?: string;
+  sessionId?: string;
+}

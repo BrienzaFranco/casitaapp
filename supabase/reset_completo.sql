@@ -6,6 +6,7 @@
 
 -- 1. Eliminar tablas existentes (orden inverso a dependencias)
 drop table if exists configuracion cascade;
+drop table if exists ia_logs cascade;
 drop table if exists item_etiquetas cascade;
 drop table if exists compra_etiquetas cascade;
 drop table if exists items cascade;
@@ -96,6 +97,29 @@ create table configuracion (
   actualizado_en timestamptz not null default now()
 );
 
+create table ia_logs (
+  id uuid primary key default gen_random_uuid(),
+  session_id text not null,
+  user_id uuid references auth.users(id) on delete set null,
+  modo text not null check (modo in ('rapido', 'completo')),
+  intent text not null,
+  can_save boolean not null default false,
+  campos_completados int not null default 0,
+  faltantes_count int not null default 0,
+  latencia_ms int not null default 0,
+  modelo text not null,
+  prompt_version text not null default 'v2',
+  retry_count int not null default 0,
+  provider_status int not null default 0,
+  fallback_used boolean not null default false,
+  error_code text,
+  tokens_in int not null default 0,
+  tokens_out int not null default 0,
+  tokens_total int not null default 0,
+  costo_est_usd numeric not null default 0,
+  creado_en timestamptz not null default now()
+);
+
 -- Indices
 create index idx_subcategorias_categoria_id on subcategorias(categoria_id);
 create index idx_items_compra_id on items(compra_id);
@@ -106,6 +130,10 @@ create index idx_compra_etiquetas_etiqueta_id on compra_etiquetas(etiqueta_id);
 create index idx_compras_fecha on compras(fecha desc);
 create index idx_settlement_cuts_fecha on settlement_cuts(fecha_corte desc);
 create index idx_settlement_cuts_activo on settlement_cuts(activo);
+create index idx_ia_logs_creado_en on ia_logs(creado_en desc);
+create index idx_ia_logs_session on ia_logs(session_id);
+create index idx_ia_logs_user on ia_logs(user_id);
+create index idx_ia_logs_intent on ia_logs(intent);
 
 -- RLS Policies
 alter table categorias enable row level security;
@@ -117,6 +145,7 @@ alter table item_etiquetas enable row level security;
 alter table compra_etiquetas enable row level security;
 alter table settlement_cuts enable row level security;
 alter table configuracion enable row level security;
+alter table ia_logs enable row level security;
 
 drop policy if exists categorias_autenticados on categorias;
 create policy categorias_autenticados on categorias for all to authenticated using (true) with check (true);
@@ -144,6 +173,9 @@ create policy settlement_cuts_autenticados on settlement_cuts for all to authent
 
 drop policy if exists configuracion_autenticados on configuracion;
 create policy configuracion_autenticados on configuracion for all to authenticated using (true) with check (true);
+
+drop policy if exists ia_logs_autenticados on ia_logs;
+create policy ia_logs_autenticados on ia_logs for all to authenticated using (true) with check (true);
 
 -- ============================================
 -- SEED DATA
@@ -215,5 +247,11 @@ on conflict (nombre) do update set color = excluded.color;
 insert into configuracion (clave, valor) values
   ('colores_personas', '{"franco": "#3b82f6", "fabiola": "#10b981"}'),
   ('lugares_ocultos', '[]'),
-  ('ia_modelo_openrouter', '"minimax/minimax-m2.7"')
+  ('ia_modelo_openrouter', '"minimax/minimax-m2.7"'),
+  ('ia_prompt_version', '"v2"'),
+  ('ia_prompt_v2_enabled', 'true'),
+  ('ia_network_guard_enabled', 'true'),
+  ('ia_history_enabled', 'true'),
+  ('ia_catalog_compact_enabled', 'true'),
+  ('ia_fullmode_question_planner_v2', 'true')
 on conflict (clave) do nothing;

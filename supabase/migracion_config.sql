@@ -25,5 +25,11 @@ insert into configuracion (clave, valor)
 values
   ('colores_personas', '{"franco": "#3b82f6", "fabiola": "#10b981"}'),
   ('lugares_ocultos', '[]'),
-  ('ia_modelo_openrouter', '"minimax/minimax-m2.7"')
+  ('ia_modelo_openrouter', '"minimax/minimax-m2.7"'),
+  ('ia_prompt_version', '"v2"'),
+  ('ia_prompt_v2_enabled', 'true'),
+  ('ia_network_guard_enabled', 'true'),
+  ('ia_history_enabled', 'true'),
+  ('ia_catalog_compact_enabled', 'true'),
+  ('ia_fullmode_question_planner_v2', 'true')
 on conflict (clave) do nothing;

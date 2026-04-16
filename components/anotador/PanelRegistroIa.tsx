@@ -68,7 +68,7 @@ export function PanelRegistroIa({ onBack }: Props) {
     setInput((prev) => (prev.trim() ? `${prev.trim()} ${t}` : t));
     inputRef.current?.focus();
     voice.reset();
-  }, [voice.state, voice.transcript, voice.reset]);
+  }, [voice, voice.state, voice.transcript, voice.reset]);
 
   async function asegurarEtiquetaIa() {
     const existente = categorias.etiquetas.find((e) => normalizarTexto(e.nombre) === "ia");
@@ -197,8 +197,28 @@ export function PanelRegistroIa({ onBack }: Props) {
         </div>
 
         {ia.error && (
-          <div className="mt-2 shrink-0 rounded-[12px] bg-error-container text-on-error-container px-3 py-2 text-xs">
-            {ia.error}
+          <div className="mt-2 shrink-0 rounded-[12px] bg-error-container text-on-error-container px-3 py-2 text-xs space-y-2">
+            <p>{ia.error}</p>
+            {ia.puedeReintentar && (
+              <button
+                type="button"
+                onClick={() => void ia.reintentarUltimoMensaje()}
+                className="h-8 rounded-[10px] bg-on-error-container/15 px-3 text-[11px] font-label font-bold uppercase tracking-wide"
+              >
+                Reintentar
+              </button>
+            )}
+          </div>
+        )}
+
+        {ia.cargando && !borrador && (
+          <div className="mt-2 shrink-0 rounded-[12px] border border-outline-variant/15 bg-surface-container-lowest p-2.5 animate-pulse">
+            <div className="flex items-center justify-between">
+              <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Interpretando</p>
+              <span className="text-[10px] text-on-surface-variant/60">IA</span>
+            </div>
+            <div className="mt-2 h-3 rounded bg-surface-container-low" />
+            <div className="mt-1.5 h-3 w-3/4 rounded bg-surface-container-low" />
           </div>
         )}
 
@@ -206,9 +226,16 @@ export function PanelRegistroIa({ onBack }: Props) {
           <div className="mt-2 shrink-0 rounded-[12px] border border-outline-variant/15 bg-surface-container-lowest p-2.5">
             <div className="flex items-center justify-between">
               <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Detectado</p>
-              <span className="text-[10px] text-on-surface-variant/60 inline-flex items-center gap-1">
-                <Sparkles className="h-3 w-3" /> {(borrador.confidence * 100).toFixed(0)}%
-              </span>
+              <div className="inline-flex items-center gap-2">
+                {ia.modoActivo === "rapido" && puedeGuardarActual && (
+                  <span className="rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-label font-bold uppercase tracking-wide text-secondary">
+                    Guardado rapido
+                  </span>
+                )}
+                <span className="text-[10px] text-on-surface-variant/60 inline-flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> {(borrador.confidence * 100).toFixed(0)}%
+                </span>
+              </div>
             </div>
             <p className="text-xs text-on-surface mt-1 truncate">Lugar: {borrador.lugar || "-"} | Pagador: {borrador.pagador ?? "-"}</p>
             <p className="text-xs text-on-surface-variant mt-0.5">
@@ -254,7 +281,7 @@ export function PanelRegistroIa({ onBack }: Props) {
             <div ref={chatScrollRef} className="h-full overflow-y-auto overscroll-contain p-3 space-y-2">
               {ia.mensajes.length === 0 ? (
                 <p className="text-sm text-on-surface-variant">
-                  Ejemplo: "Compre en Coto por cuarenta y cuatro mil trescientos pesos una leche y 3 cafes".
+                  Ejemplo: &quot;Compre en Coto por cuarenta y cuatro mil trescientos pesos una leche y 3 cafes&quot;.
                 </p>
               ) : (
                 ia.mensajes.map((m, idx) => (

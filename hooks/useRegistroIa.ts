@@ -12,6 +12,8 @@ import type {
   RegistroIaResolution,
   RegistroIaResolutionOption,
   RegistroIaResultado,
+  RegistroIaError,
+  RegistroIaMeta,
 } from "@/lib/ai/contracts";
 import {
   aplicarAjustePorTotal,
@@ -47,7 +49,23 @@ interface RespuestaIa {
   operations?: RegistroIaCorrectionOp[];
   resolution?: RegistroIaResolution | null;
   warnings?: string[];
+  error?: RegistroIaError;
+  meta?: RegistroIaMeta;
 }
+
+interface TurnoHistorialIa {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface EstadoUltimoIntento {
+  mensaje: string;
+  modo: ModoRegistroIa;
+  draftBase?: RegistroIaDraft;
+}
+
+const MAX_TURNOS_HISTORIAL = 6;
+const IA_QUICKSAVE_V2_ENABLED = true;
 
 interface PendingResolutionState {
   reason: string;
@@ -100,6 +118,12 @@ async function pedirRefinamientoIa(
   draft: RegistroIaDraft | null,
   categorias: Categoria[],
   subcategorias: Subcategoria[],
+  opciones: {
+    modo: ModoRegistroIa;
+    sessionId: string;
+    history: TurnoHistorialIa[];
+    incluirContexto: boolean;
+  },
 ): Promise<RespuestaIa | null> {
   try {
     const res = await fetch("/api/ia/gastos", {
@@ -107,17 +131,44 @@ async function pedirRefinamientoIa(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: mensaje,
+        mode: opciones.modo,
+        sessionId: opciones.sessionId,
+        history: opciones.history.slice(-MAX_TURNOS_HISTORIAL),
         draft,
-        context: {
-          categorias: categorias.map((c) => ({ id: c.id, nombre: c.nombre })),
-          subcategorias: subcategorias.map((s) => ({ id: s.id, categoria_id: s.categoria_id, nombre: s.nombre })),
-        },
+        context: opciones.incluirContexto
+          ? {
+            categorias: categorias.map((c) => ({ id: c.id, nombre: c.nombre })),
+            subcategorias: subcategorias.map((s) => ({ id: s.id, categoria_id: s.categoria_id, nombre: s.nombre })),
+          }
+          : undefined,
       }),
     });
-    if (!res.ok) return null;
-    return await res.json() as RespuestaIa;
+    let data: RespuestaIa | null = null;
+    try {
+      data = await res.json() as RespuestaIa;
+    } catch {
+      data = null;
+    }
+
+    if (!res.ok) {
+      if (data) return data;
+      return {
+        error: {
+          code: "http_error",
+          message: "No se pudo interpretar la respuesta de IA.",
+          retryable: true,
+        },
+      };
+    }
+    return data;
   } catch {
-    return null;
+    return {
+      error: {
+        code: "network_error",
+        message: "No hay conexion con el servicio IA.",
+        retryable: true,
+      },
+    };
   }
 }
 
@@ -251,9 +302,19 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
   const [modoActivo, setModoActivo] = useState<ModoRegistroIa | null>(null);
   const [resultado, setResultado] = useState<RegistroIaResultado | null>(null);
   const [mensajes, setMensajes] = useState<MensajeRegistroIa[]>([]);
+  const [history, setHistory] = useState<TurnoHistorialIa[]>([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [puedeReintentar, setPuedeReintentar] = useState(false);
+  const [ultimoIntento, setUltimoIntento] = useState<EstadoUltimoIntento | null>(null);
+  const [firmaContextoEnviada, setFirmaContextoEnviada] = useState("");
   const [pendingResolution, setPendingResolution] = useState<PendingResolutionState | null>(null);
+  const sessionId = useMemo(() => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return `ria-${crypto.randomUUID()}`;
+    }
+    return `ria-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  }, []);
 
   const mapaLugares = useMemo(
     () => cargarMapaLugares(compras.map((c) => ({ nombre_lugar: c.nombre_lugar, items: c.items }))),
@@ -263,6 +324,11 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
     () => cargarMapaDetalles(compras.map((c) => ({ items: c.items }))),
     [compras],
   );
+  const firmaContexto = useMemo(() => {
+    const cats = categorias.map((c) => `${c.id}:${normalizar(c.nombre)}`).join("|");
+    const subs = subcategorias.map((s) => `${s.id}:${s.categoria_id}:${normalizar(s.nombre)}`).join("|");
+    return `${cats}::${subs}`;
+  }, [categorias, subcategorias]);
 
   const enriquecerCategorias = useCallback((draft: RegistroIaDraft): RegistroIaDraft => {
     const items = draft.items.map((item) => {
@@ -288,11 +354,35 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
       if (faltanMontos) {
         return "Detecte lugar, total e items. Faltan montos por item: podes detallar ahora o guardar rapido con ajuste.";
       }
-      if (res.canSave) return "Listo, ya lo puedo guardar como borrador IA.";
+      if (res.canSave) return "Listo. Ya esta para guardado rapido con un mensaje.";
       return res.preguntaSiguiente ?? "Necesito un poco mas de detalle para guardarlo.";
     }
     if (res.canSave) return "Perfecto. Ya esta completo. Si queres, lo guardo como borrador IA.";
     return res.preguntaSiguiente ?? "Decime el dato que falta para completar el registro.";
+  }, []);
+
+  const ajustarResultadoRapido = useCallback((res: RegistroIaResultado, modo: ModoRegistroIa): RegistroIaResultado => {
+    if (modo !== "rapido" || !IA_QUICKSAVE_V2_ENABLED) return res;
+    const tieneTotal = Boolean(res.draft.total && res.draft.total > 0);
+    const tieneItems = res.draft.items.length > 0;
+    if (!tieneTotal && !tieneItems) return res;
+    return { ...res, canSave: true, faltantes: [] };
+  }, []);
+
+  const pushTurno = useCallback((mensajeUsuario: string, mensajeAsistente: string) => {
+    setMensajes((prev) => [
+      ...prev,
+      { role: "user", text: mensajeUsuario },
+      { role: "assistant", text: mensajeAsistente },
+    ]);
+    setHistory((prev) => {
+      const next: TurnoHistorialIa[] = [
+        ...prev,
+        { role: "user", content: mensajeUsuario },
+        { role: "assistant", content: mensajeAsistente },
+      ];
+      return next.slice(-MAX_TURNOS_HISTORIAL);
+    });
   }, []);
 
   const resolverConModo = useCallback(async (
@@ -301,19 +391,51 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
     draftBase?: RegistroIaDraft,
   ) => {
     setError(null);
+    setPuedeReintentar(false);
     setCargando(true);
     setPendingResolution(null);
+    setUltimoIntento({ mensaje, modo, draftBase });
 
     try {
       const draftActual = draftBase ?? resultado?.draft ?? null;
-      const respuestaIa = await pedirRefinamientoIa(mensaje, draftActual, categorias, subcategorias);
+      const incluirContexto = firmaContextoEnviada !== firmaContexto;
+      const respuestaIa = await pedirRefinamientoIa(
+        mensaje,
+        draftActual,
+        categorias,
+        subcategorias,
+        {
+          modo,
+          sessionId,
+          history,
+          incluirContexto,
+        },
+      );
+      if (incluirContexto) setFirmaContextoEnviada(firmaContexto);
+
+      if (!respuestaIa) {
+        throw new Error("No se pudo obtener una respuesta valida de IA.");
+      }
+
+      if (respuestaIa.error) {
+        const msgError = respuestaIa.error.message || "No se pudo procesar el mensaje con IA.";
+        const msgAsistente = respuestaIa.answer?.trim() || "No pude resolverlo ahora. Podes reintentar.";
+        if (respuestaIa.error.code === "context_missing") {
+          setFirmaContextoEnviada("");
+        }
+        pushTurno(mensaje, msgAsistente);
+        setError(msgError);
+        setPuedeReintentar(Boolean(respuestaIa.error.retryable));
+        setModoActivo(modo);
+        return;
+      }
 
       let draft: RegistroIaDraft;
       const intent = respuestaIa?.intent ?? "crear_o_actualizar";
       const answer = respuestaIa?.answer?.trim() ?? "";
 
       if (intent === "pregunta" && draftActual) {
-        setMensajes((prev) => [...prev, { role: "user", text: mensaje }, { role: "assistant", text: answer || "Te respondo sin cambiar el borrador." }]);
+        pushTurno(mensaje, answer || "Te respondo sin cambiar el borrador.");
         setModoActivo(modo);
         return;
       }
@@ -337,12 +459,8 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
               draft: aplicado.draft,
               modo,
             });
-            setResultado(resolverResultado(enriquecerCategorias(aplicado.draft), modo));
-            setMensajes((prev) => [
-              ...prev,
-              { role: "user", text: mensaje },
-              { role: "assistant", text: aplicado.ambiguous.reason },
-            ]);
+            setResultado(ajustarResultadoRapido(resolverResultado(enriquecerCategorias(aplicado.draft), modo), modo));
+            pushTurno(mensaje, aplicado.ambiguous.reason);
             setModoActivo(modo);
             return;
           }
@@ -351,16 +469,12 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
           if (aplicado.warnings.length > 0) {
             draft = { ...draft, warnings: [...draft.warnings, ...aplicado.warnings] };
           }
-          const res = resolverResultado(enriquecerCategorias(draft), modo);
+          const res = ajustarResultadoRapido(resolverResultado(enriquecerCategorias(draft), modo), modo);
           const resumen = aplicado.cambios.length > 0
             ? `Cambios aplicados: ${aplicado.cambios.slice(0, 3).join(" | ")}`
             : "No detecte cambios concretos para aplicar.";
           setResultado(res);
-          setMensajes((prev) => [
-            ...prev,
-            { role: "user", text: mensaje },
-            { role: "assistant", text: answer ? `${resumen}\n${answer}` : resumen },
-          ]);
+          pushTurno(mensaje, answer ? `${resumen}\n${answer}` : resumen);
           setModoActivo(modo);
           return;
         }
@@ -373,12 +487,8 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
             draft,
             modo,
           });
-          setResultado(resolverResultado(enriquecerCategorias(draft), modo));
-          setMensajes((prev) => [
-            ...prev,
-            { role: "user", text: mensaje },
-            { role: "assistant", text: respuestaIa.resolution?.reason || "Necesito que elijas una opcion." },
-          ]);
+          setResultado(ajustarResultadoRapido(resolverResultado(enriquecerCategorias(draft), modo), modo));
+          pushTurno(mensaje, respuestaIa.resolution?.reason || "Necesito que elijas una opcion.");
           setModoActivo(modo);
           return;
         }
@@ -396,31 +506,46 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
         draft = { ...draft, warnings: [...draft.warnings, ...respuestaIa.warnings] };
       }
 
-      const res = resolverResultado(draft, modo);
+      const res = ajustarResultadoRapido(resolverResultado(draft, modo), modo);
       setResultado(res);
-      setMensajes((prev) => [
-        ...prev,
-        { role: "user", text: mensaje },
-        { role: "assistant", text: answer || redactarMensajeAsistente(res, modo) },
-      ]);
+      pushTurno(mensaje, answer || redactarMensajeAsistente(res, modo));
       setModoActivo(modo);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "No se pudo procesar el mensaje";
       setError(msg);
+      setPuedeReintentar(true);
     } finally {
       setCargando(false);
     }
-  }, [categorias, subcategorias, enriquecerCategorias, redactarMensajeAsistente, resultado?.draft]);
+  }, [
+    categorias,
+    subcategorias,
+    history,
+    sessionId,
+    firmaContexto,
+    firmaContextoEnviada,
+    enriquecerCategorias,
+    redactarMensajeAsistente,
+    ajustarResultadoRapido,
+    pushTurno,
+    resultado?.draft,
+  ]);
 
   const ejecutarRapido = useCallback(async (mensaje: string) => {
     setMensajes([]);
+    setHistory([]);
+    setFirmaContextoEnviada("");
     setPendingResolution(null);
+    setPuedeReintentar(false);
     await resolverConModo(mensaje, "rapido");
   }, [resolverConModo]);
 
   const iniciarCompleto = useCallback(async (mensaje: string) => {
     setMensajes([]);
+    setHistory([]);
+    setFirmaContextoEnviada("");
     setPendingResolution(null);
+    setPuedeReintentar(false);
     await resolverConModo(mensaje, "completo");
   }, [resolverConModo]);
 
@@ -443,25 +568,17 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
       const op = { ...pendingResolution.op, targetItemId: option.targetItemId || option.id };
       const aplicado = aplicarCorrecciones(pendingResolution.draft, [op], categorias, subcategorias);
       const draft = enriquecerCategorias(aplicado.draft);
-      const res = resolverResultado(draft, pendingResolution.modo);
+      const res = ajustarResultadoRapido(resolverResultado(draft, pendingResolution.modo), pendingResolution.modo);
       setResultado(res);
-      setMensajes((prev) => [
-        ...prev,
-        { role: "user", text: option.label },
-        { role: "assistant", text: aplicado.cambios.length ? `Listo. ${aplicado.cambios.join(" | ")}` : "Listo, aplique el cambio." },
-      ]);
+      pushTurno(option.label, aplicado.cambios.length ? `Listo. ${aplicado.cambios.join(" | ")}` : "Listo, aplique el cambio.");
       setModoActivo(pendingResolution.modo);
       setPendingResolution(null);
       return;
     }
 
-    setMensajes((prev) => [
-      ...prev,
-      { role: "user", text: option.label },
-      { role: "assistant", text: "Perfecto, continuo con esa opcion." },
-    ]);
+    pushTurno(option.label, "Perfecto, continuo con esa opcion.");
     setPendingResolution(null);
-  }, [pendingResolution, categorias, subcategorias, enriquecerCategorias]);
+  }, [pendingResolution, categorias, subcategorias, enriquecerCategorias, ajustarResultadoRapido, pushTurno]);
 
   const pasarRapidoACompleto = useCallback(() => {
     if (!resultado?.draft) return;
@@ -482,8 +599,12 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
     setModoActivo(null);
     setResultado(null);
     setMensajes([]);
+    setHistory([]);
+    setFirmaContextoEnviada("");
     setCargando(false);
     setError(null);
+    setPuedeReintentar(false);
+    setUltimoIntento(null);
     setPendingResolution(null);
   }, []);
 
@@ -503,12 +624,18 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
     });
   }, [resultado?.draft, modoActivo]);
 
+  const reintentarUltimoMensaje = useCallback(async () => {
+    if (!ultimoIntento || cargando) return;
+    await resolverConModo(ultimoIntento.mensaje, ultimoIntento.modo, ultimoIntento.draftBase);
+  }, [ultimoIntento, cargando, resolverConModo]);
+
   return {
     modoActivo,
     resultado,
     mensajes,
     cargando,
     error,
+    puedeReintentar,
     pendingResolution,
     faltanMontosEnRapido,
     ejecutarRapido,
@@ -517,8 +644,8 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
     responderCompleto,
     resolverAmbiguedad,
     pasarRapidoACompleto,
+    reintentarUltimoMensaje,
     buildCompraEditable,
     reset,
   };
 }
-
