@@ -13,13 +13,13 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { SelectorColor } from "@/components/ui/SelectorColor";
 import { formatearPeso } from "@/lib/formatear";
 import { fechaLocalISO, normalizarTexto } from "@/lib/utiles";
-import { guardarColor, ocultarLugar, mostrarLugar } from "@/lib/configuracion";
+import { MODELOS_IA_DISPONIBLES, guardarColor, guardarModeloIa, ocultarLugar, mostrarLugar } from "@/lib/configuracion";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { usarBalance } from "@/hooks/usarBalance";
 
-type Tab = "categorias" | "subcategorias" | "etiquetas" | "colores" | "lugares" | "importar" | "instalar";
+type Tab = "categorias" | "subcategorias" | "etiquetas" | "colores" | "lugares" | "importar" | "ia" | "instalar";
 
 function normalizarCabecera(cabecera: string) {
   return cabecera
@@ -212,6 +212,7 @@ const TABS: { valor: Tab; etiqueta: string }[] = [
   { valor: "colores", etiqueta: "Colores" },
   { valor: "lugares", etiqueta: "Lugares" },
   { valor: "importar", etiqueta: "Importar" },
+  { valor: "ia", etiqueta: "IA" },
   { valor: "instalar", etiqueta: "Instalar" },
 ];
 
@@ -895,6 +896,36 @@ export default function PaginaConfiguracion() {
                 )}
               </>
             )}
+          </section>
+        )}
+
+        {tab === "ia" && (
+          <section className="space-y-4 p-4">
+            <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+              Modelo OpenRouter
+            </p>
+            <p className="font-body text-xs text-on-surface-variant">
+              Este modelo se usa para el asistente IA de registro. El sistema prioriza lógica determinística y usa IA
+              solo para entender mejor texto desordenado y categorizar.
+            </p>
+
+            <div className="space-y-2 p-3 rounded-lg bg-surface-container-low">
+              <label className="font-label text-[10px] uppercase tracking-wider text-outline">Modelo activo</label>
+              <select
+                value={config.modeloIa}
+                onChange={async (e) => {
+                  const nuevo = e.target.value;
+                  config.setModeloIa(nuevo);
+                  await guardarModeloIa(nuevo, config.nombreUsuario);
+                  toast.success("Modelo IA actualizado");
+                }}
+                className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
+              >
+                {MODELOS_IA_DISPONIBLES.map((modelo) => (
+                  <option key={modelo} value={modelo}>{modelo}</option>
+                ))}
+              </select>
+            </div>
           </section>
         )}
 

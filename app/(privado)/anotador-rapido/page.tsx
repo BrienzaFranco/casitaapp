@@ -14,11 +14,12 @@ import { usarOffline } from "@/hooks/usarOffline";
 import { usarUsuario } from "@/hooks/usarUsuario";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
+import { PanelRegistroIa } from "@/components/anotador/PanelRegistroIa";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type PasoActivo = 1 | 2 | 3 | 4 | 5;
-type ModoEntrada = "pasos" | "foto" | "voz";
+type ModoEntrada = "pasos" | "foto" | "voz" | "ia";
 type Direccion = "forward" | "back";
 
 interface BorradorRapido {
@@ -307,6 +308,15 @@ export default function PaginaAnotadorRapido() {
             <p className="text-xs font-label font-normal opacity-70 mt-0.5">Elegí quién pagó, cuánto, qué y dónde</p>
           </button>
 
+          <button
+            type="button"
+            onClick={() => setModo("ia")}
+            className="w-full py-4 rounded-[14px] bg-primary text-on-primary font-headline text-base font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform"
+          >
+            ✨ Chat IA
+            <p className="text-xs font-label font-normal opacity-80 mt-0.5">Texto o voz, con registro rápido o completo</p>
+          </button>
+
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
@@ -368,6 +378,10 @@ export default function PaginaAnotadorRapido() {
         </div>
       </div>
     );
+  }
+
+  if (modo === "ia") {
+    return <PanelRegistroIa onBack={irInicio} />;
   }
 
   // ── Voice mode screen ──

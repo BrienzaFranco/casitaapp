@@ -214,5 +214,6 @@ on conflict (nombre) do update set color = excluded.color;
 -- Configuracion inicial
 insert into configuracion (clave, valor) values
   ('colores_personas', '{"franco": "#3b82f6", "fabiola": "#10b981"}'),
-  ('lugares_ocultos', '[]')
+  ('lugares_ocultos', '[]'),
+  ('ia_modelo_openrouter', '"minimax/minimax-m2.7"')
 on conflict (clave) do nothing;

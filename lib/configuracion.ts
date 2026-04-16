@@ -75,6 +75,14 @@ export interface ColoresPersonas {
   fabiola: string;
 }
 
+export const MODELOS_IA_DISPONIBLES = [
+  "minimax/minimax-m2.7",
+  "x-ai/grok-4.1-fast",
+  "qwen/qwen3.6-plus",
+  "openrouter/elephant-alpha",
+  "google/gemma-4-26b-a4b-it",
+] as const;
+
 export async function obtenerColores(): Promise<ColoresPersonas> {
   return getConfiguracion<ColoresPersonas>("colores_personas", { franco: "#3b82f6", fabiola: "#10b981" });
 }
@@ -103,4 +111,12 @@ export async function mostrarLugar(lugar: string, actualizadoPor?: string) {
   if (nuevos.length !== actuales.length) {
     await setConfiguracion("lugares_ocultos", nuevos, actualizadoPor);
   }
+}
+
+export async function obtenerModeloIa(): Promise<string> {
+  return getConfiguracion<string>("ia_modelo_openrouter", MODELOS_IA_DISPONIBLES[0]);
+}
+
+export async function guardarModeloIa(modelo: string, actualizadoPor?: string) {
+  await setConfiguracion("ia_modelo_openrouter", modelo, actualizadoPor);
 }
