@@ -1,4 +1,5 @@
-import { calcularReparto, evaluarExpresion } from "@/lib/calculos";
+import { calcularReparto } from "@/lib/calculos";
+import { parseMontoFlexible } from "@/lib/ai/montos";
 import { fechaLocalISO, normalizarTexto } from "@/lib/utiles";
 import type { CompraEditable, PagadorCompra, TipoReparto } from "@/types";
 import type {
@@ -148,22 +149,7 @@ function generarIdItem() {
 }
 
 function aNumeroSeguro(valor: unknown): number | null {
-  if (typeof valor === "number") return Number.isFinite(valor) ? valor : null;
-  if (typeof valor !== "string") return null;
-  const limpio = valor.trim();
-  if (!limpio) return null;
-  const normalizado = limpio
-    .replace(/\$/g, "")
-    .replace(/\s+/g, "")
-    .replace(/[.]/g, "")
-    .replace(/,/g, "");
-  if (!/^[\d+\-*/()]+$/.test(normalizado)) return null;
-  try {
-    const evalNum = evaluarExpresion(normalizado);
-    return Number.isFinite(evalNum) ? evalNum : null;
-  } catch {
-    return null;
-  }
+  return parseMontoFlexible(valor);
 }
 
 function textoANumeroEspanol(frase: string): number | null {
@@ -211,30 +197,52 @@ function textoANumeroEspanol(frase: string): number | null {
 function extraerMontoDesdeTexto(texto: string): number | null {
   const textoOriginal = texto;
   const normalizado = normalizarTexto(textoOriginal);
+  type CandidatoMonto = { valor: number; score: number; idx: number };
+  const candidatos: CandidatoMonto[] = [];
 
-  const conPesos = normalizado.match(
-    /\b(?:por|total|gaste|gasto|fue|fueron)?\s*([a-z0-9\s+\-*/.,]+?)\s*(?:pesos?|ars)\b/i,
-  );
-  if (conPesos?.[1]) {
-    const intentoNum = aNumeroSeguro(conPesos[1]);
-    if (intentoNum != null) return intentoNum;
-    const intentoTxt = textoANumeroEspanol(conPesos[1]);
-    if (intentoTxt != null) return intentoTxt;
+  function agregar(raw: string | undefined, score: number, idx: number) {
+    if (!raw) return;
+    const limpio = raw.trim();
+    if (!limpio) return;
+    let valor = aNumeroSeguro(limpio);
+    if (valor == null) valor = textoANumeroEspanol(limpio);
+    if (valor == null || !Number.isFinite(valor) || valor <= 0) return;
+    candidatos.push({ valor, score, idx });
   }
 
-  const expresion = normalizado.match(/\b\d[\d.,]*(?:\s*[+\-*/]\s*\d[\d.,]*)+\b/);
-  if (expresion?.[0]) {
-    const intentoExpr = aNumeroSeguro(expresion[0]);
-    if (intentoExpr != null) return intentoExpr;
+  const regexTotal = /\b(?:en\s+total|total)\s+(?:de\s+)?([a-z0-9.,+\-*/()\s]+?)(?=[,.]|$)/gi;
+  for (const match of normalizado.matchAll(regexTotal)) {
+    agregar(match[1], 120, match.index ?? 0);
   }
 
-  const numericoSimple = normalizado.match(/\b\d[\d.,]*\b/g);
-  if (numericoSimple?.length) {
-    const max = numericoSimple
-      .map((n) => aNumeroSeguro(n))
-      .filter((n): n is number => n != null)
-      .sort((a, b) => b - a)[0];
-    if (max != null) return max;
+  const regexContexto = /\b(?:por|fue|fueron|gaste|gasto|salio|costo)\s+(?:de\s+)?([a-z0-9.,+\-*/()\s]+?)(?=[,.]|$)/gi;
+  for (const match of normalizado.matchAll(regexContexto)) {
+    agregar(match[1], 100, match.index ?? 0);
+  }
+
+  const regexConMoneda = /([0-9][0-9.,]*(?:\s*(?:k|mil|m|millon(?:es)?))?(?:\s*[+\-*/]\s*[0-9][0-9.,]*(?:\s*(?:k|mil|m|millon(?:es)?))?)*)\s*(?:pesos?|ars)\b/gi;
+  for (const match of normalizado.matchAll(regexConMoneda)) {
+    agregar(match[1], 90, match.index ?? 0);
+  }
+
+  const regexExpresion = /\b\d[\d.,]*(?:\s*(?:k|mil|m|millon(?:es)?))?(?:\s*[+\-*/]\s*\d[\d.,]*(?:\s*(?:k|mil|m|millon(?:es)?))?)+\b/gi;
+  for (const match of normalizado.matchAll(regexExpresion)) {
+    agregar(match[0], 75, match.index ?? 0);
+  }
+
+  const regexSufijo = /\b\d[\d.,]*\s*(?:k|mil|m|millon(?:es)?)\b/gi;
+  for (const match of normalizado.matchAll(regexSufijo)) {
+    agregar(match[0], 70, match.index ?? 0);
+  }
+
+  const hayPistaMoneda = /(?:\bpesos?\b|\bars\b|\$|\bk\b|\bmil\b|\bmillon(?:es)?\b)/.test(normalizado);
+  const hayContextoMonto = /\b(?:por|total|fue|fueron|gaste|gasto|salio|costo)\b/.test(normalizado);
+  const regexSimple = /\b\d[\d.,]*\b/g;
+  for (const match of normalizado.matchAll(regexSimple)) {
+    const valor = aNumeroSeguro(match[0]);
+    if (valor == null) continue;
+    if (!hayPistaMoneda && !hayContextoMonto && valor < 100) continue;
+    candidatos.push({ valor, score: 40, idx: match.index ?? 0 });
   }
 
   const tokens = normalizado.split(/\s+/);
@@ -242,11 +250,15 @@ function extraerMontoDesdeTexto(texto: string): number | null {
     for (let i = 0; i + tam <= tokens.length; i += 1) {
       const sub = tokens.slice(i, i + tam).join(" ");
       const valor = textoANumeroEspanol(sub);
-      if (valor != null && valor >= 100) return valor;
+      if (valor != null && valor >= 100) {
+        candidatos.push({ valor, score: 65, idx: i });
+      }
     }
   }
 
-  return null;
+  if (!candidatos.length) return null;
+  candidatos.sort((a, b) => b.score - a.score || a.idx - b.idx || b.valor - a.valor);
+  return candidatos[0]?.valor ?? null;
 }
 
 function extraerLugar(texto: string): string {
@@ -285,7 +297,7 @@ function extraerItems(texto: string): RegistroIaItem[] {
   const normalizado = texto.replace(/\n/g, " ");
   const items: RegistroIaItem[] = [];
 
-  const itemConMontoRegex = /(?:el|la|los|las)?\s*([a-zA-ZáéíóúñÁÉÍÓÚÑ][a-zA-ZáéíóúñÁÉÍÓÚÑ\s]{1,40}?)\s+(?:salio|salió|costo|costó|vale|valio|valió|a)\s+([0-9][0-9+\-*/.,\s]*)/gi;
+  const itemConMontoRegex = /(?:el|la|los|las)?\s*([a-zA-ZáéíóúñÁÉÍÓÚÑ][a-zA-ZáéíóúñÁÉÍÓÚÑ\s]{1,40}?)\s+(?:salio|salió|costo|costó|vale|valio|valió|a)\s+([0-9][0-9+\-*/.,\s]*(?:k|mil|m|millones?)?)/gi;
   for (const match of normalizado.matchAll(itemConMontoRegex)) {
     const descripcion = limpiarDescripcionItem(match[1] ?? "");
     const expresion = (match[2] ?? "").trim();

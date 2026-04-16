@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { PagadorCompra } from "@/types";
 import { crearClienteSupabaseServidor } from "@/lib/supabase/servidor";
+import { parseMontoFlexible } from "@/lib/ai/montos";
 
 const MODELO_DEFAULT = "minimax/minimax-m2.7";
 
@@ -46,12 +47,7 @@ function extraerJsonSeguro(texto: string): DraftPatchRaw | null {
 }
 
 function parsearNumeroSeguro(v: unknown): number | null {
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  if (typeof v === "string" && v.trim()) {
-    const n = Number(v.replace(",", "."));
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
+  return parseMontoFlexible(v);
 }
 
 function sanitizarPatch(raw: DraftPatchRaw) {
@@ -206,4 +202,3 @@ export async function POST(request: Request) {
     model: modelo,
   });
 }
-
