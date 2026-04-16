@@ -29,6 +29,10 @@ export function NavegacionInferior() {
   const compras = usarCompras();
   const cantBorradores = compras.compras.filter(c => c.estado === "borrador").length;
 
+  if (pathname === "/anotador-rapido") {
+    return null;
+  }
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 md:hidden">
       <div className="w-full px-2 pb-safe">

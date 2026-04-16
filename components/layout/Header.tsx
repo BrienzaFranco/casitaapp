@@ -25,6 +25,10 @@ export function Header() {
   const { perfil } = usarUsuario();
   const mostrarVolver = pathname !== "/";
 
+  if (pathname === "/anotador-rapido") {
+    return null;
+  }
+
   return (
     <header className="md:hidden sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-outline-variant/15">
       <div className="mx-auto max-w-xl px-4 h-14 flex justify-between items-center">

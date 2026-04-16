@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mic, MicOff, Sparkles } from "lucide-react";
+import { ArrowLeft, Keyboard, Mic, MicOff, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useRegistroIa } from "@/hooks/useRegistroIa";
 import { usarCategorias } from "@/hooks/usarCategorias";
@@ -18,7 +18,7 @@ interface Props {
   onBack: () => void;
 }
 
-function resumenMensaje(role: "user" | "assistant") {
+function labelRol(role: "user" | "assistant") {
   return role === "user" ? "Vos" : "IA";
 }
 
@@ -37,6 +37,7 @@ export function PanelRegistroIa({ onBack }: Props) {
 
   const [input, setInput] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const borrador = ia.resultado?.draft ?? null;
   const faltantes = ia.resultado?.faltantes ?? [];
@@ -67,7 +68,7 @@ export function PanelRegistroIa({ onBack }: Props) {
       incluirAjuste: ia.modoActivo === "rapido",
     });
     if (!compra) {
-      toast.error("Todavía no hay datos para guardar");
+      toast.error("Todavia no hay datos para guardar");
       return;
     }
 
@@ -78,7 +79,7 @@ export function PanelRegistroIa({ onBack }: Props) {
         compra.etiquetas_compra_ids = [...new Set([...(compra.etiquetas_compra_ids ?? []), etiquetaIaId])];
       }
       const resultado = await guardarConFallback(compra);
-      toast.success(resultado.pendiente ? "Borrador IA guardado (sin conexión)" : "Borrador IA guardado");
+      toast.success(resultado.pendiente ? "Borrador IA guardado (sin conexion)" : "Borrador IA guardado");
       vibrarExito();
       router.push("/borradores");
     } catch (e) {
@@ -118,269 +119,187 @@ export function PanelRegistroIa({ onBack }: Props) {
   }
 
   async function enviarSegunModo() {
-    if (ia.modoActivo === "completo") {
-      await responderCompleto();
-      return;
-    }
-    if (ia.modoActivo === "rapido") {
-      await responderRapido();
-      return;
-    }
-    await enviarRapido();
+    if (ia.modoActivo === "completo") return responderCompleto();
+    if (ia.modoActivo === "rapido") return responderRapido();
+    return enviarRapido();
   }
 
   async function enviarTextoDirecto(texto: string) {
     if (!texto.trim()) return;
-    if (ia.modoActivo === "completo") {
-      await ia.responderCompleto(texto);
-      return;
-    }
-    if (ia.modoActivo === "rapido") {
-      await ia.responderRapido(texto);
-      return;
-    }
-    await ia.ejecutarRapido(texto);
+    if (ia.modoActivo === "completo") return ia.responderCompleto(texto);
+    if (ia.modoActivo === "rapido") return ia.responderRapido(texto);
+    return ia.ejecutarRapido(texto);
   }
 
-  function usarTranscripcionEnInput() {
-    const t = (voice.transcript || voice.interimTranscript || "").trim();
-    if (!t) return;
-    setInput((prev) => (prev ? `${prev} ${t}` : t));
-    voice.reset();
+  function abrirTeclado() {
+    inputRef.current?.focus();
   }
 
-  async function enviarTranscripcionDirecta() {
+  async function usarVozRapida() {
+    if (voice.state === "recording") {
+      voice.stop();
+      return;
+    }
     const t = (voice.transcript || voice.interimTranscript || "").trim();
-    if (!t) return;
-    setInput("");
-    voice.reset();
-    if (ia.modoActivo === "completo") {
-      await ia.responderCompleto(t);
+    if (t) {
+      voice.reset();
+      await enviarTextoDirecto(t);
       return;
     }
-    if (ia.modoActivo === "rapido") {
-      await ia.responderRapido(t);
-      return;
-    }
-    await ia.ejecutarRapido(t);
+    voice.start();
   }
 
   return (
-    <div className="min-h-screen bg-surface">
-      <div className="max-w-md mx-auto px-4 pt-4 pb-3 h-[calc(100vh-8px)] flex flex-col gap-3">
+    <section className="fixed inset-0 z-[70] bg-surface">
+      <div className="mx-auto h-full w-full max-w-md px-4 pt-4 pb-3 relative">
         <button
           type="button"
           onClick={onBack}
-          className="text-[12px] text-on-surface-variant/50 hover:text-on-surface"
+          className="absolute top-4 left-4 z-20 h-10 w-10 rounded-full bg-surface-container-low text-on-surface flex items-center justify-center shadow-sm"
+          aria-label="Volver"
         >
-          ← Volver
+          <ArrowLeft className="h-5 w-5" />
         </button>
 
-        <div>
-          <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/50">Registro IA</p>
-          <h2 className="font-headline text-xl font-bold text-on-surface mt-1">Texto o voz + carga inteligente</h2>
-          <p className="text-xs text-on-surface-variant mt-1">
-            Todo se guarda en borradores para revisar después.
-          </p>
-        </div>
-
-        {ia.error && (
-          <div className="rounded-[12px] bg-error-container text-on-error-container px-3 py-2 text-xs">
-            {ia.error}
+        <div className="h-full flex flex-col pt-14 pb-40">
+          <div className="px-1">
+            <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/50">Registro IA</p>
+            <h2 className="font-headline text-lg font-bold text-on-surface mt-1">Habla o escribi. Yo completo el borrador.</h2>
           </div>
-        )}
 
-        {ia.mensajes.length > 0 && (
-          <div className="rounded-[14px] border border-outline-variant/15 bg-surface-container-lowest p-3 space-y-2 max-h-56 overflow-y-auto">
-            {ia.mensajes.map((m, idx) => (
-              <div key={`${m.role}-${idx}`} className="space-y-0.5">
-                <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">{resumenMensaje(m.role)}</p>
-                <p className="text-sm text-on-surface">{m.text}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {borrador && (
-          <div className="rounded-[14px] border border-outline-variant/15 bg-surface-container-lowest p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Resumen detectado</p>
-              <span className="text-[10px] text-on-surface-variant/60 inline-flex items-center gap-1">
-                <Sparkles className="h-3 w-3" /> {(borrador.confidence * 100).toFixed(0)}%
-              </span>
+          {ia.error && (
+            <div className="mt-2 rounded-[12px] bg-error-container text-on-error-container px-3 py-2 text-xs">
+              {ia.error}
             </div>
-            <div className="text-sm text-on-surface space-y-1">
-              <p><span className="text-on-surface-variant/60">Lugar:</span> {borrador.lugar || "—"}</p>
-              <p><span className="text-on-surface-variant/60">Total:</span> {borrador.total != null ? formatearPeso(borrador.total) : "—"}</p>
-              <p><span className="text-on-surface-variant/60">Pagador:</span> {borrador.pagador ?? "—"}</p>
-              <p><span className="text-on-surface-variant/60">Items:</span> {borrador.items.length} ({formatearPeso(totalItems)})</p>
-            </div>
-            <div className="space-y-1 max-h-36 overflow-y-auto">
-              {borrador.items.map((item) => (
-                <div key={item.id} className="text-xs text-on-surface flex items-center justify-between gap-2">
-                  <span className="truncate">{item.cantidad && item.cantidad > 1 ? `${item.cantidad} ` : ""}{item.descripcion}</span>
-                  <span className="tabular-nums text-on-surface-variant">{item.monto != null ? formatearPeso(item.monto) : "sin monto"}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {ia.modoActivo && faltantes.length > 0 && (
-          <div className="rounded-[12px] bg-surface-container-low px-3 py-2 text-xs text-on-surface-variant">
-            Faltan: {faltantes.join(", ")}
-          </div>
-        )}
-
-        {ia.modoActivo === "completo" && faltantes.includes("pagador") && (
-          <div className="rounded-[12px] border border-outline-variant/15 bg-surface-container-lowest p-2.5 space-y-2">
-            <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">
-              ¿Quién pagó?
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => void enviarTextoDirecto("Pagó Franco")}
-                className="h-9 rounded-[10px] bg-surface-container-low text-on-surface text-xs font-label font-bold uppercase"
-              >
-                Franco
-              </button>
-              <button
-                type="button"
-                onClick={() => void enviarTextoDirecto("Pagó Fabiola")}
-                className="h-9 rounded-[10px] bg-surface-container-low text-on-surface text-xs font-label font-bold uppercase"
-              >
-                Fabiola
-              </button>
-              <button
-                type="button"
-                onClick={() => void enviarTextoDirecto("Fue compartido")}
-                className="h-9 rounded-[10px] bg-surface-container-low text-on-surface text-xs font-label font-bold uppercase"
-              >
-                Compartido
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="flex-1 rounded-[14px] border border-outline-variant/15 bg-surface-container-lowest p-3 space-y-2 overflow-y-auto">
-          {ia.mensajes.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">
-              Escribí o hablá. Ejemplo: &quot;Compré en Coto por 44.300 una leche y 3 cafés&quot;.
-            </p>
-          ) : (
-            ia.mensajes.map((m, idx) => (
-              <div key={`${m.role}-${idx}`} className="space-y-0.5">
-                <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">{resumenMensaje(m.role)}</p>
-                <p className="text-sm text-on-surface">{m.text}</p>
-              </div>
-            ))
           )}
-        </div>
 
-        <div className="space-y-2 pt-1 border-t border-outline-variant/10">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Responder acá..."
-            className="w-full min-h-20 max-h-28 rounded-[12px] bg-surface-container-low border border-outline-variant/15 px-3 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant/40"
-          />
-
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={voice.state === "recording" ? voice.stop : voice.start}
-              className="h-9 rounded-[10px] bg-surface-container-low text-on-surface font-label text-[11px] font-bold uppercase tracking-wider"
-            >
-              {voice.state === "recording" ? (
-                <span className="inline-flex items-center gap-1"><MicOff className="h-4 w-4" /> Stop</span>
-              ) : (
-                <span className="inline-flex items-center gap-1"><Mic className="h-4 w-4" /> Voz</span>
+          {borrador && (
+            <div className="mt-2 rounded-[12px] border border-outline-variant/15 bg-surface-container-lowest p-2.5">
+              <div className="flex items-center justify-between">
+                <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Detectado</p>
+                <span className="text-[10px] text-on-surface-variant/60 inline-flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> {(borrador.confidence * 100).toFixed(0)}%
+                </span>
+              </div>
+              <p className="text-xs text-on-surface mt-1 truncate">Lugar: {borrador.lugar || "—"} · Pagador: {borrador.pagador ?? "—"}</p>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Total: {borrador.total != null ? formatearPeso(borrador.total) : "—"} · Items: {borrador.items.length} ({formatearPeso(totalItems)})
+              </p>
+              {faltantes.length > 0 && (
+                <p className="text-[11px] text-on-surface-variant mt-1">Faltan: {faltantes.join(", ")}</p>
               )}
-            </button>
-            <button
-              type="button"
-              onClick={usarTranscripcionEnInput}
-              className="h-9 rounded-[10px] bg-surface-container-low text-on-surface font-label text-[11px] font-bold uppercase tracking-wider disabled:opacity-40"
-              disabled={!voice.transcript && !voice.interimTranscript}
-            >
-              Usar voz
-            </button>
-            <button
-              type="button"
-              onClick={enviarTranscripcionDirecta}
-              className="h-9 rounded-[10px] bg-surface-container-low text-on-surface font-label text-[11px] font-bold uppercase tracking-wider disabled:opacity-40"
-              disabled={!voice.transcript && !voice.interimTranscript || ia.cargando}
-            >
-              Voz → Enviar
-            </button>
-          </div>
-
-          {ia.modoActivo ? (
-            <button
-              type="button"
-              onClick={enviarSegunModo}
-              disabled={ia.cargando || !input.trim()}
-              className="w-full h-11 rounded-[14px] bg-secondary text-on-secondary font-headline text-sm font-bold disabled:opacity-40 active:scale-[0.98] transition-transform"
-            >
-              {ia.cargando ? "Procesando..." : "Enviar"}
-            </button>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={enviarRapido}
-                disabled={ia.cargando || !input.trim()}
-                className="h-11 rounded-[14px] bg-secondary text-on-secondary font-headline text-sm font-bold disabled:opacity-40 active:scale-[0.98] transition-transform"
-              >
-                Registro rápido
-              </button>
-              <button
-                type="button"
-                onClick={enviarCompletoInicial}
-                disabled={ia.cargando || !input.trim()}
-                className="h-11 rounded-[14px] bg-primary text-on-primary font-headline text-sm font-bold disabled:opacity-40 active:scale-[0.98] transition-transform"
-              >
-                Registro completo
-              </button>
             </div>
           )}
+
+          {ia.modoActivo === "completo" && faltantes.includes("pagador") && (
+            <div className="mt-2 rounded-[12px] border border-outline-variant/15 bg-surface-container-lowest p-2.5">
+              <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 mb-2">Quien pago</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button type="button" onClick={() => void enviarTextoDirecto("Pago Franco")} className="h-9 rounded-[10px] bg-surface-container-low text-on-surface text-xs font-label font-bold uppercase">Franco</button>
+                <button type="button" onClick={() => void enviarTextoDirecto("Pago Fabiola")} className="h-9 rounded-[10px] bg-surface-container-low text-on-surface text-xs font-label font-bold uppercase">Fabiola</button>
+                <button type="button" onClick={() => void enviarTextoDirecto("Fue compartido")} className="h-9 rounded-[10px] bg-surface-container-low text-on-surface text-xs font-label font-bold uppercase">Compartido</button>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-2 flex-1 min-h-0 rounded-[14px] border border-outline-variant/15 bg-surface-container-lowest p-3 overflow-y-auto space-y-2">
+            {ia.mensajes.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">
+                Ejemplo: "Compre en Coto por cuarenta y cuatro mil trescientos pesos una leche y 3 cafes".
+              </p>
+            ) : (
+              ia.mensajes.map((m, idx) => (
+                <div key={`${m.role}-${idx}`} className="space-y-0.5">
+                  <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">{labelRol(m.role)}</p>
+                  <p className="text-sm text-on-surface">{m.text}</p>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        {ia.modoActivo === "rapido" && ia.faltanMontosEnRapido && (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={ia.pasarRapidoACompleto}
-              className="h-10 rounded-[12px] bg-surface-container-low text-on-surface font-label text-xs font-bold uppercase tracking-wider"
-            >
-              Detallar ahora
-            </button>
-            <button
-              type="button"
-              onClick={guardarBorradorIa}
-              disabled={guardando || !puedeGuardarActual}
-              className="h-10 rounded-[12px] bg-secondary text-on-secondary font-label text-xs font-bold uppercase tracking-wider disabled:opacity-40"
-            >
-              {guardando ? "Guardando..." : "Guardar rápido"}
-            </button>
-          </div>
-        )}
+        <div className="absolute left-4 right-4 bottom-3 z-20">
+          <div className="rounded-[14px] border border-outline-variant/15 bg-surface-container-lowest p-2.5 space-y-2 shadow-lg">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={ia.modoActivo ? "Responder..." : "Escribi o usa el boton de voz..."}
+              className="w-full min-h-16 max-h-24 rounded-[10px] bg-surface-container-low border border-outline-variant/15 px-3 py-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant/40"
+            />
 
-        {puedeGuardarActual && !(ia.modoActivo === "rapido" && ia.faltanMontosEnRapido) && (
+            {ia.modoActivo ? (
+              <button
+                type="button"
+                onClick={enviarSegunModo}
+                disabled={ia.cargando || !input.trim()}
+                className="w-full h-10 rounded-[12px] bg-secondary text-on-secondary font-headline text-sm font-bold disabled:opacity-40"
+              >
+                {ia.cargando ? "Procesando..." : "Enviar"}
+              </button>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={enviarRapido}
+                  disabled={ia.cargando || !input.trim()}
+                  className="h-10 rounded-[12px] bg-secondary text-on-secondary font-headline text-sm font-bold disabled:opacity-40"
+                >
+                  Registro rapido
+                </button>
+                <button
+                  type="button"
+                  onClick={enviarCompletoInicial}
+                  disabled={ia.cargando || !input.trim()}
+                  className="h-10 rounded-[12px] bg-primary text-on-primary font-headline text-sm font-bold disabled:opacity-40"
+                >
+                  Registro completo
+                </button>
+              </div>
+            )}
+
+            {ia.modoActivo === "rapido" && ia.faltanMontosEnRapido && (
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={ia.pasarRapidoACompleto} className="h-9 rounded-[10px] bg-surface-container-low text-on-surface text-xs font-label font-bold uppercase">Detallar ahora</button>
+                <button type="button" onClick={guardarBorradorIa} disabled={guardando || !puedeGuardarActual} className="h-9 rounded-[10px] bg-secondary text-on-secondary text-xs font-label font-bold uppercase disabled:opacity-40">
+                  {guardando ? "Guardando..." : "Guardar rapido"}
+                </button>
+              </div>
+            )}
+
+            {puedeGuardarActual && !(ia.modoActivo === "rapido" && ia.faltanMontosEnRapido) && (
+              <button
+                type="button"
+                onClick={guardarBorradorIa}
+                disabled={guardando}
+                className="w-full h-10 rounded-[12px] bg-secondary text-on-secondary font-headline text-sm font-bold disabled:opacity-40"
+              >
+                {guardando ? "Guardando..." : "Guardar borrador IA"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="absolute right-4 bottom-44 z-30 flex flex-col gap-2">
           <button
             type="button"
-            onClick={guardarBorradorIa}
-            disabled={guardando}
-            className="w-full h-11 rounded-[14px] bg-secondary text-on-secondary font-headline text-sm font-bold disabled:opacity-40"
+            onClick={abrirTeclado}
+            className="h-12 w-12 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center shadow-md"
+            aria-label="Abrir teclado"
+            title="Abrir teclado"
           >
-            {guardando ? "Guardando..." : "Guardar borrador IA"}
+            <Keyboard className="h-5 w-5" />
           </button>
-        )}
-
-        {ia.modoActivo === "completo" && ia.resultado?.preguntaSiguiente && !ia.resultado.canSave && (
-          <p className="text-xs text-on-surface-variant">{ia.resultado.preguntaSiguiente}</p>
-        )}
+          <button
+            type="button"
+            onClick={() => void usarVozRapida()}
+            className="h-14 w-14 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-lg shadow-secondary/30"
+            aria-label={voice.state === "recording" ? "Detener voz" : "Hablar"}
+            title={voice.state === "recording" ? "Detener voz" : "Hablar"}
+          >
+            {voice.state === "recording" ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+          </button>
+        </div>
 
         {(ia.resultado || ia.mensajes.length > 0) && (
           <button
@@ -390,12 +309,13 @@ export function PanelRegistroIa({ onBack }: Props) {
               setInput("");
               voice.reset();
             }}
-            className="w-full h-9 rounded-[12px] bg-surface-container-low text-on-surface-variant font-label text-xs"
+            className="absolute left-4 bottom-44 z-20 h-10 px-3 rounded-[10px] bg-surface-container-low text-on-surface-variant font-label text-xs"
           >
-            Reiniciar conversación
+            Reiniciar
           </button>
         )}
       </div>
-    </div>
+    </section>
   );
 }
+
