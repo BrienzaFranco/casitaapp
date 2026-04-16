@@ -61,6 +61,15 @@ export function PanelRegistroIa({ onBack }: Props) {
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [ia.mensajes, ia.cargando, mostrarOpcionesPagador, mostrarResolucion]);
 
+  useEffect(() => {
+    if (voice.state !== "done") return;
+    const t = voice.transcript.trim();
+    if (!t) return;
+    setInput((prev) => (prev.trim() ? `${prev.trim()} ${t}` : t));
+    inputRef.current?.focus();
+    voice.reset();
+  }, [voice.state, voice.transcript, voice.reset]);
+
   async function asegurarEtiquetaIa() {
     const existente = categorias.etiquetas.find((e) => normalizarTexto(e.nombre) === "ia");
     if (existente) return existente.id;
@@ -151,12 +160,7 @@ export function PanelRegistroIa({ onBack }: Props) {
       voice.stop();
       return;
     }
-    const t = (voice.transcript || voice.interimTranscript || "").trim();
-    if (t) {
-      voice.reset();
-      await enviarTextoDirecto(t);
-      return;
-    }
+    if (voice.state === "done") return;
     voice.start();
   }
 
