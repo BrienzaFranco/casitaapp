@@ -41,6 +41,8 @@ export function PanelRegistroIa({ onBack }: Props) {
 
   const borrador = ia.resultado?.draft ?? null;
   const faltantes = ia.resultado?.faltantes ?? [];
+  const mostrarOpcionesPagador = ia.modoActivo === "completo" && faltantes.includes("pagador");
+  const mostrarReiniciar = Boolean(ia.resultado || ia.mensajes.length > 0);
   const puedeGuardarActual = ia.modoActivo === "completo"
     ? Boolean(ia.resultado?.canSave)
     : Boolean(ia.resultado?.draft && (ia.resultado?.canSave || ia.faltanMontosEnRapido));
@@ -160,6 +162,19 @@ export function PanelRegistroIa({ onBack }: Props) {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
+        {mostrarReiniciar && (
+          <button
+            type="button"
+            onClick={() => {
+              ia.reset();
+              setInput("");
+              voice.reset();
+            }}
+            className="absolute top-4 right-4 z-20 h-10 px-3 rounded-[10px] bg-surface-container-low text-on-surface-variant font-label text-xs"
+          >
+            Reiniciar
+          </button>
+        )}
 
         <div className="h-full flex flex-col pt-14 pb-40">
           <div className="px-1">
@@ -191,35 +206,55 @@ export function PanelRegistroIa({ onBack }: Props) {
             </div>
           )}
 
-          {ia.modoActivo === "completo" && faltantes.includes("pagador") && (
-            <div className="mt-2 rounded-[12px] border border-outline-variant/15 bg-surface-container-lowest p-2.5">
-              <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60 mb-2">Quien pago</p>
-              <div className="grid grid-cols-3 gap-2">
-                <button type="button" onClick={() => void enviarTextoDirecto("Pago Franco")} className="h-9 rounded-[10px] bg-surface-container-low text-on-surface text-xs font-label font-bold uppercase">Franco</button>
-                <button type="button" onClick={() => void enviarTextoDirecto("Pago Fabiola")} className="h-9 rounded-[10px] bg-surface-container-low text-on-surface text-xs font-label font-bold uppercase">Fabiola</button>
-                <button type="button" onClick={() => void enviarTextoDirecto("Fue compartido")} className="h-9 rounded-[10px] bg-surface-container-low text-on-surface text-xs font-label font-bold uppercase">Compartido</button>
-              </div>
-            </div>
-          )}
-
           <div className="mt-2 flex-1 min-h-0 rounded-[14px] border border-outline-variant/15 bg-surface-container-lowest p-3 overflow-y-auto space-y-2">
-            {ia.mensajes.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">
-                Ejemplo: "Compre en Coto por cuarenta y cuatro mil trescientos pesos una leche y 3 cafes".
-              </p>
-            ) : (
-              ia.mensajes.map((m, idx) => (
-                <div key={`${m.role}-${idx}`} className="space-y-0.5">
-                  <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">{labelRol(m.role)}</p>
-                  <p className="text-sm text-on-surface">{m.text}</p>
+            {mostrarOpcionesPagador ? (
+              <div className="h-full flex flex-col justify-center">
+                <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Seleccion rapida</p>
+                <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Quien pago esta compra</h3>
+                <p className="mt-1 text-xs text-on-surface-variant">Elegi una opcion o escribi una respuesta personalizada.</p>
+                <div className="mt-4 grid grid-cols-1 gap-2">
+                  <button type="button" onClick={() => void enviarTextoDirecto("Pago Franco")} className="h-11 rounded-[12px] bg-surface-container-low text-on-surface text-sm font-label font-bold uppercase">Franco</button>
+                  <button type="button" onClick={() => void enviarTextoDirecto("Pago Fabiola")} className="h-11 rounded-[12px] bg-surface-container-low text-on-surface text-sm font-label font-bold uppercase">Fabiola</button>
+                  <button type="button" onClick={() => void enviarTextoDirecto("Fue compartido")} className="h-11 rounded-[12px] bg-surface-container-low text-on-surface text-sm font-label font-bold uppercase">Compartido</button>
                 </div>
-              ))
+              </div>
+            ) : (
+              <>
+                {ia.mensajes.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">
+                    Ejemplo: "Compre en Coto por cuarenta y cuatro mil trescientos pesos una leche y 3 cafes".
+                  </p>
+                ) : (
+                  ia.mensajes.map((m, idx) => (
+                    <div key={`${m.role}-${idx}`} className="space-y-0.5">
+                      <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">{labelRol(m.role)}</p>
+                      <p className="text-sm text-on-surface">{m.text}</p>
+                    </div>
+                  ))
+                )}
+                {ia.cargando && (
+                  <div className="max-w-[85%] rounded-[12px] bg-surface-container-low px-3 py-2">
+                    <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">IA</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Pensando...</p>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-secondary/70 animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="h-2 w-2 rounded-full bg-secondary/70 animate-bounce" style={{ animationDelay: "120ms" }} />
+                      <span className="h-2 w-2 rounded-full bg-secondary/70 animate-bounce" style={{ animationDelay: "240ms" }} />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
 
         <div className="absolute left-4 right-4 bottom-3 z-20">
           <div className="rounded-[14px] border border-outline-variant/15 bg-surface-container-lowest p-2.5 space-y-2 shadow-lg">
+            {ia.cargando && (
+              <div className="h-1.5 rounded-full bg-secondary/20 overflow-hidden">
+                <div className="h-full w-1/2 bg-secondary animate-pulse" />
+              </div>
+            )}
             <textarea
               ref={inputRef}
               value={input}
@@ -293,29 +328,14 @@ export function PanelRegistroIa({ onBack }: Props) {
           <button
             type="button"
             onClick={() => void usarVozRapida()}
-            className="h-14 w-14 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-lg shadow-secondary/30"
+            className={`h-14 w-14 rounded-full bg-secondary text-on-secondary flex items-center justify-center shadow-lg shadow-secondary/30 ${voice.state === "recording" ? "animate-pulse" : ""}`}
             aria-label={voice.state === "recording" ? "Detener voz" : "Hablar"}
             title={voice.state === "recording" ? "Detener voz" : "Hablar"}
           >
             {voice.state === "recording" ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
           </button>
         </div>
-
-        {(ia.resultado || ia.mensajes.length > 0) && (
-          <button
-            type="button"
-            onClick={() => {
-              ia.reset();
-              setInput("");
-              voice.reset();
-            }}
-            className="absolute left-4 bottom-44 z-20 h-10 px-3 rounded-[10px] bg-surface-container-low text-on-surface-variant font-label text-xs"
-          >
-            Reiniciar
-          </button>
-        )}
       </div>
     </section>
   );
 }
-
