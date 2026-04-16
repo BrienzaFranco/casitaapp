@@ -42,6 +42,7 @@ export function PanelRegistroIa({ onBack }: Props) {
 
   const borrador = ia.resultado?.draft ?? null;
   const faltantes = ia.resultado?.faltantes ?? [];
+  const mostrarResolucion = Boolean(ia.pendingResolution);
   const mostrarOpcionesPagador = ia.modoActivo === "completo" && faltantes.includes("pagador");
   const mostrarReiniciar = Boolean(ia.resultado || ia.mensajes.length > 0);
   const puedeGuardarActual = ia.modoActivo === "completo"
@@ -54,11 +55,11 @@ export function PanelRegistroIa({ onBack }: Props) {
   }, [borrador]);
 
   useEffect(() => {
-    if (mostrarOpcionesPagador) return;
+    if (mostrarOpcionesPagador || mostrarResolucion) return;
     const el = chatScrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [ia.mensajes, ia.cargando, mostrarOpcionesPagador]);
+  }, [ia.mensajes, ia.cargando, mostrarOpcionesPagador, mostrarResolucion]);
 
   async function asegurarEtiquetaIa() {
     const existente = categorias.etiquetas.find((e) => normalizarTexto(e.nombre) === "ia");
@@ -216,7 +217,25 @@ export function PanelRegistroIa({ onBack }: Props) {
         )}
 
         <div className="mt-2 min-h-0 flex-1 rounded-[14px] border border-outline-variant/15 bg-surface-container-lowest overflow-hidden">
-          {mostrarOpcionesPagador ? (
+          {mostrarResolucion ? (
+            <div className="h-full overflow-y-auto overscroll-contain p-3 flex flex-col justify-center">
+              <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Aclaracion</p>
+              <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Necesito que elijas una opcion</h3>
+              <p className="mt-1 text-xs text-on-surface-variant">{ia.pendingResolution?.reason || "Encontre mas de una coincidencia."}</p>
+              <div className="mt-4 grid grid-cols-1 gap-2">
+                {(ia.pendingResolution?.options ?? []).map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => ia.resolverAmbiguedad(option.id)}
+                    className="h-11 rounded-[12px] bg-surface-container-low text-on-surface text-sm font-label font-bold"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : mostrarOpcionesPagador ? (
             <div className="h-full overflow-y-auto overscroll-contain p-3 flex flex-col justify-center">
               <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Seleccion rapida</p>
               <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Quien pago esta compra</h3>
@@ -345,4 +364,3 @@ export function PanelRegistroIa({ onBack }: Props) {
     </section>
   );
 }
-
