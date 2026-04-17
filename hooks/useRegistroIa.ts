@@ -84,6 +84,13 @@ function normalizar(nombre: string) {
     .trim();
 }
 
+function generarIdItemIa() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `ia-${crypto.randomUUID()}`;
+  }
+  return `ia-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
 function mapearCategoriaPorNombre(
   item: RegistroIaDraft["items"][number],
   categorias: Categoria[],
@@ -173,6 +180,12 @@ async function pedirRefinamientoIa(
 }
 
 function resumenCambio(op: RegistroIaCorrectionOp) {
+  if (op.type === "add_item") {
+    return `item+ ${op.item.descripcion}`;
+  }
+  if (op.type === "remove_item") {
+    return `item- ${op.targetMatcher || op.from || op.targetItemId || "seleccionado"}`;
+  }
   if (op.targetType === "draft") {
     return `${op.field} -> ${String(op.to ?? "-")}`;
   }
@@ -185,6 +198,7 @@ function aplicarCambioEnItem(
   categorias: Categoria[],
   subcategorias: Subcategoria[],
 ): RegistroIaItem {
+  if (op.type !== "replace_field") return item;
   if (op.field === "descripcion") {
     return { ...item, descripcion: String(op.to ?? "").trim() || item.descripcion };
   }
@@ -215,6 +229,8 @@ function buscarCandidatos(
   op: RegistroIaCorrectionOp,
   items: RegistroIaItem[],
 ) {
+  if (op.type === "add_item") return [];
+
   if (op.targetItemId) {
     return items.filter((item) => item.id === op.targetItemId);
   }
@@ -234,6 +250,72 @@ function aplicarCorrecciones(
   const warnings: string[] = [];
 
   for (const op of operations) {
+    if (op.type === "add_item") {
+      const descripcion = String(op.item.descripcion ?? "").trim();
+      if (!descripcion) {
+        warnings.push("No pude agregar item porque falta descripcion.");
+        continue;
+      }
+      const cantidad = typeof op.item.cantidad === "number" ? Math.max(1, Math.round(op.item.cantidad)) : null;
+      const monto = typeof op.item.monto === "number" ? op.item.monto : null;
+      const expresionMonto = op.item.expresionMonto?.trim() || (monto != null ? String(monto) : null);
+      const categoriaId = op.item.categoria_id && categorias.some((c) => c.id === op.item.categoria_id)
+        ? op.item.categoria_id
+        : "";
+      const sub = op.item.subcategoria_id
+        ? subcategorias.find((s) => s.id === op.item.subcategoria_id)
+        : null;
+      const subcategoriaId = sub && (!categoriaId || sub.categoria_id === categoriaId) ? sub.id : "";
+
+      actual = {
+        ...actual,
+        items: [
+          ...actual.items,
+          {
+            id: generarIdItemIa(),
+            descripcion,
+            cantidad,
+            expresionMonto,
+            monto,
+            categoria_id: categoriaId,
+            subcategoria_id: subcategoriaId,
+            fuente: "ia",
+          },
+        ],
+      };
+      cambios.push(resumenCambio(op));
+      continue;
+    }
+
+    if (op.type === "remove_item") {
+      const candidatos = buscarCandidatos(op, actual.items);
+      if (!candidatos.length) {
+        warnings.push(`No encontre item para eliminar (${op.targetMatcher || op.from || op.targetItemId || "sin referencia"}).`);
+        continue;
+      }
+      if (!op.targetItemId && candidatos.length > 1) {
+        return {
+          draft: actual,
+          cambios,
+          warnings,
+          ambiguous: {
+            op,
+            field: "descripcion" as const,
+            reason: "Encontre mas de un item para eliminar. Elegi cual queres quitar.",
+            options: candidatos.map((item) => ({
+              id: item.id,
+              label: `${item.descripcion}${item.monto != null ? ` (${item.monto})` : ""}`,
+              targetItemId: item.id,
+            })),
+          },
+        };
+      }
+      const target = candidatos[0];
+      actual = { ...actual, items: actual.items.filter((item) => item.id !== target.id) };
+      cambios.push(`item- ${target.descripcion}`);
+      continue;
+    }
+
     if (op.targetType === "draft") {
       if (op.field === "lugar") {
         actual = { ...actual, lugar: String(op.to ?? "").trim() || actual.lugar };
@@ -247,6 +329,16 @@ function aplicarCorrecciones(
           cambios.push(resumenCambio(op));
         } else {
           warnings.push("No pude interpretar el nuevo pagador.");
+        }
+        continue;
+      }
+      if (op.field === "reparto") {
+        const reparto = op.to;
+        if (reparto === "50/50" || reparto === "solo_franco" || reparto === "solo_fabiola") {
+          actual = { ...actual, reparto };
+          cambios.push(resumenCambio(op));
+        } else {
+          warnings.push("No pude interpretar el nuevo reparto.");
         }
         continue;
       }
@@ -268,15 +360,16 @@ function aplicarCorrecciones(
     }
 
     if (!op.targetItemId && candidatos.length > 1) {
-      return {
-        draft: actual,
-        cambios,
-        warnings,
-        ambiguous: {
-          op,
-          reason: "Encontre mas de un item que coincide. Elegi cual queres cambiar.",
-          options: candidatos.map((item) => ({
-            id: item.id,
+        return {
+          draft: actual,
+          cambios,
+          warnings,
+          ambiguous: {
+            op,
+            field: op.field,
+            reason: "Encontre mas de un item que coincide. Elegi cual queres cambiar.",
+            options: candidatos.map((item) => ({
+              id: item.id,
             label: `${item.descripcion}${item.monto != null ? ` (${item.monto})` : ""}`,
             targetItemId: item.id,
           })),
@@ -329,12 +422,16 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
     const subs = subcategorias.map((s) => `${s.id}:${s.categoria_id}:${normalizar(s.nombre)}`).join("|");
     return `${cats}::${subs}`;
   }, [categorias, subcategorias]);
+  const catalogoPredictivo = useMemo(() => ({
+    categorias: categorias.map((c) => ({ id: c.id, nombre: c.nombre })),
+    subcategorias: subcategorias.map((s) => ({ id: s.id, categoria_id: s.categoria_id, nombre: s.nombre })),
+  }), [categorias, subcategorias]);
 
   const enriquecerCategorias = useCallback((draft: RegistroIaDraft): RegistroIaDraft => {
     const items = draft.items.map((item) => {
       let actualizado = mapearCategoriaPorNombre(item, categorias, subcategorias);
       if (!actualizado.categoria_id) {
-        const pred = predecirCategoria(actualizado.descripcion || draft.lugar, mapaLugares, mapaDetalles);
+        const pred = predecirCategoria(actualizado.descripcion || draft.lugar, mapaLugares, mapaDetalles, catalogoPredictivo);
         if (pred) {
           actualizado = {
             ...actualizado,
@@ -346,7 +443,7 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
       return actualizado;
     });
     return { ...draft, items };
-  }, [categorias, subcategorias, mapaLugares, mapaDetalles]);
+  }, [categorias, subcategorias, mapaLugares, mapaDetalles, catalogoPredictivo]);
 
   const redactarMensajeAsistente = useCallback((res: RegistroIaResultado, modo: ModoRegistroIa) => {
     if (modo === "rapido") {
@@ -361,11 +458,38 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
     return res.preguntaSiguiente ?? "Decime el dato que falta para completar el registro.";
   }, []);
 
+  const formatearRespuestaAsistente = useCallback((
+    res: RegistroIaResultado,
+    modo: ModoRegistroIa,
+    answerRaw: string,
+  ) => {
+    const answer = answerRaw.trim();
+    if (res.canSave) {
+      if (answer && /^listo\b/i.test(answer)) return answer;
+      return redactarMensajeAsistente(res, modo);
+    }
+    if (res.preguntaSiguiente) {
+      if (answer.includes("?")) return answer;
+      return res.preguntaSiguiente;
+    }
+    if (answer) {
+      if (answer.includes("?")) return answer;
+      return `${answer.replace(/[.!]+$/, "")}. ¿Querés que ajuste algo más?`;
+    }
+    return redactarMensajeAsistente(res, modo);
+  }, [redactarMensajeAsistente]);
+
   const ajustarResultadoRapido = useCallback((res: RegistroIaResultado, modo: ModoRegistroIa): RegistroIaResultado => {
     if (modo !== "rapido" || !IA_QUICKSAVE_V2_ENABLED) return res;
     const tieneTotal = Boolean(res.draft.total && res.draft.total > 0);
     const tieneItems = res.draft.items.length > 0;
     if (!tieneTotal && !tieneItems) return res;
+
+    const faltanDatosPago = res.faltantes.includes("pagador") || res.faltantes.includes("reparto");
+    if (faltanDatosPago) {
+      return { ...res, canSave: false };
+    }
+
     return { ...res, canSave: true, faltantes: [] };
   }, []);
 
@@ -433,14 +557,19 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
       let draft: RegistroIaDraft;
       const intent = respuestaIa?.intent ?? "crear_o_actualizar";
       const answer = respuestaIa?.answer?.trim() ?? "";
+      const tieneOperaciones = Boolean(respuestaIa?.operations?.length);
+      const tienePatch = Boolean(respuestaIa?.draftPatch);
+      const tieneResolution = Boolean(respuestaIa?.resolution?.options?.length);
 
-      if (intent === "pregunta" && draftActual) {
-        pushTurno(mensaje, answer || "Te respondo sin cambiar el borrador.");
+      if (intent === "pregunta" && draftActual && !tieneOperaciones && !tienePatch && !tieneResolution) {
+        const resSinCambios = ajustarResultadoRapido(resolverResultado(enriquecerCategorias(draftActual), modo), modo);
+        setResultado(resSinCambios);
+        pushTurno(mensaje, formatearRespuestaAsistente(resSinCambios, modo, answer || "Te respondo sin cambiar el borrador."));
         setModoActivo(modo);
         return;
       }
 
-      if (intent === "corregir" && draftActual) {
+      if (draftActual && (intent === "corregir" || tieneOperaciones || tienePatch || tieneResolution)) {
         draft = draftActual;
         if (respuestaIa?.draftPatch) {
           draft = fusionarDraftConIa(draft, respuestaIa.draftPatch);
@@ -453,7 +582,7 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
           if (aplicado.ambiguous) {
             setPendingResolution({
               reason: aplicado.ambiguous.reason,
-              field: aplicado.ambiguous.op.field,
+              field: aplicado.ambiguous.field,
               options: aplicado.ambiguous.options,
               op: aplicado.ambiguous.op,
               draft: aplicado.draft,
@@ -474,7 +603,8 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
             ? `Cambios aplicados: ${aplicado.cambios.slice(0, 3).join(" | ")}`
             : "No detecte cambios concretos para aplicar.";
           setResultado(res);
-          pushTurno(mensaje, answer ? `${resumen}\n${answer}` : resumen);
+          const mensajeAsistente = formatearRespuestaAsistente(res, modo, answer);
+          pushTurno(mensaje, `${resumen}\n${mensajeAsistente}`);
           setModoActivo(modo);
           return;
         }
@@ -492,6 +622,12 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
           setModoActivo(modo);
           return;
         }
+
+        const res = ajustarResultadoRapido(resolverResultado(enriquecerCategorias(draft), modo), modo);
+        setResultado(res);
+        pushTurno(mensaje, formatearRespuestaAsistente(res, modo, answer));
+        setModoActivo(modo);
+        return;
       }
 
       const deterministico = crearDraftDesdeMensaje(mensaje, draftBase);
@@ -508,7 +644,7 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
 
       const res = ajustarResultadoRapido(resolverResultado(draft, modo), modo);
       setResultado(res);
-      pushTurno(mensaje, answer || redactarMensajeAsistente(res, modo));
+      pushTurno(mensaje, formatearRespuestaAsistente(res, modo, answer));
       setModoActivo(modo);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "No se pudo procesar el mensaje";
@@ -525,7 +661,7 @@ export function useRegistroIa({ compras, categorias, subcategorias }: UseRegistr
     firmaContexto,
     firmaContextoEnviada,
     enriquecerCategorias,
-    redactarMensajeAsistente,
+    formatearRespuestaAsistente,
     ajustarResultadoRapido,
     pushTurno,
     resultado?.draft,

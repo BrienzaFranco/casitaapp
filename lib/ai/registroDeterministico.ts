@@ -271,9 +271,21 @@ function extraerLugar(texto: string): string {
 
 function extraerPagador(texto: string): PagadorCompra | null {
   const n = normalizarTexto(texto);
-  if (/\b(franco)\b/.test(n)) return "franco";
-  if (/\b(fabiola|fabi)\b/.test(n)) return "fabiola";
-  if (/\b(compartido|ambos|mitad|50\/50)\b/.test(n)) return "compartido";
+  if (/\b(pago|pague|paga)\s+franco\b/.test(n)) return "franco";
+  if (/\b(pago|pague|paga)\s+(fabiola|fabi)\b/.test(n)) return "fabiola";
+  if (/\b(lo\s+pago|pago)\s+franco\b/.test(n)) return "franco";
+  if (/\b(lo\s+pago|pago)\s+(fabiola|fabi)\b/.test(n)) return "fabiola";
+  if (/\b(pagamos|pago compartido|pagaron ambos)\b/.test(n)) return "compartido";
+  if (/\b(franco)\b/.test(n) && !/\b(fabiola|fabi)\b/.test(n)) return "franco";
+  if (/\b(fabiola|fabi)\b/.test(n) && !/\b(franco)\b/.test(n)) return "fabiola";
+  return null;
+}
+
+function extraerReparto(texto: string): TipoReparto | null {
+  const n = normalizarTexto(texto);
+  if (/\b(50\/50|mitad|a medias|compartido|entre los dos|ambos)\b/.test(n)) return "50/50";
+  if (/\b(solo franco|todo franco|a cargo franco|lo asume franco)\b/.test(n)) return "solo_franco";
+  if (/\b(solo fabiola|solo fabi|todo fabiola|todo fabi|a cargo fabiola|a cargo fabi)\b/.test(n)) return "solo_fabiola";
   return null;
 }
 
@@ -338,10 +350,11 @@ function extraerItems(texto: string): RegistroIaItem[] {
 
 function scoreConfidence(draft: RegistroIaDraft): number {
   let score = 0;
-  if (draft.lugar) score += 0.25;
+  if (draft.lugar) score += 0.22;
   if (draft.total != null && draft.total > 0) score += 0.35;
   if (draft.items.length > 0) score += 0.3;
-  if (draft.pagador) score += 0.1;
+  if (draft.pagador) score += 0.08;
+  if (draft.reparto) score += 0.05;
   return Number(score.toFixed(2));
 }
 
@@ -394,6 +407,7 @@ function aplicarDescuento(mensaje: string, items: RegistroIaItem[]): RegistroIaI
 export function crearDraftDesdeMensaje(mensaje: string, base?: RegistroIaDraft): RegistroIaDraft {
   const lugar = extraerLugar(mensaje);
   const pagador = extraerPagador(mensaje);
+  const reparto = extraerReparto(mensaje);
   const total = extraerMontoDesdeTexto(mensaje);
   const nuevosItems = extraerItems(mensaje);
 
@@ -402,6 +416,7 @@ export function crearDraftDesdeMensaje(mensaje: string, base?: RegistroIaDraft):
     fecha: fechaLocalISO(),
     lugar: "",
     pagador: null,
+    reparto: null,
     total: null,
     items: [],
     fuente: "deterministico",
@@ -414,6 +429,7 @@ export function crearDraftDesdeMensaje(mensaje: string, base?: RegistroIaDraft):
     textoOriginal: base ? `${base.textoOriginal}\n${mensaje}` : mensaje,
     lugar: lugar || draftBase.lugar,
     pagador: pagador ?? draftBase.pagador,
+    reparto: reparto ?? draftBase.reparto,
     total: total ?? draftBase.total,
     items: fusionarItems(draftBase.items, nuevosItems),
     fuente: "deterministico",
@@ -438,6 +454,7 @@ export function fusionarDraftConIa(base: RegistroIaDraft, parcial: Partial<Regis
     items,
     lugar: parcial.lugar ?? base.lugar,
     pagador: parcial.pagador ?? base.pagador,
+    reparto: parcial.reparto ?? base.reparto,
     total: parcial.total ?? base.total,
     fuente: parcial.fuente ?? base.fuente,
     warnings: [...base.warnings, ...(parcial.warnings ?? [])],
@@ -477,6 +494,7 @@ export function obtenerFaltantes(draft: RegistroIaDraft, modo: ModoRegistroIa): 
   if (modo === "completo") {
     if (!draft.lugar) faltantes.push("lugar");
     if (!draft.pagador) faltantes.push("pagador");
+    if (!draft.reparto) faltantes.push("reparto");
     if (draft.total == null || draft.total <= 0) faltantes.push("total");
     if (!draft.items.length) faltantes.push("items");
     if (draft.items.some((item) => item.monto == null || item.monto <= 0)) faltantes.push("items_sin_monto");
@@ -486,6 +504,10 @@ export function obtenerFaltantes(draft: RegistroIaDraft, modo: ModoRegistroIa): 
   const tieneTotal = Boolean(draft.total && draft.total > 0);
   const tieneItems = draft.items.length > 0;
   if (!tieneTotal && !tieneItems) faltantes.push("items");
+  if (tieneTotal || tieneItems) {
+    if (!draft.pagador) faltantes.push("pagador");
+    if (!draft.reparto) faltantes.push("reparto");
+  }
   return faltantes;
 }
 
@@ -494,14 +516,21 @@ export function puedeGuardar(draft: RegistroIaDraft, modo: ModoRegistroIa): bool
 }
 
 export function preguntaSiguiente(faltantes: CampoFaltanteRegistroIa[]): string | null {
+  if (faltantes.includes("pagador") && faltantes.includes("reparto")) {
+    return "¿Quién pagó efectivamente y cómo querés repartir (50/50, solo Franco o solo Fabiola)?";
+  }
   if (faltantes.includes("total") && faltantes.includes("lugar")) {
     return "¿En qué lugar fue y cuál fue el total de la compra?";
   }
+  if (faltantes.includes("reparto") && faltantes.includes("total")) {
+    return "¿Cómo querés repartir la compra (50/50, solo Franco o solo Fabiola) y cuál fue el total?";
+  }
   if (faltantes.includes("pagador") && faltantes.includes("total")) {
-    return "¿Quién pagó (Franco, Fabiola o compartido) y cuál fue el total?";
+    return "¿Quién pagó efectivamente y cuál fue el total?";
   }
   if (faltantes.includes("lugar")) return "¿En qué lugar fue la compra?";
-  if (faltantes.includes("pagador")) return "¿Quién pagó: Franco, Fabiola o compartido?";
+  if (faltantes.includes("pagador")) return "¿Quién pagó efectivamente: Franco, Fabiola o compartido?";
+  if (faltantes.includes("reparto")) return "¿Cómo querés repartir esta compra: 50/50, solo Franco o solo Fabiola?";
   if (faltantes.includes("total")) return "¿Cuál fue el total de la compra?";
   if (faltantes.includes("items")) return "Decime al menos un item de la compra.";
   if (faltantes.includes("items_sin_monto")) return "Faltan montos por item. ¿Me pasás cuánto costó cada uno?";
@@ -525,7 +554,9 @@ export function convertirDraftACompraEditable(
   },
 ): CompraEditable {
   const pagador = opciones.forzarPagador ?? draft.pagador ?? "compartido";
-  const tipoReparto = tipoRepartoDesdePagador(pagador);
+  const tipoReparto = draft.reparto && draft.reparto !== "personalizado"
+    ? draft.reparto
+    : tipoRepartoDesdePagador(pagador);
   const etiquetas_compra_ids = opciones.etiquetasCompraIds ?? [];
   const base = opciones.incluirAjuste ? aplicarAjustePorTotal(draft) : draft;
 

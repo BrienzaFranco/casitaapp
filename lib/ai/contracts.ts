@@ -1,4 +1,4 @@
-import type { PagadorCompra } from "@/types";
+import type { PagadorCompra, TipoReparto } from "@/types";
 
 export type ModoRegistroIa = "rapido" | "completo";
 export type FuenteRegistroIa = "deterministico" | "ia";
@@ -7,6 +7,7 @@ export type RegistroIaIntent = "crear_o_actualizar" | "corregir" | "pregunta";
 export type CampoFaltanteRegistroIa =
   | "lugar"
   | "pagador"
+  | "reparto"
   | "total"
   | "items"
   | "items_sin_monto";
@@ -26,6 +27,7 @@ export type RegistroIaCorrectionTargetType = "draft" | "item";
 export type RegistroIaCorrectionField =
   | "lugar"
   | "pagador"
+  | "reparto"
   | "total"
   | "descripcion"
   | "monto"
@@ -33,7 +35,7 @@ export type RegistroIaCorrectionField =
   | "categoria_id"
   | "subcategoria_id";
 
-export interface RegistroIaCorrectionOp {
+export interface RegistroIaReplaceFieldOp {
   type: "replace_field";
   targetType: RegistroIaCorrectionTargetType;
   field: RegistroIaCorrectionField;
@@ -42,6 +44,32 @@ export interface RegistroIaCorrectionOp {
   from?: string;
   to?: string | number | null;
 }
+
+export interface RegistroIaOperationItem {
+  descripcion: string;
+  cantidad?: number | null;
+  monto?: number | null;
+  expresionMonto?: string | null;
+  categoria_id?: string;
+  subcategoria_id?: string;
+}
+
+export interface RegistroIaAddItemOp {
+  type: "add_item";
+  item: RegistroIaOperationItem;
+}
+
+export interface RegistroIaRemoveItemOp {
+  type: "remove_item";
+  targetItemId?: string;
+  targetMatcher?: string;
+  from?: string;
+}
+
+export type RegistroIaCorrectionOp =
+  | RegistroIaReplaceFieldOp
+  | RegistroIaAddItemOp
+  | RegistroIaRemoveItemOp;
 
 export interface RegistroIaResolutionOption {
   id: string;
@@ -60,6 +88,7 @@ export interface RegistroIaDraft {
   fecha: string;
   lugar: string;
   pagador: PagadorCompra | null;
+  reparto: TipoReparto | null;
   total: number | null;
   items: RegistroIaItem[];
   fuente: FuenteRegistroIa;

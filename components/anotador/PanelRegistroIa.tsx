@@ -44,6 +44,7 @@ export function PanelRegistroIa({ onBack }: Props) {
   const faltantes = ia.resultado?.faltantes ?? [];
   const mostrarResolucion = Boolean(ia.pendingResolution);
   const mostrarOpcionesPagador = ia.modoActivo === "completo" && faltantes.includes("pagador");
+  const mostrarOpcionesReparto = ia.modoActivo === "completo" && !mostrarOpcionesPagador && faltantes.includes("reparto");
   const mostrarReiniciar = Boolean(ia.resultado || ia.mensajes.length > 0);
   const puedeGuardarActual = ia.modoActivo === "completo"
     ? Boolean(ia.resultado?.canSave)
@@ -55,11 +56,11 @@ export function PanelRegistroIa({ onBack }: Props) {
   }, [borrador]);
 
   useEffect(() => {
-    if (mostrarOpcionesPagador || mostrarResolucion) return;
+    if (mostrarOpcionesPagador || mostrarOpcionesReparto || mostrarResolucion) return;
     const el = chatScrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [ia.mensajes, ia.cargando, mostrarOpcionesPagador, mostrarResolucion]);
+  }, [ia.mensajes, ia.cargando, mostrarOpcionesPagador, mostrarOpcionesReparto, mostrarResolucion]);
 
   useEffect(() => {
     if (voice.state !== "done") return;
@@ -238,6 +239,7 @@ export function PanelRegistroIa({ onBack }: Props) {
               </div>
             </div>
             <p className="text-xs text-on-surface mt-1 truncate">Lugar: {borrador.lugar || "-"} | Pagador: {borrador.pagador ?? "-"}</p>
+            <p className="text-xs text-on-surface mt-0.5 truncate">Reparto: {borrador.reparto ?? "-"}</p>
             <p className="text-xs text-on-surface-variant mt-0.5">
               Total: {borrador.total != null ? formatearPeso(borrador.total) : "-"} | Items: {borrador.items.length} ({formatearPeso(totalItems)})
             </p>
@@ -269,12 +271,23 @@ export function PanelRegistroIa({ onBack }: Props) {
           ) : mostrarOpcionesPagador ? (
             <div className="h-full overflow-y-auto overscroll-contain p-3 flex flex-col justify-center">
               <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Seleccion rapida</p>
-              <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Quien pago esta compra</h3>
+              <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Quien pago efectivamente</h3>
               <p className="mt-1 text-xs text-on-surface-variant">Elegi una opcion o escribi una respuesta personalizada.</p>
               <div className="mt-4 grid grid-cols-1 gap-2">
                 <button type="button" onClick={() => void enviarTextoDirecto("Pago Franco")} className="h-11 rounded-[12px] bg-surface-container-low text-on-surface text-sm font-label font-bold uppercase">Franco</button>
                 <button type="button" onClick={() => void enviarTextoDirecto("Pago Fabiola")} className="h-11 rounded-[12px] bg-surface-container-low text-on-surface text-sm font-label font-bold uppercase">Fabiola</button>
                 <button type="button" onClick={() => void enviarTextoDirecto("Fue compartido")} className="h-11 rounded-[12px] bg-surface-container-low text-on-surface text-sm font-label font-bold uppercase">Compartido</button>
+              </div>
+            </div>
+          ) : mostrarOpcionesReparto ? (
+            <div className="h-full overflow-y-auto overscroll-contain p-3 flex flex-col justify-center">
+              <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/60">Seleccion rapida</p>
+              <h3 className="mt-1 text-base font-headline font-bold text-on-surface">Como se reparte</h3>
+              <p className="mt-1 text-xs text-on-surface-variant">Elegi el reparto aunque haya pagado una sola persona.</p>
+              <div className="mt-4 grid grid-cols-1 gap-2">
+                <button type="button" onClick={() => void enviarTextoDirecto("Reparto 50/50")} className="h-11 rounded-[12px] bg-surface-container-low text-on-surface text-sm font-label font-bold uppercase">50/50</button>
+                <button type="button" onClick={() => void enviarTextoDirecto("Reparto solo Franco")} className="h-11 rounded-[12px] bg-surface-container-low text-on-surface text-sm font-label font-bold uppercase">Solo Franco</button>
+                <button type="button" onClick={() => void enviarTextoDirecto("Reparto solo Fabiola")} className="h-11 rounded-[12px] bg-surface-container-low text-on-surface text-sm font-label font-bold uppercase">Solo Fabiola</button>
               </div>
             </div>
           ) : (
@@ -331,15 +344,6 @@ export function PanelRegistroIa({ onBack }: Props) {
             >
               <Keyboard className="h-5 w-5" />
             </button>
-            <button
-              type="button"
-              onClick={() => void usarVozRapida()}
-              className={`h-10 w-10 rounded-[10px] bg-secondary text-on-secondary flex items-center justify-center ${voice.state === "recording" ? "animate-pulse" : ""}`}
-              aria-label={voice.state === "recording" ? "Detener voz" : "Hablar"}
-              title={voice.state === "recording" ? "Detener voz" : "Hablar"}
-            >
-              {voice.state === "recording" ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </button>
             {ia.modoActivo ? (
               <button
                 type="button"
@@ -369,6 +373,15 @@ export function PanelRegistroIa({ onBack }: Props) {
                 </button>
               </div>
             )}
+            <button
+              type="button"
+              onClick={() => void usarVozRapida()}
+              className={`h-10 w-10 rounded-[10px] bg-secondary text-on-secondary flex items-center justify-center ${voice.state === "recording" ? "animate-pulse" : ""}`}
+              aria-label={voice.state === "recording" ? "Detener voz" : "Hablar"}
+              title={voice.state === "recording" ? "Detener voz" : "Hablar"}
+            >
+              {voice.state === "recording" ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </button>
           </div>
 
           {ia.modoActivo === "rapido" && ia.faltanMontosEnRapido && (

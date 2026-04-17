@@ -228,7 +228,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
 
       // Intentar predecir categoria por lugar
       if (resultado.lugar) {
-        const pred = predecirCategoria(resultado.lugar, mapaLugaresMap, mapaDetalles);
+        const pred = predecirCategoria(resultado.lugar, mapaLugaresMap, mapaDetalles, { categorias, subcategorias });
         if (pred) {
           nuevo.categoria_id = pred.categoria_id;
           nuevo.subcategoria_id = pred.subcategoria_id;
@@ -510,7 +510,7 @@ export function FormularioCompraUnificado({ categorias, subcategorias, etiquetas
                       onChange={e => {
                         setItem(item.id ?? "", { descripcion: e.target.value });
                         if (!item.categoria_id && e.target.value.length >= 4) {
-                          const pred = predecirCategoria(e.target.value, mapaLugaresMap, mapaDetalles);
+                          const pred = predecirCategoria(e.target.value, mapaLugaresMap, mapaDetalles, { categorias, subcategorias });
                           if (pred) setItem(item.id ?? "", { categoria_id: pred.categoria_id, subcategoria_id: pred.subcategoria_id });
                         }
                       }}

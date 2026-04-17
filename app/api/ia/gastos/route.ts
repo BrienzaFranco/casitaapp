@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { PagadorCompra } from "@/types";
+import type { PagadorCompra, TipoReparto } from "@/types";
 import { crearClienteSupabaseServidor } from "@/lib/supabase/servidor";
 import { parseMontoFlexible } from "@/lib/ai/montos";
 import type {
@@ -39,6 +39,7 @@ interface ItemIaRaw {
 
 interface DraftPatchRaw {
   lugar?: string;
+  reparto?: TipoReparto | null | string;
   total?: number | string | null;
   pagador?: PagadorCompra | null;
   items?: ItemIaRaw[];
@@ -53,6 +54,7 @@ interface OperationRaw {
   targetMatcher?: string;
   from?: string;
   to?: unknown;
+  item?: ItemIaRaw;
 }
 
 interface ResolutionOptionRaw {
@@ -75,6 +77,7 @@ interface RespuestaIaRaw {
   resolution?: ResolutionRaw;
   warnings?: string[];
   lugar?: string;
+  reparto?: TipoReparto | null | string;
   total?: number | string | null;
   pagador?: PagadorCompra | null;
   items?: ItemIaRaw[];
@@ -129,6 +132,7 @@ const cacheResumenCatalogo = new Map<string, RegistroResumenCatalogo>();
 const FIELDS: RegistroIaCorrectionField[] = [
   "lugar",
   "pagador",
+  "reparto",
   "total",
   "descripcion",
   "monto",
@@ -166,6 +170,10 @@ function parsearNumeroSeguro(v: unknown): number | null {
 
 function sanitizarPagador(v: unknown): PagadorCompra | null {
   return v === "franco" || v === "fabiola" || v === "compartido" ? v : null;
+}
+
+function sanitizarReparto(v: unknown): TipoReparto | null {
+  return v === "50/50" || v === "solo_franco" || v === "solo_fabiola" ? v : null;
 }
 
 function resolverCategoriaId(
@@ -206,39 +214,44 @@ function sanitizarPatch(
   subcategorias: Array<{ id: string; categoria_id: string; nombre: string }>,
 ) {
   const warnings: string[] = [];
+
+  function sanitizarItemRaw(item: ItemIaRaw) {
+    const descripcion = String(item.descripcion ?? "").trim();
+    if (!descripcion) return null;
+    const cantidad = parsearNumeroSeguro(item.cantidad);
+    const monto = parsearNumeroSeguro(item.monto);
+    const categoriaId = resolverCategoriaId(item, categorias);
+    const subcategoriaId = resolverSubcategoriaId(item, categoriaId, subcategorias);
+
+    if (!categoriaId) warnings.push(`No se pudo asignar categoria para ${descripcion}`);
+    if (item.subcategoria_nombre && !subcategoriaId) {
+      warnings.push(`No se pudo asignar subcategoria para ${descripcion}`);
+    }
+
+    return {
+      id: item.id ? String(item.id) : `ia-${Math.random().toString(16).slice(2, 10)}`,
+      descripcion,
+      cantidad: cantidad != null ? Math.max(1, Math.round(cantidad)) : null,
+      expresionMonto: item.expresionMonto ? String(item.expresionMonto).trim() : null,
+      monto,
+      categoria_id: categoriaId,
+      subcategoria_id: subcategoriaId,
+      fuente: "ia" as const,
+    };
+  }
+
   const items = (raw.items ?? [])
-    .map((item) => {
-      const descripcion = String(item.descripcion ?? "").trim();
-      if (!descripcion) return null;
-      const cantidad = parsearNumeroSeguro(item.cantidad);
-      const monto = parsearNumeroSeguro(item.monto);
-      const categoriaId = resolverCategoriaId(item, categorias);
-      const subcategoriaId = resolverSubcategoriaId(item, categoriaId, subcategorias);
-
-      if (!categoriaId) warnings.push(`No se pudo asignar categoria para ${descripcion}`);
-      if (item.subcategoria_nombre && !subcategoriaId) {
-        warnings.push(`No se pudo asignar subcategoria para ${descripcion}`);
-      }
-
-      return {
-        id: item.id ? String(item.id) : `ia-${Math.random().toString(16).slice(2, 10)}`,
-        descripcion,
-        cantidad: cantidad != null ? Math.max(1, Math.round(cantidad)) : null,
-        expresionMonto: item.expresionMonto ? String(item.expresionMonto).trim() : null,
-        monto,
-        categoria_id: categoriaId,
-        subcategoria_id: subcategoriaId,
-        fuente: "ia" as const,
-      };
-    })
+    .map((item) => sanitizarItemRaw(item))
     .filter(Boolean);
 
   const total = parsearNumeroSeguro(raw.total);
   const pagador = sanitizarPagador(raw.pagador);
+  const reparto = sanitizarReparto(raw.reparto);
 
   return {
     draftPatch: {
       lugar: raw.lugar ? String(raw.lugar).trim() : "",
+      reparto,
       total,
       pagador,
       items,
@@ -253,6 +266,42 @@ function sanitizarOperation(
   categorias: Array<{ id: string; nombre: string }>,
   subcategorias: Array<{ id: string; categoria_id: string; nombre: string }>,
 ): RegistroIaCorrectionOp | null {
+  if (raw.type === "add_item") {
+    const itemRaw = raw.item;
+    if (!itemRaw) return null;
+    const descripcion = String(itemRaw.descripcion ?? "").trim();
+    if (!descripcion) return null;
+    const cantidad = parsearNumeroSeguro(itemRaw.cantidad);
+    const monto = parsearNumeroSeguro(itemRaw.monto);
+    const categoriaId = resolverCategoriaId(itemRaw, categorias);
+    const subcategoriaId = resolverSubcategoriaId(itemRaw, categoriaId, subcategorias);
+
+    return {
+      type: "add_item",
+      item: {
+        descripcion,
+        cantidad: cantidad != null ? Math.max(1, Math.round(cantidad)) : null,
+        monto,
+        expresionMonto: itemRaw.expresionMonto ? String(itemRaw.expresionMonto).trim() : null,
+        categoria_id: categoriaId,
+        subcategoria_id: subcategoriaId,
+      },
+    };
+  }
+
+  if (raw.type === "remove_item") {
+    const targetItemId = raw.targetItemId ? String(raw.targetItemId) : undefined;
+    const targetMatcher = raw.targetMatcher ? String(raw.targetMatcher) : undefined;
+    const from = raw.from ? String(raw.from) : undefined;
+    if (!targetItemId && !targetMatcher && !from) return null;
+    return {
+      type: "remove_item",
+      targetItemId,
+      targetMatcher,
+      from,
+    };
+  }
+
   if (raw.type !== "replace_field") return null;
   if (raw.targetType !== "draft" && raw.targetType !== "item") return null;
   if (!FIELDS.includes(raw.field as RegistroIaCorrectionField)) return null;
@@ -268,6 +317,10 @@ function sanitizarOperation(
     const pagador = sanitizarPagador(raw.to);
     if (!pagador) return null;
     to = pagador;
+  } else if (field === "reparto") {
+    const reparto = sanitizarReparto(raw.to);
+    if (!reparto) return null;
+    to = reparto;
   } else if (field === "categoria_id") {
     const v = String(raw.to ?? "").trim();
     if (!categorias.some((c) => c.id === v)) return null;
@@ -489,21 +542,27 @@ function construirPromptSistema(params: {
     "Objetivo: resolver en la menor cantidad de preguntas posible y dejar un draft usable.",
     "Respondes SOLO con JSON valido (sin markdown).",
     `Version de prompt: ${params.promptVersion}`,
-    "Inferencia proactiva: completa lugar, pagador y categorias cuando la evidencia sea alta.",
+    "Inferencia proactiva: completa lugar, pagador, reparto y categorias cuando la evidencia sea alta.",
     "No pidas confirmacion de datos con evidencia alta.",
     "Solo preguntes si falta un dato critico sin senal clara.",
+    "Importante: distinguir quien pago efectivamente de como se reparte la compra.",
+    "Si falta pagador o reparto y no hay senal clara, preguntalo en una sola pregunta consolidada.",
+    "Para alimentos/comida/supermercado/almacen/panaderia/carniceria/verduleria, prioriza categoria ALIMENTOS y una subcategoria coherente.",
     "Si hay ambiguedad real (2+ candidatos), no adivines: devolve resolution con opciones.",
     "No inventes categorias/subcategorias fuera del catalogo (usar IDs existentes o nombres del catalogo).",
+    "Si el usuario pide editar, preferi operations precisas en vez de reescribir todo el draft.",
+    "Usa add_item para agregar items y remove_item para quitar items cuando la instruccion sea clara.",
     "Si el usuario corrige algo, usa intent=corregir y operations.",
     "Si el usuario solo consulta, usa intent=pregunta y answer.",
     "Si carga o actualiza datos, usa intent=crear_o_actualizar y draftPatch.",
+    "En answer: si falta dato, hace UNA pregunta concreta; si ya queda guardable, responde empezando con 'Listo'.",
   ];
 
   if (params.mode === "rapido") {
     lineas.push("Modo rapido: prioriza dejar el draft guardable en un solo mensaje cuando haya total o items.");
     lineas.push("No abras preguntas no criticas en modo rapido.");
   } else {
-    lineas.push("Modo completo: pedir solo datos faltantes criticos en orden total > lugar > pagador > items > montos por item.");
+    lineas.push("Modo completo: pedir solo datos faltantes criticos en orden total > lugar > pagador > reparto > items > montos por item.");
     if (params.flags.questionPlanner) {
       lineas.push("Si faltan 2 campos compatibles, consolidalos en UNA sola pregunta.");
     }
@@ -516,6 +575,7 @@ function construirPromptSistema(params: {
     '  "answer": "string opcional",',
     '  "draftPatch": {',
     '    "lugar": "string|vacio",',
+    '    "reparto": "50/50|solo_franco|solo_fabiola|null",',
     '    "total": "number|null",',
     '    "pagador": "franco|fabiola|compartido|null",',
     '    "items": [',
@@ -535,13 +595,14 @@ function construirPromptSistema(params: {
     "  },",
     '  "operations": [',
     "    {",
-    '      "type": "replace_field",',
-    '      "targetType": "draft|item",',
-    '      "field": "lugar|pagador|total|descripcion|monto|cantidad|categoria_id|subcategoria_id",',
+    '      "type": "replace_field|add_item|remove_item",',
+    '      "targetType": "draft|item (solo replace_field)",',
+    '      "field": "lugar|pagador|reparto|total|descripcion|monto|cantidad|categoria_id|subcategoria_id (solo replace_field)",',
     '      "targetItemId": "string opcional",',
     '      "targetMatcher": "string opcional",',
     '      "from": "string opcional",',
-    '      "to": "string|number|null"',
+    '      "to": "string|number|null (solo replace_field)",',
+    '      "item": { "descripcion":"string", "cantidad":"number|null", "monto":"number|null", "expresionMonto":"string|null", "categoria_id":"id opcional", "subcategoria_id":"id opcional", "categoria_nombre":"fallback", "subcategoria_nombre":"fallback" } (solo add_item)',
     "    }",
     "  ],",
     '  "resolution": {',
@@ -666,6 +727,7 @@ function countCamposCompletados(draft: DraftPatchRaw | undefined) {
   if (!draft) return 0;
   let total = 0;
   if (draft.lugar) total += 1;
+  if (draft.reparto) total += 1;
   if (draft.total != null) total += 1;
   if (draft.pagador) total += 1;
   if ((draft.items ?? []).length > 0) total += 1;
@@ -699,45 +761,6 @@ export async function POST(request: Request) {
 
   const config = await obtenerConfigIa();
   const contexto = resolverContextoCatalogo(body);
-
-  if (!contexto.categorias.length && !contexto.subcategorias.length) {
-    const latenciaMs = Date.now() - inicio;
-    void registrarLogIa({
-      userId: user.id,
-      sessionId,
-      modo,
-      intent: "error",
-      canSave: false,
-      camposCompletados: 0,
-      faltantesCount: 1,
-      latenciaMs,
-      modelo: config.modelo,
-      promptVersion: config.promptVersion,
-      retryCount: 0,
-      providerStatus: 0,
-      fallbackUsed: true,
-      errorCode: "context_missing",
-      tokensIn: 0,
-      tokensOut: 0,
-      tokensTotal: 0,
-      costoEstUsd: 0,
-    });
-
-    return NextResponse.json({
-      error: {
-        code: "context_missing",
-        message: "No hay catalogo cargado para resolver categorias. Reintenta.",
-        retryable: true,
-      },
-      meta: {
-        sessionId,
-        model: config.modelo,
-        promptVersion: config.promptVersion,
-        retryCount: 0,
-        latencyMs: latenciaMs,
-      },
-    });
-  }
 
   const { resumenCategorias, resumenSubcategorias } = obtenerResumenCatalogo(contexto, config.flags.catalogCompact);
 
@@ -916,8 +939,8 @@ export async function POST(request: Request) {
   }
 
   const draftRaw: DraftPatchRaw | undefined = raw.draftPatch
-    ?? (raw.lugar !== undefined || raw.total !== undefined || raw.pagador !== undefined || raw.items !== undefined
-      ? { lugar: raw.lugar, total: raw.total, pagador: raw.pagador, items: raw.items, warnings: raw.warnings }
+    ?? (raw.lugar !== undefined || raw.reparto !== undefined || raw.total !== undefined || raw.pagador !== undefined || raw.items !== undefined
+      ? { lugar: raw.lugar, reparto: raw.reparto, total: raw.total, pagador: raw.pagador, items: raw.items, warnings: raw.warnings }
       : undefined);
 
   const draftSanitizado = draftRaw
