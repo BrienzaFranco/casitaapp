@@ -13,6 +13,7 @@ export type ToolName =
   | "balance_actual"
   | "presupuesto_status"
   | "top_gastos"
+  | "ultima_compra_item"
   | "buscar_compras"
   | "items_frecuentes"
   | "borradores_pendientes"
@@ -45,6 +46,10 @@ export interface ParamsTopGastos {
   limite?: number;
 }
 
+export interface ParamsUltimaCompraItem {
+  texto: string;
+}
+
 export interface ParamsBuscarCompras {
   texto: string;
   limite?: number;
@@ -72,6 +77,7 @@ export type ToolParams =
   | ParamsBalanceActual
   | ParamsPresupuestoStatus
   | ParamsTopGastos
+  | ParamsUltimaCompraItem
   | ParamsBuscarCompras
   | ParamsItemsFrecuentes
   | ParamsBorradoresPendientes

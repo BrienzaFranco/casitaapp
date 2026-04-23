@@ -7,12 +7,13 @@ import type {
   ParamsComprasRecientes,
   ParamsPresupuestoStatus,
   ParamsTopGastos,
+  ParamsUltimaCompraItem,
   ParamsBuscarCompras,
   ParamsItemsFrecuentes,
   ParamsBorradoresPendientes,
   ParamsEjecutarSql,
 } from "./contracts-chat";
-import { mesLocalISO } from "@/lib/utiles";
+import { mesLocalISO, normalizarTexto } from "@/lib/utiles";
 
 type Cliente = SupabaseClient;
 
@@ -43,6 +44,9 @@ export async function ejecutarTool(
       case "top_gastos":
         data = await toolTopGastos(cliente, params as ParamsTopGastos);
         break;
+      case "ultima_compra_item":
+        data = await toolUltimaCompraItem(cliente, params as unknown as ParamsUltimaCompraItem);
+        break;
       case "buscar_compras":
         data = await toolBuscarCompras(cliente, params as unknown as ParamsBuscarCompras);
         break;
@@ -62,6 +66,138 @@ export async function ejecutarTool(
   } catch (e) {
     return { ok: false, tool, error: String(e) };
   }
+}
+
+interface ItemHistorialMatch {
+  compraId: string;
+  fecha: string;
+  lugar: string | null;
+  pagador: string;
+  estado: string;
+  itemDescripcion: string;
+  itemMonto: number;
+  totalCompra: number;
+  categoria: string;
+  score: number;
+  coincidencia: string;
+}
+
+const STOPWORDS_BUSQUEDA = new Set([
+  "la", "el", "los", "las", "de", "del", "por", "para", "una", "uno", "unos", "unas",
+  "que", "q", "cuando", "cuándo", "ultima", "última", "ultimo", "último", "vez", "compre",
+  "compré", "compramos", "comprar", "compro", "compró", "quiero", "saber",
+]);
+
+function tokenizarBusqueda(texto: string) {
+  return normalizarTexto(texto)
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 2 && !STOPWORDS_BUSQUEDA.has(token));
+}
+
+function scoreBusqueda(query: string, descripcion: string, lugar: string) {
+  const q = normalizarTexto(query);
+  const desc = normalizarTexto(descripcion);
+  const lug = normalizarTexto(lugar);
+  const tokens = tokenizarBusqueda(query);
+
+  let score = 0;
+
+  if (!desc && !lug) return score;
+  if (desc === q) score += 140;
+  if (desc.includes(q) && q.length >= 3) score += 110;
+  if (lug === q) score += 70;
+  if (lug.includes(q) && q.length >= 3) score += 40;
+
+  let tokensEnDescripcion = 0;
+  let tokensEnLugar = 0;
+  for (const token of tokens) {
+    if (desc.includes(token)) {
+      tokensEnDescripcion += 1;
+      score += token.length >= 4 ? 24 : 12;
+    }
+    if (lug.includes(token)) {
+      tokensEnLugar += 1;
+      score += 6;
+    }
+  }
+
+  if (tokens.length > 0 && tokensEnDescripcion === tokens.length) score += 35;
+  if (tokens.length > 1 && tokensEnDescripcion + tokensEnLugar >= tokens.length) score += 20;
+  if (desc.startsWith(q) || desc.endsWith(q)) score += 12;
+
+  return score;
+}
+
+async function buscarItemsEnHistorial(
+  cliente: Cliente,
+  texto: string,
+  opciones?: { desde?: string; hasta?: string; limite?: number },
+) {
+  const limite = Math.min(opciones?.limite ?? 10, 50);
+  const queryNormalizada = normalizarTexto(texto);
+  const tokens = tokenizarBusqueda(texto);
+
+  let consulta = cliente
+    .from("items")
+    .select("descripcion, monto_resuelto, compra_id, categorias(nombre), compras(id, fecha, nombre_lugar, pagador_general, estado, creado_en, items(monto_resuelto))")
+    .not("descripcion", "is", null)
+    .order("creado_en", { ascending: false })
+    .limit(800);
+
+  if (opciones?.desde) {
+    consulta = consulta.gte("compras.fecha", opciones.desde);
+  }
+  if (opciones?.hasta) {
+    consulta = consulta.lte("compras.fecha", opciones.hasta);
+  }
+
+  const { data } = await consulta;
+  const matches: ItemHistorialMatch[] = [];
+
+  for (const item of data ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const compra = item.compras as any;
+    if (!compra || compra.estado !== "confirmada") continue;
+
+    const descripcion = String(item.descripcion ?? "").trim();
+    const lugar = String(compra.nombre_lugar ?? "").trim();
+    const score = scoreBusqueda(texto, descripcion, lugar);
+    const tieneTokens = tokens.length === 0
+      ? false
+      : tokens.some((token) => normalizarTexto(descripcion).includes(token) || normalizarTexto(lugar).includes(token));
+    const coincidePorFrase = queryNormalizada.length >= 3
+      && (normalizarTexto(descripcion).includes(queryNormalizada) || normalizarTexto(lugar).includes(queryNormalizada));
+
+    if (!coincidePorFrase && !tieneTokens && score < 20) continue;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const compraItems = (compra.items ?? []) as any[];
+    const totalCompra = compraItems.reduce((acc: number, i: any) => acc + (i.monto_resuelto ?? 0), 0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const categoria = (item.categorias as any)?.nombre ?? "Sin categoría";
+
+    matches.push({
+      compraId: compra.id,
+      fecha: compra.fecha,
+      lugar: compra.nombre_lugar,
+      pagador: compra.pagador_general,
+      estado: compra.estado,
+      itemDescripcion: descripcion,
+      itemMonto: item.monto_resuelto,
+      totalCompra,
+      categoria,
+      score,
+      coincidencia: coincidePorFrase ? `item: ${descripcion}` : lugar ? `lugar: ${lugar}` : `item: ${descripcion}`,
+    });
+  }
+
+  matches.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return b.fecha.localeCompare(a.fecha);
+  });
+
+  return matches.slice(0, limite);
 }
 
 // ─── gastos_por_categoria ──────────────────────────────────────────
@@ -349,74 +485,65 @@ async function toolBuscarCompras(cliente: Cliente, params: ParamsBuscarCompras) 
 
   if (!texto) return { error: "Falta texto de búsqueda", compras: [] };
 
-  // Buscar por lugar
-  const { data: porLugar } = await cliente
-    .from("compras")
-    .select("id, fecha, nombre_lugar, pagador_general, estado, items(monto_resuelto, descripcion, categorias(nombre))")
-    .ilike("nombre_lugar", `%${texto}%`)
-    .order("fecha", { ascending: false })
-    .limit(limite);
+  const matches = await buscarItemsEnHistorial(cliente, texto, {
+    desde: params.desde,
+    hasta: params.hasta,
+    limite: limite * 2,
+  });
 
-  // Buscar por descripción de item
-  const { data: porItem } = await cliente
-    .from("items")
-    .select("descripcion, monto_resuelto, compra_id, compras(id, fecha, nombre_lugar, pagador_general, estado, items(monto_resuelto, descripcion, categorias(nombre)))")
-    .ilike("descripcion", `%${texto}%`)
-    .limit(limite);
-
-  // Deduplicar por compra_id
   const idsVistos = new Set<string>();
-  const compras: Array<{
-    fecha: string;
-    lugar: string | null;
-    pagador: string;
-    estado: string;
-    total: number;
-    categorias: string[];
-    coincidencia: string;
-  }> = [];
+  const compras = matches
+    .filter((match) => {
+      if (idsVistos.has(match.compraId)) return false;
+      idsVistos.add(match.compraId);
+      return true;
+    })
+    .slice(0, limite)
+    .map((match) => ({
+      id: match.compraId,
+      fecha: match.fecha,
+      lugar: match.lugar,
+      pagador: match.pagador,
+      estado: match.estado,
+      total: match.totalCompra,
+      categorias: [match.categoria],
+      coincidencia: match.coincidencia,
+      item_descripcion: match.itemDescripcion,
+      item_monto: match.itemMonto,
+      score: match.score,
+    }));
 
-  for (const c of porLugar ?? []) {
-    if (idsVistos.has(c.id)) continue;
-    idsVistos.add(c.id);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const items = (c.items ?? []) as any[];
-    compras.push({
-      fecha: c.fecha,
-      lugar: c.nombre_lugar,
-      pagador: c.pagador_general,
-      estado: c.estado,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      total: items.reduce((acc: number, i: any) => acc + (i.monto_resuelto ?? 0), 0),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      categorias: [...new Set(items.map((i: any) => i.categorias?.nombre ?? "Sin cat"))],
-      coincidencia: "lugar",
-    });
-  }
+  return {
+    texto,
+    cantidad: compras.length,
+    ultima_compra: compras[0] ?? null,
+    compras,
+  };
+}
 
-  for (const item of porItem ?? []) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const compra = item.compras as any;
-    if (!compra || idsVistos.has(compra.id)) continue;
-    idsVistos.add(compra.id);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const items = (compra.items ?? []) as any[];
-    compras.push({
-      fecha: compra.fecha,
-      lugar: compra.nombre_lugar,
-      pagador: compra.pagador_general,
-      estado: compra.estado,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      total: items.reduce((acc: number, i: any) => acc + (i.monto_resuelto ?? 0), 0),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      categorias: [...new Set(items.map((i: any) => i.categorias?.nombre ?? "Sin cat"))],
-      coincidencia: `item: ${item.descripcion}`,
-    });
-  }
+// ─── ultima_compra_item ────────────────────────────────────────────
+async function toolUltimaCompraItem(cliente: Cliente, params: ParamsUltimaCompraItem) {
+  const texto = (params.texto ?? "").trim();
+  if (!texto) return { error: "Falta item a buscar", ultima_compra: null, historial: [] };
 
-  compras.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const matches = await buscarItemsEnHistorial(cliente, texto, { limite: 12 });
+  const historial = matches.map((match) => ({
+    compra_id: match.compraId,
+    fecha: match.fecha,
+    lugar: match.lugar,
+    pagador: match.pagador,
+    descripcion: match.itemDescripcion,
+    monto_item: match.itemMonto,
+    total_compra: match.totalCompra,
+    categoria: match.categoria,
+    score: match.score,
+  }));
 
-  return { texto, cantidad: compras.length, compras: compras.slice(0, limite) };
+  return {
+    texto,
+    ultima_compra: historial[0] ?? null,
+    historial,
+  };
 }
 
 // ─── items_frecuentes ──────────────────────────────────────────────

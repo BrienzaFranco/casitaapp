@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { crearClienteSupabaseServidor } from "@/lib/supabase/servidor";
 import { ejecutarTool } from "@/lib/ai/tools-datos";
 import { parseMontoFlexible } from "@/lib/ai/montos";
+import { cargarMapaDetalles, cargarMapaLugares, predecirCategoria } from "@/lib/categorizacion";
+import { aplicarAjustePorTotal, crearDraftDesdeMensaje } from "@/lib/ai/registroDeterministico";
 import type {
   ChatIntent,
   ChatLlmResponse,
@@ -12,6 +14,7 @@ import type {
   ChatDraftPatch,
   ChatDraftItem,
 } from "@/lib/ai/contracts-chat";
+import type { RegistroIaDraft } from "@/lib/ai/contracts";
 import type { PagadorCompra, TipoReparto } from "@/types";
 
 const MODELO_DEFAULT = "minimax/minimax-m2.7";
@@ -148,6 +151,110 @@ function sanitizarDraftPatch(
   };
 }
 
+function convertirRegistroDraftAChatPatch(draft: RegistroIaDraft): ChatDraftPatch {
+  return {
+    lugar: draft.lugar,
+    reparto: draft.reparto,
+    total: draft.total,
+    pagador: draft.pagador,
+    items: draft.items.map((item) => ({
+      id: item.id,
+      descripcion: item.descripcion,
+      cantidad: item.cantidad,
+      monto: item.monto,
+      expresionMonto: item.expresionMonto,
+      categoria_id: item.categoria_id,
+      subcategoria_id: item.subcategoria_id,
+    })),
+    warnings: draft.warnings,
+  };
+}
+
+function mezclarDrafts(base: ChatDraftPatch | undefined, parcial: ChatDraftPatch | undefined): ChatDraftPatch | undefined {
+  if (!base) return parcial;
+  if (!parcial) return base;
+
+  const itemsBase = base.items ?? [];
+  const itemsParcial = parcial.items ?? [];
+  const items = itemsParcial.length ? itemsParcial : itemsBase;
+
+  return {
+    lugar: parcial.lugar || base.lugar,
+    reparto: parcial.reparto ?? base.reparto,
+    total: parcial.total ?? base.total,
+    pagador: parcial.pagador ?? base.pagador,
+    items,
+    warnings: [...(base.warnings ?? []), ...(parcial.warnings ?? [])],
+  };
+}
+
+function pareceMensajeRegistro(message: string) {
+  const texto = normalizar(message);
+  return [
+    "anota", "anota", "anotá", "carga", "cargá", "gaste", "gasté", "compre", "compré", "pague", "pagué",
+  ].some((clave) => texto.includes(normalizar(clave)));
+}
+
+function extraerTextoUltimaCompra(message: string): string | null {
+  const texto = message.trim();
+  const patrones = [
+    /ultima vez que compre\s+(.+)$/i,
+    /ultima vez que compr[eé]\s+(.+)$/i,
+    /cu[aá]ndo compr[eé]\s+(.+)$/i,
+    /hace cuanto compr[eé]\s+(.+)$/i,
+    /hace cu[aá]ndo compr[eé]\s+(.+)$/i,
+  ];
+
+  for (const patron of patrones) {
+    const match = texto.match(patron);
+    if (!match?.[1]) continue;
+    return match[1].trim().replace(/[?!.]+$/g, "");
+  }
+
+  return null;
+}
+
+async function construirDraftDeterministico(
+  cliente: Awaited<ReturnType<typeof crearClienteSupabaseServidor>>,
+  message: string,
+  cats: Array<{ id: string; nombre: string }>,
+  subs: Array<{ id: string; categoria_id: string; nombre: string }>,
+): Promise<ChatDraftPatch | undefined> {
+  if (!pareceMensajeRegistro(message)) return undefined;
+
+  const draft = aplicarAjustePorTotal(crearDraftDesdeMensaje(message));
+  if (!draft.items.length && !draft.total && !draft.lugar && !draft.pagador) return undefined;
+
+  const { data: comprasPrevias } = await cliente
+    .from("compras")
+    .select("nombre_lugar, items(descripcion, categoria_id, subcategoria_id)")
+    .eq("estado", "confirmada")
+    .order("creado_en", { ascending: false })
+    .limit(200);
+
+  const mapaLugares = cargarMapaLugares((comprasPrevias ?? []) as Array<{
+    nombre_lugar: string;
+    items: Array<{ categoria_id: string | null; subcategoria_id: string | null }>;
+  }>);
+  const mapaDetalles = cargarMapaDetalles((comprasPrevias ?? []) as Array<{
+    items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }>;
+  }>);
+
+  const catalogo = { categorias: cats, subcategorias: subs };
+  const items = draft.items.map((item) => {
+    if (item.categoria_id) return item;
+    const pred = predecirCategoria(item.descripcion || draft.lugar, mapaLugares, mapaDetalles, catalogo);
+    if (!pred) return item;
+    return {
+      ...item,
+      categoria_id: pred.categoria_id,
+      subcategoria_id: pred.subcategoria_id,
+    };
+  });
+
+  return convertirRegistroDraftAChatPatch({ ...draft, items });
+}
+
 // ─── Historial ─────────────────────────────────────────────────────
 function sanitizarHistory(history: ChatRequest["history"]) {
   return (history ?? [])
@@ -184,12 +291,14 @@ TOOLS DISPONIBLES (solo para intent consulta/analisis/edicion_borrador):
 - balance_actual() → quién debe cuánto a quién
 - presupuesto_status({mes?}) → % usado vs límite por categoría
 - top_gastos({mes?, limite?}) → los gastos más altos
+- ultima_compra_item({texto}) → última vez que se compró un item o producto
 - buscar_compras({texto, limite?, desde?, hasta?}) → buscar por lugar o descripción, con filtro de fechas opcional
 - items_frecuentes({limite?}) → items más comprados, agrupados por descripción
 - borradores_pendientes() → lista de borradores sin confirmar
 - ejecutar_sql({sql}) → ejecutar SQL directo (solo SELECT). Usar como último recurso si ningún otro tool sirve.
 
 REGLAS:
+- Para "¿cuándo compré X?", "última vez que compré X" o "hace cuánto compré X" → ultima_compra_item
 - Para "¿cuándo compramos X?" o "buscá X" → buscar_compras
 - Para "¿le debo algo a Fabiola?" o "¿quién debe?" → balance_actual
 - Para "¿cuánto gastamos en [categoría]?" → gastos_por_categoria
@@ -205,6 +314,7 @@ REGLAS:
 - Siempre que puedas, completá datos inferidos (lugar, pagador, categoría)
 - Si hay ambigüedad real, preguntá en answer
 - Para queries complejas que ningún tool cubre → ejecutar_sql (solo SELECT)
+- Si el mensaje parece un gasto, asumí intent=registro aunque falten datos. Mejor devolver un borrador corregible que contestar como charla.
 
 REGISTRO (solo si intent=registro):
 - draftPatch: {lugar, pagador, reparto, total, items: [{descripcion, monto, categoria_id, subcategoria_id, categoria_nombre, subcategoria_nombre}]}
@@ -263,6 +373,37 @@ function construirAnswerDesdeTools(results: ToolResult[]): string {
         if (gc.variacion) {
           const v = Number(gc.variacion);
           partes.push(v > 0 ? `📈 ${gc.variacion}% más que el mes anterior.` : `📉 ${Math.abs(v)}% menos que el mes anterior.`);
+        }
+        break;
+      }
+      case "ultima_compra_item": {
+        const uc = d as {
+          texto: string;
+          ultima_compra: null | {
+            fecha: string;
+            lugar: string | null;
+            descripcion: string;
+            monto_item: number;
+          };
+        };
+        if (!uc.ultima_compra) {
+          partes.push(`No encontré compras de ${uc.texto}.`);
+        } else {
+          partes.push(`La última vez que compraste ${uc.texto} fue el ${uc.ultima_compra.fecha} en ${uc.ultima_compra.lugar ?? "un lugar sin nombre"}.`);
+          partes.push(`El item fue "${uc.ultima_compra.descripcion}" por $${uc.ultima_compra.monto_item.toLocaleString("es-AR")}.`);
+        }
+        break;
+      }
+      case "buscar_compras": {
+        const bc = d as {
+          texto: string;
+          cantidad: number;
+          ultima_compra?: null | { fecha: string; lugar: string | null; item_descripcion?: string; total: number };
+        };
+        if (!bc.cantidad) {
+          partes.push(`No encontré compras relacionadas con ${bc.texto}.`);
+        } else if (bc.ultima_compra) {
+          partes.push(`Encontré ${bc.cantidad} compra(s) relacionadas con ${bc.texto}. La más reciente fue el ${bc.ultima_compra.fecha} en ${bc.ultima_compra.lugar ?? "un lugar sin nombre"}.`);
         }
         break;
       }
@@ -397,7 +538,31 @@ export async function POST(request: Request) {
     subs = data ?? [];
   }
 
+  const modelo = await obtenerModelo();
+
+  const textoUltimaCompra = extraerTextoUltimaCompra(message);
+  if (textoUltimaCompra) {
+    const resultado = await ejecutarTool(cliente, "ultima_compra_item", { texto: textoUltimaCompra });
+    const latenciaMs = Date.now() - inicio;
+    const answer = construirAnswerDesdeTools([resultado]);
+    void registrarLog({ userId: user.id, sessionId, intent: "consulta", latenciaMs, modelo, tokensIn: 0, tokensOut: 0 });
+    return NextResponse.json({
+      intent: "consulta",
+      answer,
+      toolResults: [resultado],
+      meta: {
+        sessionId,
+        model: modelo,
+        latencyMs: latenciaMs,
+        tokensIn: 0,
+        tokensOut: 0,
+      },
+    } satisfies ChatResponse);
+  }
+
   const { resumenCats, resumenSubs } = obtenerResumenCatalogo(cats, subs);
+
+  const draftDeterministico = await construirDraftDeterministico(cliente, message, cats, subs);
 
   const promptSistema = construirPrompt({
     cats: resumenCats,
@@ -406,8 +571,6 @@ export async function POST(request: Request) {
   });
 
   const history = sanitizarHistory(body.history);
-
-  const modelo = await obtenerModelo();
 
   const payload = {
     model: modelo,
@@ -419,7 +582,7 @@ export async function POST(request: Request) {
       ...history.map((t) => ({ role: t.role, content: t.content })),
       {
         role: "user",
-        content: `Mensaje: ${message}${body.draft ? `\nDraft actual: ${JSON.stringify(body.draft)}` : ""}`,
+        content: `Mensaje: ${message}${body.draft ? `\nDraft actual: ${JSON.stringify(body.draft)}` : ""}${draftDeterministico ? `\nDraft base deterministico: ${JSON.stringify(draftDeterministico)}` : ""}`,
       },
     ],
   };
@@ -466,7 +629,10 @@ export async function POST(request: Request) {
     } satisfies Partial<ChatResponse>);
   }
 
-  const intent = inferirIntent(raw);
+  let intent = inferirIntent(raw);
+  if (intent === "conversacion" && draftDeterministico && pareceMensajeRegistro(message)) {
+    intent = "registro";
+  }
 
   // Ejecutar tools si hay
   const toolResults: ToolResult[] = [];
@@ -481,8 +647,11 @@ export async function POST(request: Request) {
 
   // Si es registro, sanitizar draft
   let draftPatch: ChatDraftPatch | undefined;
-  if (intent === "registro" && raw.draftPatch) {
-    draftPatch = sanitizarDraftPatch(raw.draftPatch, cats, subs);
+  if (intent === "registro") {
+    const draftFusionado = mezclarDrafts(draftDeterministico, raw.draftPatch);
+    if (draftFusionado) {
+      draftPatch = sanitizarDraftPatch(draftFusionado, cats, subs);
+    }
   }
 
   const latenciaMs = Date.now() - inicio;

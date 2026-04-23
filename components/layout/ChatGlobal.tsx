@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Send, X, Sparkles, Trash2, Mic, MicOff, Check, ExternalLink } from "lucide-react";
-import { useChatGlobal, type MensajeChat } from "@/hooks/useChatGlobal";
+import { toast } from "sonner";
+import { useChatGlobal, type MensajeChat, type BorradorGuardado } from "@/hooks/useChatGlobal";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarUsuario } from "@/hooks/usarUsuario";
 import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
@@ -166,11 +167,19 @@ export function ChatGlobal() {
                   mensaje={msg}
                   guardando={chat.guardando}
                   borradoresGuardados={chat.borradoresGuardados}
-                  onGuardarBorrador={(draft) => chat.guardarBorrador(
-                    draft,
-                    usuario.perfil?.nombre ?? "Usuario",
-                    msg.text,
-                  )}
+                  onGuardarBorrador={async (draft) => {
+                    const compraId = await chat.guardarBorrador(
+                      draft,
+                      usuario.perfil?.nombre ?? "Usuario",
+                      msg.id,
+                      msg.sourceUserText ?? msg.text,
+                    );
+                    if (compraId) {
+                      toast.success("Borrador guardado");
+                    } else if (chat.error) {
+                      toast.error(chat.error);
+                    }
+                  }}
                 />
               ))}
 
@@ -238,7 +247,7 @@ export function ChatGlobal() {
 interface BurbujaMensajeProps {
   mensaje: MensajeChat;
   guardando: boolean;
-  borradoresGuardados: Array<{ compraId: string; lugar: string; total: number | null; guardadoEn: number }>;
+  borradoresGuardados: BorradorGuardado[];
   onGuardarBorrador: (draft: ChatDraftPatch) => void;
 }
 
@@ -246,7 +255,7 @@ function BurbujaMensaje({ mensaje, guardando, borradoresGuardados, onGuardarBorr
   const esUsuario = mensaje.role === "user";
 
   const borradorYaGuardado = mensaje.draftPatch
-    ? borradoresGuardados.find((b) => b.lugar === (mensaje.draftPatch?.lugar ?? "Sin especificar"))
+    ? borradoresGuardados.find((b) => b.mensajeId === mensaje.id)
     : undefined;
 
   return (
@@ -397,6 +406,8 @@ function ResultadoTool({ result }: { result: ToolResult }) {
       return <CardComprasRecientes data={d} />;
     case "presupuesto_status":
       return <CardPresupuesto data={d} />;
+    case "ultima_compra_item":
+      return <CardUltimaCompra data={d} />;
     case "buscar_compras":
       return <CardBuscarCompras data={d} />;
     case "gastos_por_mes":
@@ -581,6 +592,45 @@ function CardPresupuesto({ data }: { data: Record<string, unknown> }) {
         ))}
       </div>
       <ExplorarLink href="/dashboard" />
+    </div>
+  );
+}
+
+function CardUltimaCompra({ data }: { data: Record<string, unknown> }) {
+  const ultima = data.ultima_compra as null | {
+    fecha: string;
+    lugar: string | null;
+    descripcion: string;
+    monto_item: number;
+    total_compra: number;
+  };
+  const texto = String(data.texto ?? "");
+
+  if (!ultima) {
+    return (
+      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant">
+        No encontré compras recientes de {texto}.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+      <div className="flex items-center gap-1.5 mb-2">
+        <span>🕘</span>
+        <span className="font-semibold text-on-surface">Última compra</span>
+      </div>
+      <p className="text-on-surface font-medium">{ultima.descripcion}</p>
+      <p className="text-on-surface-variant mt-0.5">{ultima.fecha} · {ultima.lugar ?? "Sin lugar"}</p>
+      <div className="mt-2 flex justify-between text-on-surface">
+        <span>Item</span>
+        <span className="font-mono font-semibold">{formatearPeso(ultima.monto_item)}</span>
+      </div>
+      <div className="mt-1 flex justify-between text-on-surface-variant">
+        <span>Total compra</span>
+        <span className="font-mono">{formatearPeso(ultima.total_compra)}</span>
+      </div>
+      <ExplorarLink href="/historial" label="Ver historial" />
     </div>
   );
 }

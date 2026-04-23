@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { ChatResponse, ChatDraftPatch } from "@/lib/ai/contracts-chat";
 import { convertirChatDraftACompraEditable } from "@/lib/ai/contracts-chat";
@@ -9,6 +10,7 @@ export interface MensajeChat {
   role: "user" | "assistant";
   text: string;
   timestamp: number;
+  sourceUserText?: string;
   // Metadatos opcionales
   intent?: ChatResponse["intent"];
   toolResults?: ChatResponse["toolResults"];
@@ -43,6 +45,7 @@ interface EstadoChat {
 
 // ─── Hook ──────────────────────────────────────────────────────────
 export function useChatGlobal() {
+  const queryClient = useQueryClient();
   const [estado, setEstado] = useState<EstadoChat>({
     abierto: false,
     mensajes: [],
@@ -132,6 +135,7 @@ export function useChatGlobal() {
         role: "assistant",
         text: data.answer || "Sin respuesta",
         timestamp: Date.now(),
+        sourceUserText: mensaje,
         intent: data.intent,
         toolResults: data.toolResults,
         draftPatch: data.draftPatch,
@@ -170,6 +174,7 @@ export function useChatGlobal() {
   const guardarBorrador = useCallback(async (
     draft: ChatDraftPatch,
     registradoPor: string,
+    mensajeId: string,
     textoOriginal?: string,
     compraId?: string,
   ): Promise<string | null> => {
@@ -211,9 +216,11 @@ export function useChatGlobal() {
       const { data, error } = await supabase.rpc("guardar_compra_borrador", payload);
       if (error) throw error;
 
+      await queryClient.invalidateQueries({ queryKey: ["compras"] });
+
       const nuevoBorrador: BorradorGuardado = {
         compraId: data as string,
-        mensajeId: `draft-${Date.now()}`,
+        mensajeId,
         lugar: draft.lugar ?? "Sin especificar",
         total: draft.total ?? null,
         guardadoEn: Date.now(),
@@ -231,7 +238,7 @@ export function useChatGlobal() {
       setEstado((prev) => ({ ...prev, guardando: false, error: errorMsg }));
       return null;
     }
-  }, []);
+  }, [queryClient]);
 
   return {
     ...estado,
