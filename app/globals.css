@@ -133,6 +133,21 @@ body {
   animation: aparecer-arriba 0.2s ease-out;
 }
 
+@keyframes aparecer-abajo {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animar-aparecer-abajo {
+  animation: aparecer-abajo 0.25s ease-out;
+}
+
 /* ═══════════════════════════════════════════════════════════
    UTILIDADES
    ═══════════════════════════════════════════════════════════ */

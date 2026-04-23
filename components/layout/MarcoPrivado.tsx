@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { BannerPendientes } from "@/components/layout/BannerPendientes";
+import { ChatGlobal } from "@/components/layout/ChatGlobal";
 import { ContenedorPagina } from "@/components/layout/ContenedorPagina";
 import { Header } from "@/components/layout/Header";
 import { NavegacionInferior } from "@/components/layout/NavegacionInferior";
@@ -22,6 +23,7 @@ export function MarcoPrivado({ children }: Props) {
           {children}
         </ContenedorPagina>
         <NavegacionInferior />
+        <ChatGlobal />
       </div>
     </>
   );
