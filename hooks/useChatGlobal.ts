@@ -1,12 +1,7 @@
 import { useCallback, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import type { ChatResponse, ChatDraftPatch } from "@/lib/ai/contracts-chat";
 import { convertirChatDraftACompraEditable } from "@/lib/ai/contracts-chat";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
 
 // ─── Tipos públicos ────────────────────────────────────────────────
 export interface MensajeChat {

@@ -416,6 +416,18 @@ function ResultadoTool({ result }: { result: ToolResult }) {
 
 // ─── Cards de resultados ───────────────────────────────────────────
 
+function ExplorarLink({ href, label }: { href: string; label?: string }) {
+  return (
+    <a
+      href={href}
+      className="mt-2 flex items-center gap-1 text-secondary text-[11px] font-medium hover:underline"
+    >
+      <ExternalLink className="h-3 w-3" />
+      {label ?? "Explorar en dashboard"}
+    </a>
+  );
+}
+
 function CardBalance({ data }: { data: Record<string, unknown> }) {
   const deudor = data.deudor as string | null;
   const monto = data.montoAdeudado as number;
@@ -442,6 +454,7 @@ function CardBalance({ data }: { data: Record<string, unknown> }) {
         <span>Franco pagó: {formatearPeso(data.francoPago as number)}</span>
         <span>Fabiola pagó: {formatearPeso(data.fabiolaPago as number)}</span>
       </div>
+      <ExplorarLink href="/dashboard" />
     </div>
   );
 }
@@ -475,6 +488,7 @@ function CardGastosCategoria({ data }: { data: Record<string, unknown> }) {
           </div>
         ))}
       </div>
+      <ExplorarLink href="/dashboard" />
     </div>
   );
 }
@@ -501,6 +515,7 @@ function CardTopGastos({ data }: { data: Record<string, unknown> }) {
           </div>
         ))}
       </div>
+      <ExplorarLink href="/dashboard" />
     </div>
   );
 }
@@ -530,6 +545,7 @@ function CardComprasRecientes({ data }: { data: Record<string, unknown> }) {
           </div>
         ))}
       </div>
+      <ExplorarLink href="/historial" label="Ver historial completo" />
     </div>
   );
 }
@@ -564,6 +580,7 @@ function CardPresupuesto({ data }: { data: Record<string, unknown> }) {
           </div>
         ))}
       </div>
+      <ExplorarLink href="/dashboard" />
     </div>
   );
 }
@@ -600,6 +617,7 @@ function CardBuscarCompras({ data }: { data: Record<string, unknown> }) {
           </div>
         ))}
       </div>
+      <ExplorarLink href="/historial" label="Ver en historial" />
     </div>
   );
 }
@@ -639,6 +657,7 @@ function CardGastosPorMes({ data }: { data: Record<string, unknown> }) {
           </div>
         ))}
       </div>
+      <ExplorarLink href="/dashboard/explorar?ejeX=mes&ejeY=monto" />
     </div>
   );
 }
@@ -671,6 +690,7 @@ function CardItemsFrecuentes({ data }: { data: Record<string, unknown> }) {
           </div>
         ))}
       </div>
+      <ExplorarLink href="/dashboard/explorar?ejeX=categoria&ejeY=cantidad" />
     </div>
   );
 }
@@ -703,6 +723,7 @@ function CardBorradoresPendientes({ data }: { data: Record<string, unknown> }) {
           </div>
         ))}
       </div>
+      <ExplorarLink href="/borradores" label="Ver todos los borradores" />
     </div>
   );
 }

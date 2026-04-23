@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearPeso, formatearPorcentaje } from "@/lib/formatear";
@@ -10,9 +10,8 @@ import { exportarExcel } from "@/lib/exportar";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { obtenerMesAnterior } from "@/lib/calculos";
-import type { CategoriaBalance, Compra } from "@/types";
+import type { CategoriaBalance } from "@/types";
 
-// Dashboard components
 import {
   FiltroGlobal,
   type FiltroActivo,
@@ -53,67 +52,15 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function formatearMesLabelCorto(mes: string): string {
-  const meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-  const [anio, mesNum] = mes.split("-");
-  return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
-}
-
-// ─── Sparkline SVG Components ───────────────────────────────────────────────
-
-function SparklineProyeccion({ datos, colorLine, colorTarget }: { datos: number[]; colorLine: string; colorTarget: string }) {
-  if (datos.length < 2) return null;
-  const max = Math.max(...datos, 1);
-  const w = 110;
-  const h = 24;
-  const pad = 2;
-  const pts = datos.map((v, i) => {
-    const x = pad + (i / (datos.length - 1)) * (w - pad * 2);
-    const y = h - pad - ((v / max) * (h - pad * 2));
-    return `${x},${y}`;
-  });
-
-  return (
-    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
-      <line x1={pad} y1={pad} x2={w - pad} y2={pad} stroke={colorTarget} strokeWidth="1" strokeDasharray="3 2" opacity="0.5" />
-      <polyline fill="none" stroke={colorLine} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" points={pts.join(" ")} />
-    </svg>
-  );
-}
-
-function SparklineBarras({ datos, maxVal }: { datos: number[]; maxVal: number }) {
-  if (datos.length === 0) return null;
-  const w = 110;
-  const h = 24;
-  const barW = 14;
-  const gap = 2;
-  const totalW = datos.length * (barW + gap) - gap;
-  const offsetX = (w - totalW) / 2;
-
-  return (
-    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
-      {datos.map((v, i) => {
-        const barH = maxVal > 0 ? (v / maxVal) * (h - 4) : 0;
-        const x = offsetX + i * (barW + gap);
-        const y = h - 2 - barH;
-        const isCurrent = i === datos.length - 2;
-        const isRecent = i >= datos.length - 2;
-        const color = isCurrent ? "rgba(239,159,39,0.8)" : isRecent ? "rgba(29,158,117,0.9)" : "rgba(181,212,244,0.7)";
-        return <rect key={i} x={x} y={y} width={barW} height={barH} rx="2" fill={color} />;
-      })}
-    </svg>
-  );
-}
-
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function PaginaDashboard() {
   const balance = usarBalance();
   const config = usarConfiguracion();
+  const router = useRouter();
   const colorFran = config.colores.franco;
   const colorFabi = config.colores.fabiola;
 
-  // ── Filter + period state ──
   const [filtro, setFiltro] = useState<FiltroActivo>({ personas: [], categorias: [], etiquetas: [], subcategorias: [] });
   const [periodo, setPeriodo] = useState<PeriodoActivo>({ tipo: "este-mes", label: "Este mes" });
   const [categoriaDrawer, setCategoriaDrawer] = useState<CategoriaBalance["categoria"] | null>(null);
@@ -134,17 +81,14 @@ export default function PaginaDashboard() {
     setDiaFiltro((prev) => (prev === dia ? null : dia));
   }
 
-  // ── Derived data ──
   const mesAnterior = obtenerMesAnterior(balance.mesSeleccionado);
   const mesAnteriorLabel = mesAnterior ? formatearMesCorto(mesAnterior) : "";
 
-  // Determine which purchases to use based on period
   const comprasPeriodo = useMemo(() => {
     if (periodo.tipo === "este-mes") return balance.comprasMes;
     if (periodo.tipo === "mes-anterior") {
       return mesAnterior ? balance.compras.compras.filter((c) => mesClave(c.fecha) === mesAnterior) : [];
     }
-    // Custom periods: filter all purchases by date
     return filtrarPorPeriodo(balance.compras.compras, {
       tipo: periodo.tipo,
       desde: periodo.desde,
@@ -162,21 +106,17 @@ export default function PaginaDashboard() {
   const diasEnMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
   const diasRestantes = diasEnMes - diaDelMes;
 
-  // Total budget
   const presupuestoTotal = balance.categorias.categorias.reduce(
     (acc, cat) => acc + (cat.limite_mensual ?? 0),
     0,
   );
 
-  // Totals with filter
   const totalGastado = montoFiltrado(comprasPeriodo, filtro);
   const restante = presupuestoTotal - totalGastado;
   const pctUsado = presupuestoTotal > 0 ? (totalGastado / presupuestoTotal) * 100 : 0;
 
-  // Daily average
   const promedioDiario = diasEnMes > 0 ? totalGastado / diasEnMes : 0;
 
-  // Previous month
   const totalMesAnterior = montoFiltrado(comprasMesAnteriorData, filtro);
   const diasEnMesAnterior = mesAnterior
     ? new Date(parseInt(mesAnterior.split("-")[0]), parseInt(mesAnterior.split("-")[1]), 0).getDate()
@@ -186,59 +126,15 @@ export default function PaginaDashboard() {
     ? ((promedioDiario - promedioDiarioAnterior) / promedioDiarioAnterior) * 100
     : 0;
 
-  // Projection
   const factorProyeccion = diaDelMes > 0 ? diasEnMes / diaDelMes : 1;
   const proyeccionFinMes = Math.round(totalGastado * factorProyeccion * 100) / 100;
   const diffProyeccion = proyeccionFinMes - presupuestoTotal;
 
-  // Drafts
   const numBorradores = balance.compras.compras.filter((c) => c.estado === "borrador").length;
   const totalBorradores = balance.compras.compras
     .filter((c) => c.estado === "borrador")
     .reduce((acc, c) => acc + c.items.reduce((a, i) => a + i.monto_resuelto, 0), 0);
 
-  // Sparkline data
-  const sparklineProyeccion = useMemo(() => {
-    const porDia = new Map<number, number>();
-    for (const compra of comprasPeriodo) {
-      const dia = new Date(`${compra.fecha}T00:00:00`).getDate();
-      const monto = filtro.personas.length === 1 && filtro.personas[0] === "franco"
-        ? compra.items.reduce((a, i) => a + i.pago_franco, 0)
-        : filtro.personas.length === 1 && filtro.personas[0] === "fabiola"
-          ? compra.items.reduce((a, i) => a + i.pago_fabiola, 0)
-          : compra.items.reduce((a, i) => a + i.monto_resuelto, 0);
-      porDia.set(dia, (porDia.get(dia) ?? 0) + monto);
-    }
-    let acum = 0;
-    const pts: number[] = [];
-    for (let d = 1; d <= Math.max(diaDelMes, 14); d++) {
-      acum += porDia.get(d) ?? (d <= diaDelMes ? 0 : promedioDiario * 0.3);
-      pts.push(acum);
-    }
-    return pts;
-  }, [comprasPeriodo, diaDelMes, promedioDiario, filtro.personas]);
-
-  const sparklineDiario = useMemo(() => {
-    const porDia = new Map<string, number>();
-    for (const compra of comprasPeriodo) {
-      const monto = filtro.personas.length === 1 && filtro.personas[0] === "franco"
-        ? compra.items.reduce((a, i) => a + i.pago_franco, 0)
-        : filtro.personas.length === 1 && filtro.personas[0] === "fabiola"
-          ? compra.items.reduce((a, i) => a + i.pago_fabiola, 0)
-          : compra.items.reduce((a, i) => a + i.monto_resuelto, 0);
-      porDia.set(compra.fecha, (porDia.get(compra.fecha) ?? 0) + monto);
-    }
-    const ultimos7: number[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(hoy);
-      d.setDate(d.getDate() - i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      ultimos7.push(porDia.get(key) ?? 0);
-    }
-    return ultimos7;
-  }, [comprasPeriodo, hoy, filtro.personas]);
-
-  // ── Categories ──
   const categoriasConLimite = useMemo(() => {
     const conLimite = balance.categoriasMes.filter(
       (c) => c.categoria.limite_mensual && c.categoria.limite_mensual > 0,
@@ -264,7 +160,6 @@ export default function PaginaDashboard() {
     );
   }, [balance.categoriasMes]);
 
-  // ── Compras for daily chart ──
   const comprasMesParaGrafico = useMemo(() => {
     if (!diaFiltro) return comprasPeriodo;
     return comprasPeriodo.filter((c) => new Date(`${c.fecha}T00:00:00`).getDate() === diaFiltro);
@@ -275,7 +170,6 @@ export default function PaginaDashboard() {
     return comprasMesAnteriorData.filter((c) => new Date(`${c.fecha}T00:00:00`).getDate() === diaFiltro);
   }, [comprasMesAnteriorData, diaFiltro]);
 
-  // ── Insights ──
   const insights = useMemo(() => generarInsights({
     categoriasConLimite,
     totalGastado,
@@ -299,7 +193,6 @@ export default function PaginaDashboard() {
   const insightsVisibles = insights.slice(0, 3);
   const insightsOcultos = insights.slice(3);
 
-  // ── Handlers ──
   function exportar() {
     exportarExcel(comprasPeriodo, balance.resumenMes, balance.resumenHistorico, balance.categoriasMes, balance.etiquetasMes, balance.mesSeleccionado);
     toast.success(`Exportado (${comprasPeriodo.length} compras)`);
@@ -326,7 +219,6 @@ export default function PaginaDashboard() {
     }
   }
 
-  // ── Loading / empty ──
   if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando) {
     return (
       <div className="space-y-3 px-4 pt-4">
@@ -350,7 +242,6 @@ export default function PaginaDashboard() {
     );
   }
 
-  // ── Color helpers ──
   const heroBadgeClass = pctUsado > 100 ? "bg-[#FCEBEB] text-[#791F1F]" : pctUsado > 75 ? "bg-[#FAEEDA] text-[#633806]" : "bg-[#EAF3DE] text-[#173404]";
   const heroBarColor = pctUsado > 100 ? "#E24B4A" : pctUsado > 75 ? "#EF9F27" : "#1D9E75";
 
@@ -362,7 +253,6 @@ export default function PaginaDashboard() {
     anomaly: "bg-[#FAEEDA] text-[#633806]",
   };
 
-  // ── Render ──
   return (
     <div className="max-w-[430px] mx-auto pb-10" style={{ fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
 
@@ -378,7 +268,7 @@ export default function PaginaDashboard() {
           <button type="button" onClick={exportar} className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors" title="Exportar Excel">
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v9M4 7l3.5 3.5L11 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /><path d="M2 11v1.5a.5.5 0 00.5.5h10a.5.5 0 00.5-.5V11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
           </button>
-          <button type="button" onClick={() => window.location.href = "/nueva-compra"} className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors" title="Nueva compra">
+          <button type="button" onClick={() => router.push("/nueva-compra")} className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors" title="Nueva compra">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
           </button>
         </div>
@@ -420,16 +310,30 @@ export default function PaginaDashboard() {
             )}
           </div>
           {presupuestoTotal > 0 && (
-            <p className="text-[12px] text-on-surface-variant/70 mt-2">
-              Presupuesto: <strong className="text-on-surface font-medium">{formatearPeso(presupuestoTotal)}</strong> · Quedan{" "}
-              <strong className="text-on-surface font-medium">{formatearPeso(restante)}</strong> para{" "}
-              <strong className="text-on-surface font-medium">{diasRestantes} días</strong>
-              {totalMesAnterior > 0 && (
-                <span className="ml-1.5">
-                  <DeltaBadge actual={totalGastado} anterior={totalMesAnterior} />
-                </span>
+            <div className="mt-2 space-y-1">
+              <p className="text-[12px] text-on-surface-variant/70">
+                Presupuesto: <strong className="text-on-surface font-medium">{formatearPeso(presupuestoTotal)}</strong> · Quedan{" "}
+                <strong className="text-on-surface font-medium">{formatearPeso(restante)}</strong> para{" "}
+                <strong className="text-on-surface font-medium">{diasRestantes} días</strong>
+                {totalMesAnterior > 0 && (
+                  <span className="ml-1.5">
+                    <DeltaBadge actual={totalGastado} anterior={totalMesAnterior} />
+                  </span>
+                )}
+              </p>
+              {proyeccionFinMes > 0 && (
+                <p className="text-[11px] text-on-surface-variant/50">
+                  Proyección fin de mes: <strong className={`font-medium ${diffProyeccion > 0 ? "text-[#A32D2D]" : "text-[#0F6E56]"}`}>
+                    {formatearPeso(proyeccionFinMes)}
+                  </strong>
+                  {presupuestoTotal > 0 && (
+                    <span className={diffProyeccion > 0 ? "text-[#A32D2D]" : "text-[#0F6E56]"}>
+                      {" "}({diffProyeccion > 0 ? "+" : ""}{formatearPeso(diffProyeccion)} vs presupuesto)
+                    </span>
+                  )}
+                </p>
               )}
-            </p>
+            </div>
           )}
         </div>
 
@@ -464,7 +368,7 @@ export default function PaginaDashboard() {
         numBorradores={numBorradores}
         totalBorradores={totalBorradores}
         onPersonaClick={handlePersonaClick}
-        onBorradoresClick={() => window.location.href = "/borradores"}
+        onBorradoresClick={() => router.push("/borradores")}
         colorFran={colorFran}
         colorFabi={colorFabi}
       />
@@ -575,6 +479,27 @@ export default function PaginaDashboard() {
         )}
       </div>
 
+      {/* ── ETIQUETAS DEL MES ── */}
+      {balance.etiquetasMes.length > 0 && (
+        <>
+          <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
+            etiquetas del mes
+          </p>
+          <div className="px-4">
+            {balance.etiquetasMes.map((et) => (
+              <div key={et.etiqueta.id} className="flex items-center justify-between px-2.5 py-[7px] bg-surface-container-low rounded-[10px] mb-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-[9px] h-[9px] rounded-full shrink-0" style={{ backgroundColor: et.etiqueta.color }} />
+                  <span className="text-[12px] text-on-surface-variant/70">{et.etiqueta.nombre}</span>
+                  <span className="text-[10px] text-on-surface-variant/40">({et.cantidad_items})</span>
+                </div>
+                <span className="text-[12px] font-medium text-on-surface">{formatearPeso(et.total)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* ── TOP GASTOS ── */}
       <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
         ranking de gastos
@@ -657,6 +582,18 @@ export default function PaginaDashboard() {
             </div>
           </details>
         )}
+      </div>
+
+      {/* ── EXPLORAR ── */}
+      <div className="px-4 mt-5">
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/explorar")}
+          className="w-full rounded-[14px] border-[0.5px] border-outline-variant/20 bg-surface-container-low px-4 py-3 text-[13px] font-medium text-on-surface-variant hover:bg-surface-container transition-colors flex items-center justify-center gap-2"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 14V6l4-4 4 4v8M10 14V8l4-4v10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          Explorar datos
+        </button>
       </div>
 
       {/* Divider */}
