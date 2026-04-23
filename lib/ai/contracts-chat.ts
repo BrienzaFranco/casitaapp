@@ -1,7 +1,9 @@
-import type { PagadorCompra, TipoReparto } from "@/types";
+import type { PagadorCompra, TipoReparto, CompraEditable } from "@/types";
+import { calcularReparto } from "@/lib/calculos";
+import { fechaLocalISO } from "@/lib/utiles";
 
 // ─── Intents del chat global ───────────────────────────────────────
-export type ChatIntent = "consulta" | "registro" | "edicion" | "analisis" | "conversacion";
+export type ChatIntent = "consulta" | "registro" | "edicion" | "edicion_borrador" | "analisis" | "conversacion";
 
 // ─── Tools de datos disponibles ────────────────────────────────────
 export type ToolName =
@@ -11,7 +13,10 @@ export type ToolName =
   | "balance_actual"
   | "presupuesto_status"
   | "top_gastos"
-  | "buscar_compras";
+  | "buscar_compras"
+  | "items_frecuentes"
+  | "borradores_pendientes"
+  | "ejecutar_sql";
 
 // ─── Parámetros de cada tool ───────────────────────────────────────
 export interface ParamsGastosPorCategoria {
@@ -43,6 +48,21 @@ export interface ParamsTopGastos {
 export interface ParamsBuscarCompras {
   texto: string;
   limite?: number;
+  desde?: string; // YYYY-MM-DD
+  hasta?: string; // YYYY-MM-DD
+}
+
+export interface ParamsItemsFrecuentes {
+  limite?: number;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface ParamsBorradoresPendientes {
+  // sin parámetros
+}
+
+export interface ParamsEjecutarSql {
+  sql: string;
 }
 
 export type ToolParams =
@@ -52,7 +72,10 @@ export type ToolParams =
   | ParamsBalanceActual
   | ParamsPresupuestoStatus
   | ParamsTopGastos
-  | ParamsBuscarCompras;
+  | ParamsBuscarCompras
+  | ParamsItemsFrecuentes
+  | ParamsBorradoresPendientes
+  | ParamsEjecutarSql;
 
 // ─── Tool call del LLM ─────────────────────────────────────────────
 export interface ToolCall {
@@ -150,5 +173,70 @@ export interface ChatRequest {
   context?: {
     categorias?: Array<{ id: string; nombre: string }>;
     subcategorias?: Array<{ id: string; categoria_id: string; nombre: string }>;
+  };
+}
+
+// ─── Conversión ChatDraftPatch → CompraEditable ────────────────────
+function tipoRepartoDesdePagador(pagador: PagadorCompra): TipoReparto {
+  if (pagador === "franco") return "solo_franco";
+  if (pagador === "fabiola") return "solo_fabiola";
+  return "50/50";
+}
+
+export function convertirChatDraftACompraEditable(
+  draft: ChatDraftPatch,
+  opciones: {
+    registradoPor: string;
+    textoOriginal?: string;
+    etiquetasCompraIds?: string[];
+    compraId?: string;
+  },
+): CompraEditable {
+  const pagador = draft.pagador ?? "compartido";
+  const tipoReparto = draft.reparto && draft.reparto !== "personalizado"
+    ? draft.reparto
+    : tipoRepartoDesdePagador(pagador);
+
+  const itemsBase = draft.items && draft.items.length > 0
+    ? draft.items
+    : [{
+        descripcion: "Compra sin detalle",
+        monto: draft.total ?? 0,
+        expresionMonto: draft.total != null ? String(draft.total) : "0",
+        categoria_id: "",
+        subcategoria_id: "",
+      }];
+
+  const items = itemsBase.map((item) => {
+    const monto = item.monto ?? 0;
+    const reparto = calcularReparto(tipoReparto, monto);
+    return {
+      descripcion: item.descripcion || "Sin descripción",
+      categoria_id: item.categoria_id || "",
+      subcategoria_id: item.subcategoria_id || "",
+      expresion_monto: item.expresionMonto || String(monto),
+      monto_resuelto: monto,
+      tipo_reparto: tipoReparto,
+      pago_franco: reparto.pago_franco,
+      pago_fabiola: reparto.pago_fabiola,
+      etiquetas_ids: [] as string[],
+    };
+  });
+
+  const notas = [
+    "Cargado desde chat IA",
+    opciones.textoOriginal ? `Texto original: ${opciones.textoOriginal}` : null,
+  ].filter(Boolean).join("\n");
+
+  return {
+    id: opciones.compraId,
+    fecha: fechaLocalISO(),
+    nombre_lugar: draft.lugar || "Sin especificar",
+    notas,
+    registrado_por: opciones.registradoPor,
+    pagador_general: pagador,
+    estado: "borrador",
+    etiquetas_compra_ids: opciones.etiquetasCompraIds ?? [],
+    items,
   };
 }

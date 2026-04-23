@@ -173,17 +173,21 @@ INTENTS:
 - "consulta": el usuario pregunta sobre datos. Devolvé toolCalls con la tool y params.
 - "registro": el usuario quiere anotar un gasto. Devolvé draftPatch.
 - "edicion": el usuario quiere modificar/borrar una compra existente. Devolvé answer explicando qué harías.
+- "edicion_borrador": el usuario quiere editar un borrador pendiente. Devolvé toolCalls con actualizar_borrador.
 - "analisis": el usuario quiere comparar, proyectar o entender tendencias. Devolvé toolCalls.
 - "conversacion": saludo, pregunta general, o algo no relacionado. Solo answer.
 
-TOOLS DISPONIBLES (solo para intent consulta/analisis):
+TOOLS DISPONIBLES (solo para intent consulta/analisis/edicion_borrador):
 - gastos_por_categoria({mes?}) → total por categoría. mes=YYYY-MM, default mes actual
 - gastos_por_mes({año?}) → evolución mensual del año
 - compras_recientes({limite?}) → últimas N compras (max 20)
 - balance_actual() → quién debe cuánto a quién
 - presupuesto_status({mes?}) → % usado vs límite por categoría
 - top_gastos({mes?, limite?}) → los gastos más altos
-- buscar_compras({texto, limite?}) → buscar por lugar o descripción
+- buscar_compras({texto, limite?, desde?, hasta?}) → buscar por lugar o descripción, con filtro de fechas opcional
+- items_frecuentes({limite?}) → items más comprados, agrupados por descripción
+- borradores_pendientes() → lista de borradores sin confirmar
+- ejecutar_sql({sql}) → ejecutar SQL directo (solo SELECT). Usar como último recurso si ningún otro tool sirve.
 
 REGLAS:
 - Para "¿cuándo compramos X?" o "buscá X" → buscar_compras
@@ -193,10 +197,14 @@ REGLAS:
 - Para "¿en qué gastamos más?" → top_gastos o gastos_por_categoria
 - Para "¿cómo van los presupuestos?" → presupuesto_status
 - Para comparar meses → gastos_por_mes
+- Para "¿cuántas veces compré X?" o "¿cuánto sale X?" → items_frecuentes
+- Para "¿qué borradores tengo?" → borradores_pendientes
+- Para "cambiá el pagador del último borrador" → intent=edicion_borrador
 - Si menciona un monto + lugar + quién pagó → intent=registro
 - Si el usuario dice "anotá", "cargá", "gasté", "compré" → intent=registro
 - Siempre que puedas, completá datos inferidos (lugar, pagador, categoría)
 - Si hay ambigüedad real, preguntá en answer
+- Para queries complejas que ningún tool cubre → ejecutar_sql (solo SELECT)
 
 REGISTRO (solo si intent=registro):
 - draftPatch: {lugar, pagador, reparto, total, items: [{descripcion, monto, categoria_id, subcategoria_id, categoria_nombre, subcategoria_nombre}]}
@@ -211,7 +219,7 @@ MES ACTUAL: ${params.mesActual}
 
 FORMATO JSON:
 {
-  "intent": "consulta|registro|edicion|analisis|conversacion",
+  "intent": "consulta|registro|edicion|edicion_borrador|analisis|conversacion",
   "answer": "respuesta en lenguaje natural (siempre incluir)",
   "toolCalls": [{"tool": "nombre_tool", "params": {}}],
   "draftPatch": { ... },
@@ -304,7 +312,7 @@ function extraerJsonSeguro(texto: string): ChatLlmResponse | null {
 }
 
 function inferirIntent(raw: ChatLlmResponse): ChatIntent {
-  const validos: ChatIntent[] = ["consulta", "registro", "edicion", "analisis", "conversacion"];
+  const validos: ChatIntent[] = ["consulta", "registro", "edicion", "edicion_borrador", "analisis", "conversacion"];
   if (raw.intent && validos.includes(raw.intent)) return raw.intent;
   if (raw.toolCalls && raw.toolCalls.length > 0) return "consulta";
   if (raw.draftPatch?.items && raw.draftPatch.items.length > 0) return "registro";

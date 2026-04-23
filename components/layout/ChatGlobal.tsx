@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Send, X, Sparkles, Trash2, Mic, MicOff } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Send, X, Sparkles, Trash2, Mic, MicOff, Check, ExternalLink } from "lucide-react";
 import { useChatGlobal, type MensajeChat } from "@/hooks/useChatGlobal";
 import { usarCategorias } from "@/hooks/usarCategorias";
+import { usarUsuario } from "@/hooks/usarUsuario";
 import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
 import { formatearPeso } from "@/lib/formatear";
 import type { ChatDraftPatch, ToolResult } from "@/lib/ai/contracts-chat";
@@ -16,14 +17,17 @@ const CHIPS_RAPIDOS = [
   { label: "Top gastos del mes", icon: "🔥" },
   { label: "Últimas compras", icon: "🧾" },
   { label: "¿Cómo van los presupuestos?", icon: "📈" },
+  { label: "Ver borradores", icon: "📝" },
 ];
 
 // ─── Componente principal ──────────────────────────────────────────
 export function ChatGlobal() {
   const chat = useChatGlobal();
   const categorias = usarCategorias();
+  const usuario = usarUsuario();
   const voice = useVoiceRecognition();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [input, setInput] = useState("");
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -138,7 +142,14 @@ export function ChatGlobal() {
                     {CHIPS_RAPIDOS.map((chip) => (
                       <button
                         key={chip.label}
-                        onClick={() => handleEnviar(chip.label)}
+                        onClick={() => {
+                          if (chip.label === "Ver borradores") {
+                            router.push("/borradores");
+                            chat.cerrar();
+                          } else {
+                            handleEnviar(chip.label);
+                          }
+                        }}
                         className="rounded-full border border-outline-variant/20 bg-surface-container px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high"
                       >
                         <span className="mr-1">{chip.icon}</span>
@@ -150,7 +161,17 @@ export function ChatGlobal() {
               )}
 
               {chat.mensajes.map((msg) => (
-                <BurbujaMensaje key={msg.id} mensaje={msg} />
+                <BurbujaMensaje
+                  key={msg.id}
+                  mensaje={msg}
+                  guardando={chat.guardando}
+                  borradoresGuardados={chat.borradoresGuardados}
+                  onGuardarBorrador={(draft) => chat.guardarBorrador(
+                    draft,
+                    usuario.perfil?.nombre ?? "Usuario",
+                    msg.text,
+                  )}
+                />
               ))}
 
               {chat.cargando && (
@@ -214,8 +235,19 @@ export function ChatGlobal() {
 }
 
 // ─── Burbuja de mensaje ────────────────────────────────────────────
-function BurbujaMensaje({ mensaje }: { mensaje: MensajeChat }) {
+interface BurbujaMensajeProps {
+  mensaje: MensajeChat;
+  guardando: boolean;
+  borradoresGuardados: Array<{ compraId: string; lugar: string; total: number | null; guardadoEn: number }>;
+  onGuardarBorrador: (draft: ChatDraftPatch) => void;
+}
+
+function BurbujaMensaje({ mensaje, guardando, borradoresGuardados, onGuardarBorrador }: BurbujaMensajeProps) {
   const esUsuario = mensaje.role === "user";
+
+  const borradorYaGuardado = mensaje.draftPatch
+    ? borradoresGuardados.find((b) => b.lugar === (mensaje.draftPatch?.lugar ?? "Sin especificar"))
+    : undefined;
 
   return (
     <div className={`flex items-start gap-2 ${esUsuario ? "flex-row-reverse" : ""}`}>
@@ -237,7 +269,14 @@ function BurbujaMensaje({ mensaje }: { mensaje: MensajeChat }) {
         </div>
 
         {/* Draft preview si hay */}
-        {mensaje.draftPatch && <DraftPreview draft={mensaje.draftPatch} />}
+        {mensaje.draftPatch && (
+          <DraftPreview
+            draft={mensaje.draftPatch}
+            guardando={guardando}
+            yaGuardado={borradorYaGuardado}
+            onGuardar={() => onGuardarBorrador(mensaje.draftPatch!)}
+          />
+        )}
 
         {/* Tool results si hay */}
         {mensaje.toolResults && mensaje.toolResults.length > 0 && (
@@ -258,14 +297,37 @@ function BurbujaMensaje({ mensaje }: { mensaje: MensajeChat }) {
 }
 
 // ─── Preview de draft ──────────────────────────────────────────────
-function DraftPreview({ draft }: { draft: ChatDraftPatch }) {
+interface DraftPreviewProps {
+  draft: ChatDraftPatch;
+  guardando: boolean;
+  yaGuardado?: { compraId: string; guardadoEn: number };
+  onGuardar: () => void;
+}
+
+function DraftPreview({ draft, guardando, yaGuardado, onGuardar }: DraftPreviewProps) {
   if (!draft.items?.length && !draft.lugar && !draft.total) return null;
 
   return (
     <div className="w-full rounded-xl border border-secondary/20 bg-secondary-container/10 p-2.5 text-xs">
-      <div className="mb-1.5 flex items-center gap-1.5 text-secondary font-semibold">
-        <span>📝</span>
-        <span>Borrador</span>
+      <div className="mb-1.5 flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-secondary font-semibold">
+          <span>📝</span>
+          <span>Borrador</span>
+        </div>
+        {yaGuardado ? (
+          <span className="flex items-center gap-1 text-tertiary font-medium">
+            <Check className="h-3 w-3" />
+            Guardado
+          </span>
+        ) : (
+          <button
+            onClick={onGuardar}
+            disabled={guardando}
+            className="rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-on-secondary transition-all disabled:opacity-50 hover:bg-secondary/90 active:scale-95"
+          >
+            {guardando ? "Guardando..." : "Guardar borrador"}
+          </button>
+        )}
       </div>
       {draft.lugar && (
         <p className="text-on-surface"><span className="text-on-surface-variant">Lugar:</span> {draft.lugar}</p>
@@ -288,6 +350,15 @@ function DraftPreview({ draft }: { draft: ChatDraftPatch }) {
             </div>
           ))}
         </div>
+      )}
+      {yaGuardado && (
+        <a
+          href="/borradores"
+          className="mt-2 flex items-center gap-1 text-secondary text-[11px] font-medium hover:underline"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Ver en borradores
+        </a>
       )}
     </div>
   );
@@ -330,6 +401,10 @@ function ResultadoTool({ result }: { result: ToolResult }) {
       return <CardBuscarCompras data={d} />;
     case "gastos_por_mes":
       return <CardGastosPorMes data={d} />;
+    case "items_frecuentes":
+      return <CardItemsFrecuentes data={d} />;
+    case "borradores_pendientes":
+      return <CardBorradoresPendientes data={d} />;
     default:
       return (
         <pre className="rounded-lg bg-surface-container p-2 text-xs text-on-surface-variant overflow-x-auto">
@@ -561,6 +636,70 @@ function CardGastosPorMes({ data }: { data: Record<string, unknown> }) {
                 style={{ width: `${maximo > 0 ? (m.total / maximo) * 100 : 0}%` }}
               />
             </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CardItemsFrecuentes({ data }: { data: Record<string, unknown> }) {
+  const items = data.items as Array<{ descripcion: string; veces_comprado: number; ultimo_monto: number; ultima_fecha: string; categoria: string }>;
+
+  if (!items || items.length === 0) {
+    return (
+      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant">
+        Sin datos de items frecuentes.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+      <div className="flex items-center gap-1.5 mb-2">
+        <span>🛒</span>
+        <span className="font-semibold text-on-surface">Items más comprados</span>
+      </div>
+      <div className="space-y-1.5">
+        {items.slice(0, 8).map((item, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <div className="min-w-0 mr-2">
+              <p className="text-on-surface font-medium truncate capitalize">{item.descripcion}</p>
+              <p className="text-on-surface-variant">{item.veces_comprado} compra(s) · {item.categoria}</p>
+            </div>
+            <span className="font-mono font-semibold text-on-surface shrink-0">{formatearPeso(item.ultimo_monto)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CardBorradoresPendientes({ data }: { data: Record<string, unknown> }) {
+  const borradores = data.borradores as Array<{ id: string; fecha: string; lugar: string; total: number; pagador: string }>;
+
+  if (!borradores || borradores.length === 0) {
+    return (
+      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant">
+        No hay borradores pendientes.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+      <div className="flex items-center gap-1.5 mb-2">
+        <span>📋</span>
+        <span className="font-semibold text-on-surface">Borradores pendientes</span>
+      </div>
+      <div className="space-y-1.5">
+        {borradores.map((b) => (
+          <div key={b.id} className="flex items-center justify-between">
+            <div className="min-w-0 mr-2">
+              <p className="text-on-surface font-medium truncate">{b.lugar}</p>
+              <p className="text-on-surface-variant">{b.fecha} · {b.pagador}</p>
+            </div>
+            <span className="font-mono font-semibold text-on-surface shrink-0">{formatearPeso(b.total)}</span>
           </div>
         ))}
       </div>

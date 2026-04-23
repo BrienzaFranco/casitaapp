@@ -8,6 +8,9 @@ import type {
   ParamsPresupuestoStatus,
   ParamsTopGastos,
   ParamsBuscarCompras,
+  ParamsItemsFrecuentes,
+  ParamsBorradoresPendientes,
+  ParamsEjecutarSql,
 } from "./contracts-chat";
 import { mesLocalISO } from "@/lib/utiles";
 
@@ -43,6 +46,15 @@ export async function ejecutarTool(
       case "buscar_compras":
         data = await toolBuscarCompras(cliente, params as unknown as ParamsBuscarCompras);
         break;
+      case "items_frecuentes":
+        data = await toolItemsFrecuentes(cliente, params as ParamsItemsFrecuentes);
+        break;
+      case "borradores_pendientes":
+        data = await toolBorradoresPendientes(cliente);
+        break;
+      case "ejecutar_sql":
+        data = await toolEjecutarSql(cliente, params as unknown as ParamsEjecutarSql);
+        break;
       default:
         return { ok: false, tool, error: `Tool desconocido: ${tool}` };
     }
@@ -60,12 +72,15 @@ async function toolGastosPorCategoria(cliente: Cliente, params: ParamsGastosPorC
 
   const { data: items } = await cliente
     .from("items")
-    .select("monto_resuelto, categoria_id, categorias(nombre)")
+    .select("monto_resuelto, categoria_id, categorias(nombre), compras(estado)")
     .gte("creado_en", desde)
     .lte("creado_en", hasta);
 
   const acumulado = new Map<string, { nombre: string; total: number; cantidad: number }>();
   for (const item of items ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const compra = item.compras as any;
+    if (compra?.estado !== "confirmada") continue;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cat = item.categorias as any;
     const nombre = cat?.nombre ?? "Sin categoría";
@@ -84,10 +99,13 @@ async function toolGastosPorCategoria(cliente: Cliente, params: ParamsGastosPorC
   const hastaAnt = finDelMes(mesAnt);
   const { data: itemsAnt } = await cliente
     .from("items")
-    .select("monto_resuelto")
+    .select("monto_resuelto, compras(estado)")
     .gte("creado_en", desdeAnt)
     .lte("creado_en", hastaAnt);
-  const totalAnterior = (itemsAnt ?? []).reduce((acc, i) => acc + i.monto_resuelto, 0);
+  const totalAnterior = (itemsAnt ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((i: any) => (i.compras as any)?.estado === "confirmada")
+    .reduce((acc, i) => acc + i.monto_resuelto, 0);
 
   return {
     mes,
@@ -111,12 +129,15 @@ async function toolGastosPorMes(cliente: Cliente, params: ParamsGastosPorMes) {
 
   const { data: items } = await cliente
     .from("items")
-    .select("monto_resuelto, creado_en")
+    .select("monto_resuelto, creado_en, compras(estado)")
     .gte("creado_en", desde)
     .lte("creado_en", hasta);
 
   const porMes = new Map<string, number>();
   for (const item of items ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const compra = item.compras as any;
+    if (compra?.estado !== "confirmada") continue;
     const mes = item.creado_en.slice(0, 7);
     porMes.set(mes, (porMes.get(mes) ?? 0) + item.monto_resuelto);
   }
@@ -245,13 +266,16 @@ async function toolPresupuestoStatus(cliente: Cliente, params: ParamsPresupuesto
     cliente.from("categorias").select("id, nombre, limite_mensual, color"),
     cliente
       .from("items")
-      .select("categoria_id, monto_resuelto")
+      .select("categoria_id, monto_resuelto, compras(estado)")
       .gte("creado_en", desde)
       .lte("creado_en", hasta),
   ]);
 
   const gastoPorCategoria = new Map<string, number>();
   for (const item of items ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const compra = item.compras as any;
+    if (compra?.estado !== "confirmada") continue;
     if (!item.categoria_id) continue;
     gastoPorCategoria.set(
       item.categoria_id,
@@ -393,6 +417,162 @@ async function toolBuscarCompras(cliente: Cliente, params: ParamsBuscarCompras) 
   compras.sort((a, b) => b.fecha.localeCompare(a.fecha));
 
   return { texto, cantidad: compras.length, compras: compras.slice(0, limite) };
+}
+
+// ─── items_frecuentes ──────────────────────────────────────────────
+async function toolItemsFrecuentes(cliente: Cliente, params: ParamsItemsFrecuentes) {
+  const limite = Math.min(params.limite ?? 15, 50);
+
+  const { data: items } = await cliente
+    .from("items")
+    .select("descripcion, monto_resuelto, creado_en, categoria_id, categorias(nombre), compras(estado)")
+    .not("descripcion", "is", null)
+    .order("creado_en", { ascending: false })
+    .limit(500);
+
+  // Agrupar por descripción normalizada
+  const mapa = new Map<string, {
+    descripcion: string;
+    veces: number;
+    ultimoMonto: number;
+    ultimaFecha: string;
+    categoria: string;
+  }>();
+
+  for (const item of items ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const compra = item.compras as any;
+    if (compra?.estado !== "confirmada") continue;
+    const desc = (item.descripcion ?? "").trim().toLowerCase();
+    if (!desc) continue;
+
+    const existente = mapa.get(desc);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const catNombre = (item.categorias as any)?.nombre ?? "Sin categoría";
+
+    if (!existente || item.creado_en > existente.ultimaFecha) {
+      mapa.set(desc, {
+        descripcion: item.descripcion?.trim() ?? "",
+        veces: (existente?.veces ?? 0) + 1,
+        ultimoMonto: item.monto_resuelto,
+        ultimaFecha: item.creado_en,
+        categoria: catNombre,
+      });
+    } else {
+      existente.veces += 1;
+    }
+  }
+
+  const itemsFrecuentes = [...mapa.values()]
+    .sort((a, b) => b.veces - a.veces)
+    .slice(0, limite);
+
+  return { items: itemsFrecuentes };
+}
+
+// ─── borradores_pendientes ─────────────────────────────────────────
+async function toolBorradoresPendientes(cliente: Cliente) {
+  const { data: borradores } = await cliente
+    .from("compras")
+    .select("id, fecha, nombre_lugar, pagador_general, estado, items(monto_resuelto)")
+    .eq("estado", "borrador")
+    .order("creado_en", { ascending: false })
+    .limit(20);
+
+  return {
+    borradores: (borradores ?? []).map((b) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const items = (b.items ?? []) as any[];
+      return {
+        id: b.id,
+        fecha: b.fecha,
+        lugar: b.nombre_lugar ?? "Sin lugar",
+        pagador: b.pagador_general,
+        total: items.reduce((acc: number, i: any) => acc + (i.monto_resuelto ?? 0), 0),
+      };
+    }),
+  };
+}
+
+// ─── ejecutar_sql ──────────────────────────────────────────────────
+const SQL_PALABRAS_PROHIBIDAS = [
+  "drop", "delete", "update", "insert", "alter", "create", "truncate",
+  "grant", "revoke", "exec", "execute", "merge", "call",
+];
+
+function sanitizarSql(sql: string): { ok: boolean; error?: string } {
+  const normalizado = sql.trim().toLowerCase();
+
+  if (!normalizado.startsWith("select")) {
+    return { ok: false, error: "Solo se permiten queries SELECT" };
+  }
+
+  for (const palabra of SQL_PALABRAS_PROHIBIDAS) {
+    const regex = new RegExp(`\\b${palabra}\\b`, "i");
+    if (regex.test(normalizado)) {
+      return { ok: false, error: `Palabra prohibida: ${palabra}` };
+    }
+  }
+
+  if (normalizado.includes(";") && normalizado.indexOf(";") < normalizado.length - 1) {
+    return { ok: false, error: "No se permiten múltiples queries" };
+  }
+
+  return { ok: true };
+}
+
+async function toolEjecutarSql(cliente: Cliente, params: ParamsEjecutarSql) {
+  const sql = (params.sql ?? "").trim();
+  if (!sql) return { error: "Falta query SQL" };
+
+  const validacion = sanitizarSql(sql);
+  if (!validacion.ok) return { error: validacion.error };
+
+  try {
+    const { data, error } = await cliente.rpc("ejecutar_sql_seguro", { p_sql: sql });
+    if (error) {
+      // Si la RPC no existe, intentar con una query directa limitada
+      const sqlConLimite = sql.includes("limit")
+        ? sql
+        : `${sql.replace(/;$/, "")} limit 100`;
+
+      const resultado = await cliente
+        .from("_query_ejecucion")
+        .select("*")
+        .limit(0); // Solo para verificar conexión
+
+      return {
+        error: "La función ejecutar_sql_seguro no existe en Supabase. Creala con el SQL que te paso.",
+        sql_sugerido: `
+CREATE OR REPLACE FUNCTION ejecutar_sql_seguro(p_sql text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  resultado jsonb;
+BEGIN
+  IF NOT (lower(trim(p_sql)) LIKE 'select%') THEN
+    RAISE EXCEPTION 'Solo se permiten SELECT';
+  END IF;
+  EXECUTE 'SELECT jsonb_agg(t) FROM (' || p_sql || ' LIMIT 100) t' INTO resultado;
+  RETURN coalesce(resultado, '[]'::jsonb);
+END;
+$$;
+        `.trim(),
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const filas = Array.isArray(data) ? data : [];
+    return {
+      sql,
+      filas: filas.length,
+      datos: filas.slice(0, 50),
+    };
+  } catch (e) {
+    return { error: String(e) };
+  }
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────

@@ -1,5 +1,12 @@
 import { useCallback, useRef, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import type { ChatResponse, ChatDraftPatch } from "@/lib/ai/contracts-chat";
+import { convertirChatDraftACompraEditable } from "@/lib/ai/contracts-chat";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+);
 
 // ─── Tipos públicos ────────────────────────────────────────────────
 export interface MensajeChat {
@@ -14,6 +21,14 @@ export interface MensajeChat {
   warnings?: string[];
 }
 
+export interface BorradorGuardado {
+  compraId: string;
+  mensajeId: string;
+  lugar: string;
+  total: number | null;
+  guardadoEn: number;
+}
+
 interface OpcionesEnviar {
   categorias?: Array<{ id: string; nombre: string }>;
   subcategorias?: Array<{ id: string; categoria_id: string; nombre: string }>;
@@ -24,9 +39,11 @@ interface EstadoChat {
   abierto: boolean;
   mensajes: MensajeChat[];
   cargando: boolean;
+  guardando: boolean;
   error: string | null;
   draftActual: ChatDraftPatch | null;
   ultimoIntent: ChatResponse["intent"] | null;
+  borradoresGuardados: BorradorGuardado[];
 }
 
 // ─── Hook ──────────────────────────────────────────────────────────
@@ -35,9 +52,11 @@ export function useChatGlobal() {
     abierto: false,
     mensajes: [],
     cargando: false,
+    guardando: false,
     error: null,
     draftActual: null,
     ultimoIntent: null,
+    borradoresGuardados: [],
   });
 
   const sessionIdRef = useRef(`chat-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`);
@@ -62,6 +81,7 @@ export function useChatGlobal() {
       error: null,
       draftActual: null,
       ultimoIntent: null,
+      borradoresGuardados: [],
     }));
   }, []);
 
@@ -152,6 +172,72 @@ export function useChatGlobal() {
     }
   }, [estado.mensajes]);
 
+  const guardarBorrador = useCallback(async (
+    draft: ChatDraftPatch,
+    registradoPor: string,
+    textoOriginal?: string,
+    compraId?: string,
+  ): Promise<string | null> => {
+    setEstado((prev) => ({ ...prev, guardando: true, error: null }));
+
+    try {
+      const compraEditable = convertirChatDraftACompraEditable(draft, {
+        registradoPor,
+        textoOriginal,
+        compraId,
+      });
+
+      const compraIdValido = compraEditable.id && !compraEditable.id.startsWith("tmp-")
+        ? compraEditable.id
+        : null;
+
+      const payload = {
+        p_compra_id: compraIdValido,
+        p_fecha: compraEditable.fecha,
+        p_nombre_lugar: compraEditable.nombre_lugar || null,
+        p_notas: compraEditable.notas || null,
+        p_registrado_por: compraEditable.registrado_por,
+        p_hogar_id: compraEditable.hogar_id ?? null,
+        p_pagador_general: compraEditable.pagador_general ?? "compartido",
+        p_etiquetas_compra_ids: compraEditable.etiquetas_compra_ids ?? [],
+        p_items: compraEditable.items.map((item) => ({
+          categoria_id: item.categoria_id || null,
+          subcategoria_id: item.subcategoria_id || null,
+          descripcion: item.descripcion || null,
+          expresion_monto: item.expresion_monto,
+          monto_resuelto: item.monto_resuelto,
+          tipo_reparto: item.tipo_reparto,
+          pago_franco: item.pago_franco,
+          pago_fabiola: item.pago_fabiola,
+          etiquetas_ids: item.etiquetas_ids,
+        })),
+      };
+
+      const { data, error } = await supabase.rpc("guardar_compra_borrador", payload);
+      if (error) throw error;
+
+      const nuevoBorrador: BorradorGuardado = {
+        compraId: data as string,
+        mensajeId: `draft-${Date.now()}`,
+        lugar: draft.lugar ?? "Sin especificar",
+        total: draft.total ?? null,
+        guardadoEn: Date.now(),
+      };
+
+      setEstado((prev) => ({
+        ...prev,
+        guardando: false,
+        borradoresGuardados: [...prev.borradoresGuardados, nuevoBorrador],
+      }));
+
+      return data as string;
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : "No se pudo guardar";
+      setEstado((prev) => ({ ...prev, guardando: false, error: errorMsg }));
+      return null;
+    }
+  }, []);
+
   return {
     ...estado,
     toggle,
@@ -159,6 +245,7 @@ export function useChatGlobal() {
     cerrar,
     limpiar,
     enviar,
+    guardarBorrador,
     sessionId: sessionIdRef.current,
   };
 }
