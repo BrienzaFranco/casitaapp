@@ -111,6 +111,8 @@ export function ChatGlobal() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const autoOpenedRef = useRef(false);
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const swipeRef = useRef<{ startY: number; startTime: number } | null>(null);
 
   // Abrir automáticamente si viene ?chat=open
   useEffect(() => {
@@ -138,6 +140,17 @@ export function ChatGlobal() {
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
   }, [input]);
+
+  // Voice recognition → input
+  useEffect(() => {
+    if (voice.transcript || voice.interimTranscript) {
+      setInput((prev) => {
+        const base = prev.replace(/\s*\.\.\.$/, "").trim();
+        const text = voice.transcript || voice.interimTranscript;
+        return base ? `${base} ${text}` : text;
+      });
+    }
+  }, [voice.transcript, voice.interimTranscript]);
 
   async function handleEnviar(textoOverride?: string) {
     const texto = (textoOverride ?? input).trim();
@@ -188,9 +201,37 @@ export function ChatGlobal() {
           />
 
           {/* Panel */}
-          <div className="relative z-10 flex max-h-[85vh] flex-col rounded-t-2xl border-t border-outline-variant/15 bg-surface-container-lowest shadow-2xl animar-aparecer-abajo">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-outline-variant/10 px-4 py-3">
+          <div
+            className={`relative z-10 flex flex-col rounded-t-2xl border-t border-outline-variant/15 bg-surface-container-lowest shadow-2xl animar-aparecer-abajo transition-all duration-300 ease-out ${fullscreen ? "h-dvh max-h-dvh rounded-t-none" : "max-h-[85vh]"}`}
+            onTouchStart={(e) => {
+              const t = e.touches[0];
+              swipeRef.current = { startY: t.clientY, startTime: Date.now() };
+            }}
+            onTouchMove={(e) => {
+              const ref = swipeRef.current;
+              if (!ref) return;
+              const t = e.touches[0];
+              const dy = ref.startY - t.clientY;
+              const dt = Date.now() - ref.startTime;
+              // Swipe up > 60px en menos de 400ms
+              if (dy > 60 && dt < 400) {
+                setFullscreen(true);
+                swipeRef.current = null;
+              }
+              // Swipe down > 60px en menos de 400ms
+              if (dy < -60 && dt < 400) {
+                setFullscreen(false);
+                swipeRef.current = null;
+              }
+            }}
+            onTouchEnd={() => { swipeRef.current = null; }}
+          >
+            {/* Handle + Header */}
+            <div className="flex flex-col border-b border-outline-variant/10">
+              <div className="flex justify-center pt-2 pb-1">
+                <div className="h-1 w-10 rounded-full bg-outline-variant/40" />
+              </div>
+              <div className="flex items-center justify-between px-4 py-2">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary-container">
                   <Sparkles className="h-4.5 w-4.5 text-on-secondary-container" />
@@ -218,6 +259,7 @@ export function ChatGlobal() {
                 >
                   <X className="h-5 w-5" />
                 </button>
+              </div>
               </div>
             </div>
 
