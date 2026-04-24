@@ -122,6 +122,7 @@ export function useBalance() {
     cortes,
     usuario,
     comprasMes,
+    comprasMesAnterior,
     resumenMes,
     resumenMesAnterior,
     variacionMensual,
