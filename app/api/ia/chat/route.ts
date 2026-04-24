@@ -17,7 +17,7 @@ import type {
 import type { RegistroIaDraft } from "@/lib/ai/contracts";
 import type { PagadorCompra, TipoReparto } from "@/types";
 
-const MODELO_DEFAULT = "minimax/minimax-m2.7";
+const MODELO_DEFAULT = "openai/gpt-4o-mini";
 const CACHE_TTL_MS = 1000 * 60 * 5;
 const TIMEOUT_FETCH_MS = 15000;
 const MAX_RETRIES = 1;

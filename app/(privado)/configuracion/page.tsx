@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { SelectorColor } from "@/components/ui/SelectorColor";
 import { formatearPeso } from "@/lib/formatear";
 import { fechaLocalISO, normalizarTexto } from "@/lib/utiles";
-import { MODELOS_IA_DISPONIBLES, guardarColor, guardarModeloIa, ocultarLugar, mostrarLugar } from "@/lib/configuracion";
+import { MODELOS_IA, guardarColor, guardarModeloIa, ocultarLugar, mostrarLugar } from "@/lib/configuracion";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
@@ -887,29 +887,41 @@ export default function PaginaConfiguracion() {
         {tab === "ia" && (
           <section className="space-y-4 p-4">
             <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-              Modelo OpenRouter
+              Modelo de IA
             </p>
             <p className="font-body text-xs text-on-surface-variant">
-              Este modelo se usa para el asistente IA de registro. El sistema prioriza lógica determinística y usa IA
-              solo para entender mejor texto desordenado y categorizar.
+              Elegí el modelo que usa Casi (el asistente). Todos funcionan bien, pero varían en inteligencia, velocidad y precio.
             </p>
 
-            <div className="space-y-2 p-3 rounded-lg bg-surface-container-low">
-              <label className="font-label text-[10px] uppercase tracking-wider text-outline">Modelo activo</label>
-              <select
-                value={config.modeloIa}
-                onChange={async (e) => {
-                  const nuevo = e.target.value;
-                  config.setModeloIa(nuevo);
-                  await guardarModeloIa(nuevo, config.nombreUsuario);
-                  toast.success("Modelo IA actualizado");
-                }}
-                className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
-              >
-                {MODELOS_IA_DISPONIBLES.map((modelo) => (
-                  <option key={modelo} value={modelo}>{modelo}</option>
-                ))}
-              </select>
+            <div className="space-y-2">
+              {MODELOS_IA.map((modelo) => {
+                const activo = config.modeloIa === modelo.id;
+                return (
+                  <button
+                    key={modelo.id}
+                    type="button"
+                    onClick={async () => {
+                      config.setModeloIa(modelo.id);
+                      await guardarModeloIa(modelo.id, config.nombreUsuario);
+                      toast.success(`Modelo cambiado a ${modelo.nombre}`);
+                    }}
+                    className={`w-full text-left p-3 rounded-xl border transition-all ${activo ? "border-secondary bg-secondary-container/20" : "border-outline-variant/15 bg-surface-container-low hover:bg-surface-container-high"}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`text-sm font-semibold ${activo ? "text-secondary" : "text-on-surface"}`}>
+                        {modelo.nombre}
+                      </span>
+                      <span className="text-[10px] font-mono text-on-surface-variant/60 bg-surface-container-high px-1.5 py-0.5 rounded">
+                        {modelo.precio}
+                      </span>
+                    </div>
+                    <p className="text-xs text-on-surface-variant mt-0.5">{modelo.desc}</p>
+                    {activo && (
+                      <p className="text-[10px] text-secondary font-medium mt-1">✓ Activo</p>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </section>
         )}

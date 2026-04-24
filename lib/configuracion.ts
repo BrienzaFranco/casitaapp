@@ -75,13 +75,16 @@ export interface ColoresPersonas {
   fabiola: string;
 }
 
-export const MODELOS_IA_DISPONIBLES = [
-  "minimax/minimax-m2.7",
-  "x-ai/grok-4.1-fast",
-  "qwen/qwen3.6-plus",
-  "openrouter/elephant-alpha",
-  "google/gemma-4-26b-a4b-it",
-] as const;
+export const MODELOS_IA: Array<{ id: string; nombre: string; desc: string; precio: string }> = [
+  { id: "openai/gpt-4o-mini", nombre: "GPT-4o Mini", desc: "El mejor calidad/precio. Excelente para JSON, español perfecto, muy obediente.", precio: "~$0.75/M tokens" },
+  { id: "google/gemini-2.0-flash-001", nombre: "Gemini 2.0 Flash", desc: "Ultra barato, muy rápido, buen español. Ideal si usás mucho el chat.", precio: "~$0.15/M tokens" },
+  { id: "deepseek/deepseek-chat", nombre: "DeepSeek V3", desc: "Muy inteligente, razona bien. Un poco más lento pero potente.", precio: "~$1.50/M tokens" },
+  { id: "openai/gpt-4o", nombre: "GPT-4o", desc: "El más inteligente. Usalo si querés la mejor calidad sin importar el costo.", precio: "~$6.25/M tokens" },
+  { id: "anthropic/claude-3-haiku", nombre: "Claude 3 Haiku", desc: "Rápido, buen español, muy seguro. Buena opción intermedia.", precio: "~$0.50/M tokens" },
+];
+
+/** @deprecated usar MODELOS_IA */
+export const MODELOS_IA_DISPONIBLES = MODELOS_IA.map((m) => m.id) as unknown as readonly string[];
 
 export async function obtenerColores(): Promise<ColoresPersonas> {
   return getConfiguracion<ColoresPersonas>("colores_personas", { franco: "#3b82f6", fabiola: "#10b981" });

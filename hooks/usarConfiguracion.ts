@@ -9,7 +9,7 @@ export function useConfiguracion() {
   const usuario = usarUsuario();
   const [colores, setColores] = useState<ColoresPersonas>({ franco: "#3b82f6", fabiola: "#10b981" });
   const [lugaresOcultos, setLugaresOcultos] = useState<string[]>([]);
-  const [modeloIa, setModeloIa] = useState("minimax/minimax-m2.7");
+  const [modeloIa, setModeloIa] = useState("openai/gpt-4o-mini");
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
