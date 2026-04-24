@@ -19,7 +19,7 @@ import { usarCompras } from "@/hooks/usarCompras";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { usarBalance } from "@/hooks/usarBalance";
 
-type Tab = "categorias" | "subcategorias" | "etiquetas" | "colores" | "lugares" | "importar" | "ia" | "instalar";
+type Tab = "categorias" | "etiquetas" | "colores" | "lugares" | "importar" | "ia" | "instalar";
 
 function normalizarCabecera(cabecera: string) {
   return cabecera
@@ -207,7 +207,6 @@ function CategoriaEditable({
 
 const TABS: { valor: Tab; etiqueta: string }[] = [
   { valor: "categorias", etiqueta: "Categorias" },
-  { valor: "subcategorias", etiqueta: "Subcategorias" },
   { valor: "etiquetas", etiqueta: "Etiquetas" },
   { valor: "colores", etiqueta: "Colores" },
   { valor: "lugares", etiqueta: "Lugares" },
@@ -513,10 +512,10 @@ export default function PaginaConfiguracion() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-3 overflow-x-auto scrollbar-hide border-b border-outline-variant/15 -mx-4 px-4">
+      <div className="flex gap-3 overflow-x-auto scrollbar-hide border-b border-outline-variant/15 pb-px">
         {TABS.map(({ valor, etiqueta }) => (
           <button key={valor} type="button" onClick={() => setTab(valor)}
-            className={`text-xs font-medium pb-1 whitespace-nowrap border-b-2 transition-colors ${tab === valor ? "border-secondary text-secondary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}>
+            className={`text-xs font-medium pb-2 pt-1 whitespace-nowrap border-b-2 transition-colors ${tab === valor ? "border-secondary text-secondary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}>
             {etiqueta}
           </button>
         ))}
@@ -537,9 +536,7 @@ export default function PaginaConfiguracion() {
                 </div>
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Color</label>
-                  <input className="h-8 w-full cursor-pointer rounded bg-transparent border-none p-0 outline-none"
-                    type="color" name="categoria-color" value={nuevaCategoria.color}
-                    onChange={(event) => setNuevaCategoria((anterior) => ({ ...anterior, color: event.target.value }))} />
+                  <SelectorColor color={nuevaCategoria.color} onChange={(color) => setNuevaCategoria((anterior) => ({ ...anterior, color }))} />
                 </div>
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Limite mensual</label>
@@ -576,87 +573,90 @@ export default function PaginaConfiguracion() {
                 />
               ))}
             </div>
-          </section>
-        )}
 
-        {tab === "subcategorias" && (
-          <section className="space-y-4 p-4">
-            <div className="space-y-1">
-              <label className="font-label text-[10px] uppercase tracking-wider text-outline">Filtrar por categoria</label>
-              <select className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
-                value={filtroCategoria} onChange={(event) => setFiltroCategoria(event.target.value)}>
-                <option value="">Todas</option>
-                {categorias.categorias.map((categoria) => (
-                  <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Categoria</label>
-                  <select className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
-                    value={nuevaSubcategoria.categoria_id}
-                    onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, categoria_id: event.target.value }))}>
-                    <option value="">Seleccionar</option>
-                    {categorias.categorias.map((categoria) => (
-                      <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Nombre</label>
-                  <input className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
-                    value={nuevaSubcategoria.nombre}
-                    onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, nombre: event.target.value }))}
-                    placeholder="Nombre de la subcategoria" />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-label text-[10px] uppercase tracking-wider text-outline">Limite mensual</label>
-                  <input className="w-full bg-transparent border-none p-0 text-sm text-on-surface tabular-nums outline-none placeholder:text-on-surface-variant"
-                    type="number" value={nuevaSubcategoria.limite_mensual}
-                    onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))}
-                    placeholder="Sin limite" />
-                </div>
-              </div>
-              <Boton anchoCompleto onClick={async () => {
-                await categorias.crearSubcategoria({
-                  categoria_id: nuevaSubcategoria.categoria_id, nombre: nuevaSubcategoria.nombre,
-                  limite_mensual: nuevaSubcategoria.limite_mensual ? Number(nuevaSubcategoria.limite_mensual) : null,
-                });
-                setNuevaSubcategoria({ categoria_id: "", nombre: "", limite_mensual: "" });
-                toast.success("Subcategoria creada");
-              }}>
-                Agregar subcategoria
-              </Boton>
-            </div>
-
-            <div className="space-y-0.5">
-              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
-                Subcategorias existentes
+            {/* Subcategorias */}
+            <div className="border-t border-outline-variant/10 pt-4 space-y-4">
+              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                Subcategorias
               </p>
-              {subcategoriasFiltradas.map((subcategoria) => (
-                <div key={subcategoria.id}
-                  className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
-                  <input className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
-                    defaultValue={subcategoria.nombre}
-                    onBlur={(event) => void categorias.actualizarSubcategoria(subcategoria.id, { nombre: event.target.value })} />
-                  <input className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
-                    defaultValue={String(subcategoria.limite_mensual ?? "")}
-                    onBlur={(event) => void categorias.actualizarSubcategoria(subcategoria.id, {
-                      limite_mensual: event.target.value ? Number(event.target.value) : null,
-                    })}
-                    placeholder="Sin limite" />
-                  <button type="button" className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
-                    onClick={() => void categorias.eliminarSubcategoria(subcategoria.id).catch(() => {
-                      toast.error("No se puede eliminar si tiene items asociados");
-                    })}
-                    title="Eliminar">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+
+              <div className="space-y-1">
+                <label className="font-label text-[10px] uppercase tracking-wider text-outline">Filtrar por categoria</label>
+                <select className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
+                  value={filtroCategoria} onChange={(event) => setFiltroCategoria(event.target.value)}>
+                  <option value="">Todas</option>
+                  {categorias.categorias.map((categoria) => (
+                    <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <label className="font-label text-[10px] uppercase tracking-wider text-outline">Categoria</label>
+                    <select className="w-full bg-transparent border border-outline-variant/30 rounded px-3 py-2 text-sm text-on-surface outline-none"
+                      value={nuevaSubcategoria.categoria_id}
+                      onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, categoria_id: event.target.value }))}>
+                      <option value="">Seleccionar</option>
+                      {categorias.categorias.map((categoria) => (
+                        <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-label text-[10px] uppercase tracking-wider text-outline">Nombre</label>
+                    <input className="w-full bg-transparent border-none p-0 text-sm text-on-surface outline-none placeholder:text-on-surface-variant"
+                      value={nuevaSubcategoria.nombre}
+                      onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, nombre: event.target.value }))}
+                      placeholder="Nombre de la subcategoria" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-label text-[10px] uppercase tracking-wider text-outline">Limite mensual</label>
+                    <input className="w-full bg-transparent border-none p-0 text-sm text-on-surface tabular-nums outline-none placeholder:text-on-surface-variant"
+                      type="number" value={nuevaSubcategoria.limite_mensual}
+                      onChange={(event) => setNuevaSubcategoria((anterior) => ({ ...anterior, limite_mensual: event.target.value }))}
+                      placeholder="Sin limite" />
+                  </div>
                 </div>
-              ))}
+                <Boton anchoCompleto onClick={async () => {
+                  await categorias.crearSubcategoria({
+                    categoria_id: nuevaSubcategoria.categoria_id, nombre: nuevaSubcategoria.nombre,
+                    limite_mensual: nuevaSubcategoria.limite_mensual ? Number(nuevaSubcategoria.limite_mensual) : null,
+                  });
+                  setNuevaSubcategoria({ categoria_id: "", nombre: "", limite_mensual: "" });
+                  toast.success("Subcategoria creada");
+                }}>
+                  Agregar subcategoria
+                </Boton>
+              </div>
+
+              <div className="space-y-0.5">
+                <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant px-3 py-1">
+                  Subcategorias existentes
+                </p>
+                {subcategoriasFiltradas.map((subcategoria) => (
+                  <div key={subcategoria.id}
+                    className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
+                    <input className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
+                      defaultValue={subcategoria.nombre}
+                      onBlur={(event) => void categorias.actualizarSubcategoria(subcategoria.id, { nombre: event.target.value })} />
+                    <input className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
+                      defaultValue={String(subcategoria.limite_mensual ?? "")}
+                      onBlur={(event) => void categorias.actualizarSubcategoria(subcategoria.id, {
+                        limite_mensual: event.target.value ? Number(event.target.value) : null,
+                      })}
+                      placeholder="Sin limite" />
+                    <button type="button" className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"
+                      onClick={() => void categorias.eliminarSubcategoria(subcategoria.id).catch(() => {
+                        toast.error("No se puede eliminar si tiene items asociados");
+                      })}
+                      title="Eliminar">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
         )}
@@ -674,9 +674,7 @@ export default function PaginaConfiguracion() {
                 </div>
                 <div className="space-y-1">
                   <label className="font-label text-[10px] uppercase tracking-wider text-outline">Color</label>
-                  <input className="h-8 w-full cursor-pointer rounded bg-transparent border-none p-0 outline-none"
-                    type="color" name="etiqueta-color" value={nuevaEtiqueta.color}
-                    onChange={(event) => setNuevaEtiqueta((anterior) => ({ ...anterior, color: event.target.value }))} />
+                  <SelectorColor color={nuevaEtiqueta.color} onChange={(color) => setNuevaEtiqueta((anterior) => ({ ...anterior, color }))} />
                 </div>
               </div>
               <Boton anchoCompleto onClick={async () => {
@@ -699,7 +697,7 @@ export default function PaginaConfiguracion() {
                   <input className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
                     defaultValue={etiqueta.nombre}
                     onBlur={(event) => void categorias.actualizarEtiqueta(etiqueta.id, { nombre: event.target.value })} />
-                  <input type="color" name={`etiqueta-color-${etiqueta.id}`} className="h-6 w-6 cursor-pointer rounded bg-transparent border-none p-0 outline-none"
+                  <input type="color" name={`etiqueta-color-${etiqueta.id}`} className="h-6 w-6 cursor-pointer rounded bg-transparent border-none p-0 outline-none shrink-0"
                     defaultValue={etiqueta.color}
                     onBlur={(event) => void categorias.actualizarEtiqueta(etiqueta.id, { color: event.target.value })} />
                   <button type="button" className="w-8 h-8 flex items-center justify-center rounded text-error hover:bg-error-container"

@@ -123,7 +123,7 @@ const FilaItem = memo(function FilaItem({ item, index, categorias, subsPorCat, c
               <button
                 key={i}
                 type="button"
-                onMouseDown={() => handleDescSelect(s.descripcion, s.categoria_id, s.subcategoria_id, s.ultimoMonto)}
+                onPointerDown={() => handleDescSelect(s.descripcion, s.categoria_id, s.subcategoria_id, s.ultimoMonto)}
                 className="w-full text-left px-2.5 py-1.5 text-xs text-on-surface hover:bg-surface-container-high flex items-center justify-between"
               >
                 <span>{s.descripcion}</span>
@@ -232,7 +232,7 @@ const FilaItem = memo(function FilaItem({ item, index, categorias, subsPorCat, c
               />
             </label>
             {Math.abs(item.pago_franco + item.pago_fabiola - item.monto_resuelto) > 0.5 && item.monto_resuelto > 0 && (
-              <span className="text-[#E24B4A] text-[10px]">No coincide con {formatearPeso(item.monto_resuelto)}</span>
+              <span className="text-error text-[10px]">No coincide con {formatearPeso(item.monto_resuelto)}</span>
             )}
           </div>
         </td>
@@ -243,7 +243,7 @@ const FilaItem = memo(function FilaItem({ item, index, categorias, subsPorCat, c
         <button
           type="button"
           onClick={() => onDelete(item.id!)}
-          className={`w-5 h-5 flex items-center justify-center rounded text-on-surface-variant/30 hover:text-[#E24B4A] hover:bg-[#FCEBEB]/30 transition-colors ${!tieneDatos ? "opacity-40" : ""}`}
+          className={`w-5 h-5 flex items-center justify-center rounded text-on-surface-variant/30 hover:text-error hover:bg-error-container/30 transition-colors ${!tieneDatos ? "opacity-40" : ""}`}
           title={tieneDatos ? "Eliminar item" : ""}
         >
           ×
@@ -457,12 +457,12 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
   const fechaStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
   return (
-    <div className="flex gap-4 max-w-[1400px] mx-auto px-4 py-4">
+    <div className="flex gap-4 max-w-[1400px] mx-auto pb-24">
       {/* Main content */}
       <div className="flex-1 min-w-0 space-y-4">
 
         {/* ═══ ZONA 1: Encabezado ═══ */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-3">
+        <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/15 p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_120px] gap-3">
             {/* Lugar */}
             <div>
@@ -474,7 +474,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
                   onChange={(e) => set({ nombre_lugar: e.target.value })}
                   placeholder="¿Dónde compraste?"
                   list="lugares-list"
-                  className="w-full h-9 rounded bg-surface-container-low px-3 text-sm text-on-surface outline-none border border-outline-variant/10 focus:border-secondary"
+                  className="w-full h-10 rounded-xl bg-surface-container-low px-3 text-sm text-on-surface outline-none border border-outline-variant/10 focus:border-secondary transition-colors"
                   autoFocus
                 />
                 <datalist id="lugares-list">
@@ -496,7 +496,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
                     key={label}
                     type="button"
                     onClick={() => set({ fecha: val })}
-                    className={`px-1.5 py-1 rounded text-[9px] font-medium transition-colors ${compra.fecha === val ? "bg-secondary text-on-secondary" : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high"}`}
+                    className={`px-1.5 py-1 rounded-lg text-[9px] font-medium transition-colors ${compra.fecha === val ? "bg-secondary text-on-secondary" : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high"}`}
                   >
                     {label}
                   </button>
@@ -505,7 +505,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
                   type="date"
                   value={compra.fecha}
                   onChange={(e) => set({ fecha: e.target.value })}
-                  className="h-7 rounded bg-surface-container-low px-1 text-[10px] text-on-surface outline-none"
+                  className="h-7 rounded-lg bg-surface-container-low px-1 text-[10px] text-on-surface outline-none"
                 />
               </div>
             </div>
@@ -516,7 +516,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
               <select
                 value={compra.pagador_general}
                 onChange={(e) => set({ pagador_general: e.target.value as CompraEditable["pagador_general"] })}
-                className="w-full h-9 rounded bg-surface-container-low px-3 text-sm text-on-surface outline-none"
+                className="w-full h-10 rounded-xl bg-surface-container-low px-3 text-sm text-on-surface outline-none border border-outline-variant/10 focus:border-secondary transition-colors"
               >
                 <option value="compartido">Compartido</option>
                 <option value="franco">{nombres.franco}</option>
@@ -536,11 +536,10 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
                     key={et.id}
                     type="button"
                     onClick={() => toggleEtiquetaCompra(et.id)}
-                    className="px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors"
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${activo ? "text-white" : ""}`}
                     style={{
                       backgroundColor: activo ? et.color : "transparent",
-                      color: activo ? "#fff" : "var(--text-on-surface-variant, rgba(0,0,0,0.5))",
-                      border: `1px solid ${activo ? et.color : "var(--border-outline-variant, rgba(0,0,0,0.08))"}`,
+                      border: `1px solid ${activo ? et.color : "var(--color-outline-variant, #d4c3be)"}`,
                     }}
                   >
                     {et.nombre}
@@ -573,7 +572,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
         </div>
 
         {/* ═══ ZONA 2: Items ═══ */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 overflow-hidden">
+        <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/15 overflow-hidden">
           <div className="px-4 py-2 border-b border-outline-variant/10 flex items-center justify-between">
             <span className="font-label text-[10px] uppercase tracking-wider text-on-surface-variant/60">Items ({compra.items.length})</span>
             <button
@@ -635,7 +634,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
         </div>
 
         {/* ═══ ZONA 3: Cierre ═══ */}
-        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-4 space-y-3">
+        <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/15 p-4 space-y-3">
           {/* Notas */}
           <div>
             <label className="font-label text-[10px] uppercase tracking-wider text-on-surface-variant/60 mb-1 block">Notas</label>
@@ -644,7 +643,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
               onChange={(e) => set({ notas: e.target.value })}
               placeholder="Notas opcionales..."
               rows={2}
-              className="w-full rounded bg-surface-container-low px-3 py-2 text-sm text-on-surface outline-none border border-outline-variant/10 focus:border-secondary resize-y"
+              className="w-full rounded-xl bg-surface-container-low px-3 py-2 text-sm text-on-surface outline-none border border-outline-variant/10 focus:border-secondary resize-y transition-colors"
             />
           </div>
 
@@ -679,9 +678,9 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
 
           {/* Errores */}
           {errores.length > 0 && (
-            <div className="bg-[#FCEBEB] rounded-lg px-3 py-2 space-y-0.5">
+            <div className="bg-error-container rounded-lg px-3 py-2 space-y-0.5">
               {errores.map((e, i) => (
-                <p key={i} className="text-[12px] text-[#791F1F]">• {e}</p>
+                <p key={i} className="text-[12px] text-error">• {e}</p>
               ))}
             </div>
           )}
@@ -692,7 +691,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
               type="button"
               onClick={() => guardarCompra("borrador")}
               disabled={guardando}
-              className="px-4 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-label text-sm font-medium hover:bg-surface-container-high disabled:opacity-50 transition-colors"
+              className="px-4 py-2.5 rounded-xl bg-surface-container-low text-on-surface font-label text-sm font-medium hover:bg-surface-container-high disabled:opacity-50 transition-colors"
             >
               Guardar borrador
             </button>
@@ -700,7 +699,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
               type="button"
               onClick={() => guardarCompra("confirmada")}
               disabled={guardando}
-              className="flex-1 py-2.5 rounded-lg bg-secondary text-on-secondary font-headline text-sm font-bold hover:bg-secondary/90 disabled:opacity-50 shadow-lg shadow-secondary/20 transition-all"
+              className="flex-1 py-2.5 rounded-xl bg-secondary text-on-secondary font-headline text-sm font-bold hover:bg-secondary/90 disabled:opacity-50 shadow-lg shadow-secondary/20 transition-all"
             >
               {guardando ? "Guardando..." : "Confirmar compra ✓"}
             </button>
@@ -715,7 +714,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
       {/* ═══ PANEL STICKY: Resumen ═══ */}
       <div className="hidden xl:block w-[240px] shrink-0">
         <div className="sticky top-4 space-y-3">
-          <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3 space-y-2.5">
+          <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/15 p-3 space-y-2.5">
             <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/50">Resumen</p>
 
             {/* Header info */}
@@ -782,13 +781,23 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
               type="button"
               onClick={() => guardarCompra("confirmada")}
               disabled={guardando}
-              className="w-full py-2.5 rounded-lg bg-secondary text-on-secondary font-label text-xs font-bold hover:bg-secondary/90 disabled:opacity-50 transition-colors"
+              className="w-full py-2.5 rounded-xl bg-secondary text-on-secondary font-label text-xs font-bold hover:bg-secondary/90 disabled:opacity-50 transition-colors"
             >
               {guardando ? "Guardando..." : "Confirmar ✓"}
             </button>
           </div>
         </div>
       </div>
+
+      {/* Mobile FAB */}
+      <button
+        type="button"
+        onClick={() => guardarCompra("confirmada")}
+        disabled={guardando}
+        className="xl:hidden fixed bottom-6 right-4 z-40 flex items-center gap-2 px-5 py-3 rounded-full bg-secondary text-on-secondary font-headline text-sm font-bold shadow-lg shadow-secondary/30 hover:bg-secondary/90 disabled:opacity-50 active:scale-95 transition-all"
+      >
+        {guardando ? "Guardando..." : `Confirmar ${formatearPeso(total)}`}
+      </button>
     </div>
   );
 }

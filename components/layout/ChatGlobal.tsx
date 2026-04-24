@@ -28,7 +28,8 @@ import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarUsuario } from "@/hooks/usarUsuario";
 import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
 import { formatearPeso } from "@/lib/formatear";
-import type { ChatDraftPatch, ToolResult } from "@/lib/ai/contracts-chat";
+import type { ChatDraftPatch, ChatDraftItem, ToolResult } from "@/lib/ai/contracts-chat";
+import type { PagadorCompra } from "@/types";
 
 // ─── Chips de acciones rápidas ─────────────────────────────────────
 const CHIPS_RAPIDOS = [
@@ -39,6 +40,54 @@ const CHIPS_RAPIDOS = [
   { label: "¿Cómo van los presupuestos?", icon: TrendingUp },
   { label: "Ver borradores", icon: FileClock },
 ];
+
+// ─── Sugerencias contextuales según la respuesta ───────────────────
+function sugerenciasContextuales(msg: MensajeChat): Array<{ label: string; texto: string }> {
+  const primerTool = msg.toolResults?.[0]?.tool;
+  const intent = msg.intent;
+
+  if (intent === "registro" || msg.draftPatch) {
+    return [
+      { label: "Ver borradores", texto: "/consulta Ver borradores" },
+      { label: "Nueva compra", texto: "Quiero hacer una nueva compra" },
+    ];
+  }
+
+  switch (primerTool) {
+    case "gastos_por_categoria":
+      return [
+        { label: "Top gastos", texto: "Top gastos del mes" },
+        { label: "Ver dashboard", texto: "¿Cómo van los presupuestos?" },
+      ];
+    case "balance_actual":
+      return [
+        { label: "Saldar deuda", texto: "Quiero saldar la deuda" },
+        { label: "Historial", texto: "Últimas compras" },
+      ];
+    case "ultima_compra_item":
+    case "buscar_compras":
+      return [
+        { label: "Buscar otra", texto: "Buscar compras" },
+        { label: "Ver historial", texto: "Ver historial completo" },
+      ];
+    case "presupuesto_status":
+      return [
+        { label: "Gastos por categoría", texto: "¿Cuánto gastamos este mes?" },
+        { label: "Ver dashboard", texto: "Ir al dashboard" },
+      ];
+    case "top_gastos":
+      return [
+        { label: "Presupuestos", texto: "¿Cómo van los presupuestos?" },
+        { label: "Balance", texto: "¿Le debo algo a Fabiola?" },
+      ];
+    case "borradores_pendientes":
+      return [
+        { label: "Nuevo gasto", texto: "Quiero anotar un gasto" },
+      ];
+    default:
+      return [];
+  }
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────
 function tiempoRelativo(ts: number): string {
@@ -244,6 +293,13 @@ export function ChatGlobal() {
                       toast.error(chat.error);
                     }
                   }}
+                  onEnviarSugerencia={(t) => {
+                    if (t === "Ver borradores") { router.push("/borradores"); chat.cerrar(); }
+                    else if (t === "Ver historial") { router.push("/historial"); chat.cerrar(); }
+                    else if (t === "Ir al dashboard") { router.push("/dashboard"); chat.cerrar(); }
+                    else if (t === "Nueva compra") { router.push("/nueva-compra"); chat.cerrar(); }
+                    else { handleEnviar(t); }
+                  }}
                 />
               ))}
 
@@ -318,6 +374,7 @@ interface BurbujaMensajeProps {
   onReintentar?: () => void;
   onSugerencia?: (sug: { id: string; label: string; action: string; payload?: string }) => void;
   onGuardarBorrador: (draft: ChatDraftPatch) => void;
+  onEnviarSugerencia?: (texto: string) => void;
 }
 
 function BurbujaMensaje({
@@ -330,6 +387,7 @@ function BurbujaMensaje({
   onReintentar,
   onSugerencia,
   onGuardarBorrador,
+  onEnviarSugerencia,
 }: BurbujaMensajeProps) {
   const esUsuario = mensaje.role === "user";
   const esError = mensaje.text.startsWith("Error:");
@@ -393,7 +451,7 @@ function BurbujaMensaje({
             draft={mensaje.draftPatch}
             guardando={guardando}
             yaGuardado={borradorYaGuardado}
-            onGuardar={() => onGuardarBorrador(mensaje.draftPatch!)}
+            onGuardar={(d) => onGuardarBorrador(d)}
           />
         )}
 
@@ -427,7 +485,38 @@ function BurbujaMensaje({
             ))}
           </div>
         )}
+
+        {/* Sugerencias contextuales de seguimiento */}
+        {!esUsuario && esUltimo && onEnviarSugerencia && (
+          <SugerenciasSeguimiento mensaje={mensaje} onEnviar={onEnviarSugerencia} />
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─── Sugerencias contextuales de seguimiento ───────────────────────
+function SugerenciasSeguimiento({
+  mensaje,
+  onEnviar,
+}: {
+  mensaje: MensajeChat;
+  onEnviar: (texto: string) => void;
+}) {
+  const sugerencias = sugerenciasContextuales(mensaje);
+  if (sugerencias.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 animar-aparecer">
+      {sugerencias.map((sug) => (
+        <button
+          key={sug.label}
+          onClick={() => onEnviar(sug.texto)}
+          className="rounded-full border border-secondary/25 bg-secondary-container/25 px-3 py-1.5 text-xs font-medium text-secondary hover:bg-secondary-container/45 transition-colors"
+        >
+          {sug.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -437,11 +526,39 @@ interface DraftPreviewProps {
   draft: ChatDraftPatch;
   guardando: boolean;
   yaGuardado?: { compraId: string; guardadoEn: number };
-  onGuardar: () => void;
+  onGuardar: (draft: ChatDraftPatch) => void;
 }
 
 function DraftPreview({ draft, guardando, yaGuardado, onGuardar }: DraftPreviewProps) {
-  if (!draft.items?.length && !draft.lugar && !draft.total) return null;
+  const [modoEdicion, setModoEdicion] = useState(false);
+  const [editado, setEditado] = useState<ChatDraftPatch>(() => JSON.parse(JSON.stringify(draft)));
+
+  useEffect(() => {
+    setEditado(JSON.parse(JSON.stringify(draft)));
+    setModoEdicion(false);
+  }, [draft]);
+
+  if (!editado.items?.length && !editado.lugar && !editado.total) return null;
+
+  function actualizarItem(index: number, cambios: Partial<ChatDraftItem>) {
+    setEditado((prev) => {
+      const items = [...(prev.items ?? [])];
+      items[index] = { ...items[index], ...cambios };
+      const total = items.reduce((sum, it) => sum + (it.monto ?? 0), 0);
+      return { ...prev, items, total };
+    });
+  }
+
+  function eliminarItem(index: number) {
+    setEditado((prev) => {
+      const items = (prev.items ?? []).filter((_, i) => i !== index);
+      const total = items.reduce((sum, it) => sum + (it.monto ?? 0), 0);
+      return { ...prev, items: items.length ? items : prev.items, total };
+    });
+  }
+
+  const inputClase = "w-full bg-surface-container-low rounded-lg px-2.5 py-1.5 text-xs text-on-surface outline-none border border-outline-variant/15 focus:border-secondary/40 transition-colors";
+  const inputNumClase = "w-20 bg-surface-container-low rounded-lg px-2 py-1.5 text-xs text-on-surface tabular-nums outline-none border border-outline-variant/15 focus:border-secondary/40 transition-colors";
 
   return (
     <div className="w-full rounded-xl border border-secondary/20 bg-secondary-container/10 p-3 text-xs animar-aparecer">
@@ -456,37 +573,120 @@ function DraftPreview({ draft, guardando, yaGuardado, onGuardar }: DraftPreviewP
             Guardado
           </span>
         ) : (
-          <button
-            onClick={onGuardar}
-            disabled={guardando}
-            className="rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-on-secondary transition-all disabled:opacity-50 hover:bg-secondary/90 active:scale-95"
-          >
-            {guardando ? "Guardando..." : "Guardar borrador"}
-          </button>
+          <div className="flex items-center gap-1.5">
+            {!modoEdicion && (
+              <button
+                onClick={() => setModoEdicion(true)}
+                className="rounded-lg bg-surface-container-high px-2 py-1 text-[11px] font-medium text-on-surface-variant transition-colors hover:bg-surface-container-highest"
+              >
+                Editar
+              </button>
+            )}
+            <button
+              onClick={() => { onGuardar(editado); setModoEdicion(false); }}
+              disabled={guardando}
+              className="rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-on-secondary transition-all disabled:opacity-50 hover:bg-secondary/90 active:scale-95"
+            >
+              {guardando ? "Guardando..." : "Guardar"}
+            </button>
+          </div>
         )}
       </div>
-      {draft.lugar && (
-        <p className="text-on-surface"><span className="text-on-surface-variant">Lugar:</span> {draft.lugar}</p>
-      )}
-      {draft.total != null && (
-        <p className="font-mono font-semibold text-on-surface">{formatearPeso(draft.total)}</p>
-      )}
-      {draft.pagador && (
-        <p className="text-on-surface"><span className="text-on-surface-variant">Pagó:</span> {draft.pagador}</p>
-      )}
-      {draft.reparto && (
-        <p className="text-on-surface"><span className="text-on-surface-variant">Reparto:</span> {draft.reparto}</p>
-      )}
-      {draft.items && draft.items.length > 0 && (
-        <div className="mt-2 space-y-0.5">
-          {draft.items.map((item, i) => (
-            <div key={i} className="flex justify-between text-on-surface">
-              <span className="truncate mr-2">{item.descripcion}</span>
-              {item.monto != null && <span className="font-mono shrink-0">{formatearPeso(item.monto)}</span>}
+
+      {modoEdicion ? (
+        <div className="space-y-2.5">
+          {/* Lugar */}
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wider text-on-surface-variant/60">Lugar</label>
+            <input
+              className={inputClase}
+              value={editado.lugar ?? ""}
+              onChange={(e) => setEditado((p) => ({ ...p, lugar: e.target.value }))}
+              placeholder="Lugar..."
+            />
+          </div>
+
+          {/* Pagador */}
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wider text-on-surface-variant/60">Pagó</label>
+            <select
+              className={inputClase}
+              value={editado.pagador ?? "compartido"}
+              onChange={(e) => setEditado((p) => ({ ...p, pagador: e.target.value as PagadorCompra }))}
+            >
+              <option value="compartido">Compartido</option>
+              <option value="franco">Franco</option>
+              <option value="fabiola">Fabiola</option>
+            </select>
+          </div>
+
+          {/* Items editables */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase tracking-wider text-on-surface-variant/60">Items</label>
+            {editado.items?.map((item, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  className={`${inputClase} flex-1`}
+                  value={item.descripcion}
+                  onChange={(e) => actualizarItem(i, { descripcion: e.target.value })}
+                  placeholder="Descripcion..."
+                />
+                <input
+                  type="number"
+                  className={inputNumClase}
+                  value={item.monto ?? ""}
+                  onChange={(e) => actualizarItem(i, { monto: Number(e.target.value) })}
+                  placeholder="0"
+                />
+                <button
+                  type="button"
+                  onClick={() => eliminarItem(i)}
+                  className="w-6 h-6 flex items-center justify-center rounded text-on-surface-variant/40 hover:text-error hover:bg-error-container/30 transition-colors"
+                  title="Eliminar item"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <p className="font-mono font-semibold text-on-surface">{formatearPeso(editado.total ?? 0)}</p>
+            <button
+              onClick={() => { setEditado(JSON.parse(JSON.stringify(draft))); setModoEdicion(false); }}
+              className="text-[11px] text-on-surface-variant hover:text-on-surface transition-colors"
+            >
+              Cancelar edicion
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-0.5">
+          {editado.lugar && (
+            <p className="text-on-surface"><span className="text-on-surface-variant">Lugar:</span> {editado.lugar}</p>
+          )}
+          {editado.total != null && (
+            <p className="font-mono font-semibold text-on-surface">{formatearPeso(editado.total)}</p>
+          )}
+          {editado.pagador && (
+            <p className="text-on-surface"><span className="text-on-surface-variant">Pagó:</span> {editado.pagador}</p>
+          )}
+          {editado.reparto && (
+            <p className="text-on-surface"><span className="text-on-surface-variant">Reparto:</span> {editado.reparto}</p>
+          )}
+          {editado.items && editado.items.length > 0 && (
+            <div className="mt-2 space-y-0.5">
+              {editado.items.map((item, i) => (
+                <div key={i} className="flex justify-between text-on-surface">
+                  <span className="truncate mr-2">{item.descripcion}</span>
+                  {item.monto != null && <span className="font-mono shrink-0">{formatearPeso(item.monto)}</span>}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
+
       {yaGuardado && (
         <a
           href="/borradores"
