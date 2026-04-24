@@ -68,6 +68,12 @@ export default function PaginaDashboard() {
   const vistaActual = stack[stack.length - 1];
   const vistaPrevia = stack.length > 1 ? stack[stack.length - 2] : null;
 
+  const limpiarFiltros = useCallback(() => {
+    setFiltro({ personas: [], categorias: [], etiquetas: [], subcategorias: [] });
+    setPeriodo({ tipo: "este-mes", label: "Este mes" });
+    setDiaSeleccionado(null);
+  }, []);
+
   const animClase = direccion === "adelante" ? "animate-slide-in-right" : direccion === "atras" ? "animate-slide-in-left" : "";
 
   if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando || balance.cortes.cargando) {
@@ -118,6 +124,7 @@ export default function PaginaDashboard() {
             setPeriodo={setPeriodo}
             mesAnterior={mesAnterior}
             diaSeleccionado={diaSeleccionado}
+            onLimpiarFiltros={limpiarFiltros}
           />
         ) : vistaActual.tipo === "categoria" ? (
           <div className="space-y-3">

@@ -63,9 +63,20 @@ interface VistaOverviewProps {
   setPeriodo: (p: PeriodoActivo) => void;
   mesAnterior: string | null;
   diaSeleccionado: number | null;
+  onLimpiarFiltros: () => void;
 }
 
-export function VistaOverview({ data, callbacks, filtro, setFiltro, periodo, setPeriodo, mesAnterior, diaSeleccionado }: VistaOverviewProps) {
+export function VistaOverview({
+  data,
+  callbacks,
+  filtro,
+  setFiltro,
+  periodo,
+  setPeriodo,
+  mesAnterior,
+  diaSeleccionado,
+  onLimpiarFiltros,
+}: VistaOverviewProps) {
   const comprasMesAnteriorData = useMemo(
     () => (mesAnterior ? data.compras.filter((c) => mesClave(c.fecha) === mesAnterior) : []),
     [data.compras, mesAnterior],
@@ -96,6 +107,12 @@ export function VistaOverview({ data, callbacks, filtro, setFiltro, periodo, set
   const restante = presupuestoTotal - totalGastado;
   const pctUsado = presupuestoTotal > 0 ? (totalGastado / presupuestoTotal) * 100 : 0;
   const totalMesAnterior = montoFiltrado(comprasMesAnteriorData, filtro);
+  const hayFiltrosActivos =
+    filtro.personas.length > 0 ||
+    filtro.categorias.length > 0 ||
+    filtro.etiquetas.length > 0 ||
+    filtro.subcategorias.length > 0;
+  const hayCambiosFiltro = hayFiltrosActivos || periodo.tipo !== "este-mes" || diaSeleccionado !== null;
 
   const categoriasAlerta = useMemo(() => {
     return data.categoriasMes
@@ -139,6 +156,18 @@ export function VistaOverview({ data, callbacks, filtro, setFiltro, periodo, set
           etiquetas={data.etiquetas}
           subcategorias={data.subcategorias}
         />
+
+        {hayCambiosFiltro && (
+          <div className="pt-1 flex justify-end">
+            <button
+              type="button"
+              onClick={onLimpiarFiltros}
+              className="text-[10px] text-secondary font-medium hover:underline"
+            >
+              Limpiar filtros
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Total gastado */}

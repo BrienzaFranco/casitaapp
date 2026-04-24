@@ -15,13 +15,16 @@ import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import {
   FiltroGlobal,
   type FiltroActivo,
-  montoFiltrado,
+  filtrarCompras,
 } from "@/components/dashboard/FiltroGlobal";
 import {
   SelectorPeriodo,
   type PeriodoActivo,
   filtrarPorPeriodo,
 } from "@/components/dashboard/SelectorPeriodo";
+import { formatearMesLabel } from "@/lib/formatear";
+
+const CATEGORIAS_FIJAS = ["alquiler", "expensas"];
 
 export default function PaginaHistorial() {
   const comprasHook = usarCompras();
@@ -31,12 +34,11 @@ export default function PaginaHistorial() {
   const nombres = deducirNombresParticipantes(usuario.perfiles);
   const [vista, setVista] = useState<"hoja" | "tarjetas">("tarjetas");
   const [compraAEliminar, setCompraAEliminar] = useState<string | null>(null);
+  const [incluirFijos, setIncluirFijos] = useState(false);
 
-  // ── Filter state ──
   const [filtro, setFiltro] = useState<FiltroActivo>({ personas: [], categorias: [], etiquetas: [], subcategorias: [] });
   const [periodo, setPeriodo] = useState<PeriodoActivo>({ tipo: "este-mes", label: "Este mes" });
 
-  // ── Apply period filter ──
   const comprasFiltradasPorPeriodo = useMemo(() => {
     return filtrarPorPeriodo(comprasHook.compras, {
       tipo: periodo.tipo,
@@ -45,49 +47,44 @@ export default function PaginaHistorial() {
     });
   }, [comprasHook.compras, periodo]);
 
-  // ── Apply filter logic ──
   const filtradas = useMemo(() => {
-    let resultado = comprasFiltradasPorPeriodo;
-
-    // Category filter
-    if (filtro.categorias.length > 0) {
-      resultado = resultado.filter((c) =>
-        c.items.some((i) => i.categoria_id && filtro.categorias.includes(i.categoria_id)),
-      );
-    }
-
-    // Subcategory filter
-    if (filtro.subcategorias.length > 0) {
-      resultado = resultado.filter((c) =>
-        c.items.some((i) => i.subcategoria_id && filtro.subcategorias.includes(i.subcategoria_id)),
-      );
-    }
-
-    // Tag filter
-    if (filtro.etiquetas.length > 0) {
-      resultado = resultado.filter((c) =>
-        c.items.some((i) => i.etiquetas?.some((e) => filtro.etiquetas.includes(e.id))) ||
-        c.etiquetas_compra?.some((e) => filtro.etiquetas.includes(e.id)),
-      );
-    }
-
-    // Persona filter
-    if (filtro.personas.length === 1) {
-      const persona = filtro.personas[0];
-      resultado = resultado.filter((c) => {
-        if (persona === "franco") {
-          return c.items.some((i) => i.pago_franco > 0);
-        }
-        return c.items.some((i) => i.pago_fabiola > 0);
-      });
-    }
-
-    return resultado;
+    return filtrarCompras(comprasFiltradasPorPeriodo, filtro);
   }, [comprasFiltradasPorPeriodo, filtro]);
 
-  const serieTendencia = useMemo(() => calcularSerieGastoDiario(filtradas), [filtradas]);
-  const hayFiltrosActivos = filtro.personas.length > 0 || filtro.categorias.length > 0 || filtro.etiquetas.length > 0 || filtro.subcategorias.length > 0 || periodo.tipo !== "este-mes";
-  const modoVacio = !comprasHook.compras.length && !hayFiltrosActivos ? "onboarding" : "filtros";
+  const nombreCategoriaPorId = useMemo(() => {
+    return new Map(categorias.categorias.map((cat) => [cat.id, cat.nombre.toLowerCase()]));
+  }, [categorias.categorias]);
+
+  const comprasTendencia = useMemo(() => {
+    if (incluirFijos) return filtradas;
+
+    return filtradas
+      .map((compra) => {
+        const items = compra.items.filter((item) => {
+          const nombreCat = (
+            item.categoria?.nombre ??
+            (item.categoria_id ? nombreCategoriaPorId.get(item.categoria_id) : "") ??
+            ""
+          ).toLowerCase();
+          return !CATEGORIAS_FIJAS.includes(nombreCat);
+        });
+
+        if (items.length === compra.items.length) return compra;
+        return { ...compra, items };
+      })
+      .filter((compra) => compra.items.length > 0);
+  }, [filtradas, incluirFijos, nombreCategoriaPorId]);
+
+  const serieTendencia = useMemo(() => calcularSerieGastoDiario(comprasTendencia), [comprasTendencia]);
+
+  const hayFiltros = filtro.personas.length > 0 || filtro.categorias.length > 0 || filtro.etiquetas.length > 0 || filtro.subcategorias.length > 0;
+  const hayCambios = hayFiltros || periodo.tipo !== "este-mes";
+  const modoVacio = !comprasHook.compras.length && !hayCambios ? "onboarding" : "filtros";
+
+  function resetFiltros() {
+    setFiltro({ personas: [], categorias: [], etiquetas: [], subcategorias: [] });
+    setPeriodo({ tipo: "este-mes", label: "Este mes" });
+  }
 
   async function eliminarCompra() {
     if (!compraAEliminar) return;
@@ -96,25 +93,20 @@ export default function PaginaHistorial() {
     setCompraAEliminar(null);
   }
 
-  // ── Render ──
   return (
     <section className="space-y-4">
       {/* Topbar */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="font-headline text-lg font-semibold tracking-tight text-on-surface">Historial</h1>
         <SelectorPeriodo
           periodo={periodo}
           setPeriodo={setPeriodo}
-          mesActualLabel={(() => {
-            const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-            const hoy = new Date();
-            return `${meses[hoy.getMonth()]} ${hoy.getFullYear()}`;
-          })()}
+          mesActualLabel={formatearMesLabel(new Date().toISOString().slice(0, 7))}
         />
       </div>
 
       {/* Filters */}
-      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/15 p-3 space-y-3">
+      <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/15 p-3 space-y-3">
         <FiltroGlobal
           filtro={filtro}
           setFiltro={setFiltro}
@@ -123,37 +115,29 @@ export default function PaginaHistorial() {
           subcategorias={categorias.subcategorias}
         />
 
-        {/* View toggle */}
-        <div className="flex items-center gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => setVista("tarjetas")}
-            className={combinarClases(
-              "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
-              vista === "tarjetas" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
-            )}
-          >
+        {/* View toggle + count + actions */}
+        <div className="flex items-center gap-2 pt-1 flex-wrap">
+          <button type="button" onClick={() => setVista("tarjetas")}
+            className={combinarClases("font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors", vista === "tarjetas" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent")}>
             Tarjetas
           </button>
-          <button
-            type="button"
-            onClick={() => setVista("hoja")}
-            className={combinarClases(
-              "font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors",
-              vista === "hoja" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent",
-            )}
-          >
+          <button type="button" onClick={() => setVista("hoja")}
+            className={combinarClases("font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors", vista === "hoja" ? "text-secondary border-secondary" : "text-on-surface-variant border-transparent")}>
             Hoja
           </button>
+
+          {/* Toggle fijos */}
+          <button type="button" onClick={() => setIncluirFijos(!incluirFijos)}
+            className={combinarClases("font-label text-[10px] font-bold uppercase tracking-wider pb-0.5 border-b-2 transition-colors ml-2", incluirFijos ? "text-[#ED7D31] border-[#ED7D31]" : "text-on-surface-variant border-transparent")}>
+            {incluirFijos ? "Con fijos" : "Sin fijos"}
+          </button>
+
           <span className="text-[10px] text-on-surface-variant/40 ml-auto">
             {filtradas.length} {filtradas.length === 1 ? "compra" : "compras"}
           </span>
-          {(filtro.personas.length > 0 || filtro.categorias.length > 0 || filtro.etiquetas.length > 0 || filtro.subcategorias.length > 0) && (
-            <button
-              type="button"
-              onClick={() => setFiltro({ personas: [], categorias: [], etiquetas: [], subcategorias: [] })}
-              className="text-[10px] text-secondary font-medium hover:underline ml-1"
-            >
+
+          {hayCambios && (
+            <button type="button" onClick={resetFiltros} className="text-[10px] text-secondary font-medium hover:underline">
               Limpiar filtros
             </button>
           )}
@@ -161,31 +145,24 @@ export default function PaginaHistorial() {
       </div>
 
       {/* Chart */}
-      {!comprasHook.cargando && filtradas.length ? (
-        <GraficoTendenciaDiaria registros={serieTendencia} compras={filtradas} nombres={nombres} colorFranco={config.colores.franco} colorFabiola={config.colores.fabiola} />
-      ) : null}
+      {!comprasHook.cargando && comprasTendencia.length > 0 && (
+        <GraficoTendenciaDiaria
+          registros={serieTendencia}
+          compras={comprasTendencia}
+          nombres={nombres}
+          colorFranco={config.colores.franco}
+          colorFabiola={config.colores.fabiola}
+        />
+      )}
 
       {/* List */}
       {vista === "hoja" && !comprasHook.cargando && filtradas.length ? (
         <HojaCompras compras={filtradas} />
       ) : (
-        <ListaCompras
-          compras={filtradas}
-          cargando={comprasHook.cargando}
-          nombres={nombres}
-          onEliminar={setCompraAEliminar}
-          modoVacio={modoVacio}
-        />
+        <ListaCompras compras={filtradas} cargando={comprasHook.cargando} nombres={nombres} onEliminar={setCompraAEliminar} modoVacio={modoVacio} />
       )}
 
-      <Modal
-        abierto={Boolean(compraAEliminar)}
-        titulo="Eliminar compra"
-        descripcion="Esta accion elimina la compra y todos sus items."
-        confirmacion="Eliminar"
-        onCancelar={() => setCompraAEliminar(null)}
-        onConfirmar={() => void eliminarCompra()}
-      />
+      <Modal abierto={Boolean(compraAEliminar)} titulo="Eliminar compra" descripcion="Esta accion elimina la compra y todos sus items." confirmacion="Eliminar" onCancelar={() => setCompraAEliminar(null)} onConfirmar={() => void eliminarCompra()} />
     </section>
   );
 }

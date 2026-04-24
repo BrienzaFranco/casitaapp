@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, ChevronDown, Check, Search } from "lucide-react";
 import type { Categoria, Compra, Etiqueta, Item } from "@/types";
 
@@ -303,38 +303,63 @@ export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas, subcate
 
 // ─── Filter helpers (updated for multi-select) ──────────────────────────────
 
+function itemCumplePersona(item: Item, personas: PersonaFiltro[]): boolean {
+  if (personas.length === 0) return true;
+
+  const incluyeFranco = personas.includes("franco");
+  const incluyeFabiola = personas.includes("fabiola");
+  const incluyeSoloFranco = personas.includes("solo_franco");
+  const incluyeSoloFabiola = personas.includes("solo_fabiola");
+
+  if (incluyeFranco && item.pago_franco > 0) return true;
+  if (incluyeFabiola && item.pago_fabiola > 0) return true;
+  if (incluyeSoloFranco && item.tipo_reparto === "solo_franco") return true;
+  if (incluyeSoloFabiola && item.tipo_reparto === "solo_fabiola") return true;
+
+  return false;
+}
+
+function itemCumpleFiltros(compra: Compra, item: Item, filtro: FiltroActivo): boolean {
+  if (filtro.categorias.length > 0 && (!item.categoria_id || !filtro.categorias.includes(item.categoria_id))) {
+    return false;
+  }
+
+  const tieneTag =
+    item.etiquetas?.some((e) => filtro.etiquetas.includes(e.id)) ||
+    compra.etiquetas_compra?.some((e) => filtro.etiquetas.includes(e.id));
+  if (filtro.etiquetas.length > 0 && !tieneTag) return false;
+
+  if (filtro.subcategorias.length > 0 && (!item.subcategoria_id || !filtro.subcategorias.includes(item.subcategoria_id))) {
+    return false;
+  }
+
+  if (!itemCumplePersona(item, filtro.personas)) return false;
+
+  return true;
+}
+
+function montoItemSegunPersona(item: Item, personas: PersonaFiltro[]): number {
+  if (personas.length === 0) return item.monto_resuelto;
+
+  // Para multi-select usamos monto_resuelto para evitar dobles conteos.
+  if (personas.length > 1) return item.monto_resuelto;
+
+  const [persona] = personas;
+  if (persona === "franco") return item.pago_franco;
+  if (persona === "fabiola") return item.pago_fabiola;
+  return item.monto_resuelto;
+}
+
 /**
- * Filter purchases by persona/category/tag.
- * Persona filter: empty = todos. Uses pago_franco/pago_fabiola per item.
+ * Filter purchases by persona/category/tag/subcategory.
+ * Una compra pasa si tiene al menos un item que cumple todos los filtros.
  */
 export function filtrarCompras(compras: Compra[], filtro: FiltroActivo) {
-  if (filtro.personas.length === 0 && filtro.categorias.length === 0 && filtro.etiquetas.length === 0) {
+  if (filtro.personas.length === 0 && filtro.categorias.length === 0 && filtro.etiquetas.length === 0 && filtro.subcategorias.length === 0) {
     return compras;
   }
 
-  return compras.filter((c) => {
-    // Category filter: if any selected, at least one item must match
-    if (filtro.categorias.length > 0) {
-      const hasCat = c.items.some((i) => i.categoria_id && filtro.categorias.includes(i.categoria_id));
-      if (!hasCat) return false;
-    }
-
-    // Tag filter
-    if (filtro.etiquetas.length > 0) {
-      const hasTag =
-        c.items.some((i) => i.etiquetas?.some((e) => filtro.etiquetas.includes(e.id))) ||
-        c.etiquetas_compra?.some((e) => filtro.etiquetas.includes(e.id));
-      if (!hasTag) return false;
-    }
-
-    // Subcategory filter: if any selected, at least one item must match
-    if (filtro.subcategorias.length > 0) {
-      const hasSub = c.items.some((i) => i.subcategoria_id && filtro.subcategorias.includes(i.subcategoria_id));
-      if (!hasSub) return false;
-    }
-
-    return true;
-  });
+  return compras.filter((compra) => compra.items.some((item) => itemCumpleFiltros(compra, item, filtro)));
 }
 
 /**
@@ -345,37 +370,16 @@ export function filtrarCompras(compras: Compra[], filtro: FiltroActivo) {
  *   - "solo_franco" → monto_resuelto solo si tipo_reparto === "solo_franco"
  *   - "solo_fabiola" → monto_resuelto solo si tipo_reparto === "solo_fabiola"
  *   - empty → monto_resuelto (todos)
+ *   - multi-select → monto_resuelto (sin doble conteo)
  */
 export function montoFiltrado(compras: Compra[], filtro: FiltroActivo): number {
   let total = 0;
-  const soloFranco = filtro.personas.length === 1 && filtro.personas[0] === "franco";
-  const soloFabiola = filtro.personas.length === 1 && filtro.personas[0] === "fabiola";
-  const soloFrancoOnly = filtro.personas.length === 1 && filtro.personas[0] === "solo_franco";
-  const soloFabiolaOnly = filtro.personas.length === 1 && filtro.personas[0] === "solo_fabiola";
 
   for (const compra of compras) {
     for (const item of compra.items) {
-      // Category filter
-      if (filtro.categorias.length > 0 && (!item.categoria_id || !filtro.categorias.includes(item.categoria_id))) continue;
+      if (!itemCumpleFiltros(compra, item, filtro)) continue;
 
-      // Tag filter
-      const tieneTag =
-        item.etiquetas?.some((e) => filtro.etiquetas.includes(e.id)) ||
-        compra.etiquetas_compra?.some((e) => filtro.etiquetas.includes(e.id));
-      if (filtro.etiquetas.length > 0 && !tieneTag) continue;
-
-      // Subcategory filter
-      if (filtro.subcategorias.length > 0 && (!item.subcategoria_id || !filtro.subcategorias.includes(item.subcategoria_id))) continue;
-
-      // Persona filter
-      let montoItem = item.monto_resuelto;
-      if (soloFranco) montoItem = item.pago_franco;
-      else if (soloFabiola) montoItem = item.pago_fabiola;
-      else if (soloFrancoOnly && item.tipo_reparto !== "solo_franco") continue;
-      else if (soloFabiolaOnly && item.tipo_reparto !== "solo_fabiola") continue;
-      // Both or none = use monto_resuelto
-
-      total += montoItem;
+      total += montoItemSegunPersona(item, filtro.personas);
     }
   }
 
@@ -390,28 +394,10 @@ export function obtenerItemsFiltrados(
   filtro: FiltroActivo,
 ) {
   const items: (Item & { compraFecha: string; compraLugar: string; compraPagador: string })[] = [];
-  const soloFranco = filtro.personas.length === 1 && filtro.personas[0] === "franco";
-  const soloFabiola = filtro.personas.length === 1 && filtro.personas[0] === "fabiola";
-  const soloFrancoOnly = filtro.personas.length === 1 && filtro.personas[0] === "solo_franco";
-  const soloFabiolaOnly = filtro.personas.length === 1 && filtro.personas[0] === "solo_fabiola";
 
   for (const compra of compras) {
     for (const item of compra.items) {
-      if (filtro.categorias.length > 0 && (!item.categoria_id || !filtro.categorias.includes(item.categoria_id))) continue;
-
-      const tieneTag =
-        item.etiquetas?.some((e) => filtro.etiquetas.includes(e.id)) ||
-        compra.etiquetas_compra?.some((e) => filtro.etiquetas.includes(e.id));
-      if (filtro.etiquetas.length > 0 && !tieneTag) continue;
-
-      // Subcategory filter
-      if (filtro.subcategorias.length > 0 && (!item.subcategoria_id || !filtro.subcategorias.includes(item.subcategoria_id))) continue;
-
-      // Persona filter: skip items where the person doesn't apply
-      if (soloFranco && item.pago_franco <= 0) continue;
-      if (soloFabiola && item.pago_fabiola <= 0) continue;
-      if (soloFrancoOnly && item.tipo_reparto !== "solo_franco") continue;
-      if (soloFabiolaOnly && item.tipo_reparto !== "solo_fabiola") continue;
+      if (!itemCumpleFiltros(compra, item, filtro)) continue;
 
       items.push({
         ...item,

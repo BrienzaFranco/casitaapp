@@ -23,7 +23,7 @@ export function Modal({
   if (!abierto) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-on-surface/30 p-4 sm:items-center">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-on-surface/30 p-4 sm:items-center">
       <div className="w-full max-w-sm rounded-lg border border-outline-variant/15 bg-surface-container-lowest p-4 shadow-xl">
         <div className="space-y-1">
           <h3 className="font-headline text-lg font-semibold tracking-tight text-on-surface">{titulo}</h3>
