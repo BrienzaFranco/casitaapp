@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { CompraEditable } from "@/types";
 import {
@@ -19,7 +19,10 @@ export function useOffline(guardarRemoto: (compra: CompraEditable) => Promise<st
     typeof window === "undefined" ? 0 : obtenerComprasPendientes().length,
   );
 
-  const sincronizarPendientes = useEffectEvent(async () => {
+  const guardarRemotoRef = useRef(guardarRemoto);
+  guardarRemotoRef.current = guardarRemoto;
+
+  const sincronizarPendientes = useCallback(async () => {
     const pendientes = obtenerComprasPendientes();
 
     if (!pendientes.length || (typeof navigator !== "undefined" && !navigator.onLine)) {
@@ -32,7 +35,7 @@ export function useOffline(guardarRemoto: (compra: CompraEditable) => Promise<st
 
     for (const compra of pendientes) {
       try {
-        await guardarRemoto(compra);
+        await guardarRemotoRef.current(compra);
         sincronizadas += 1;
       } catch {
         restantes.push(compra);
@@ -47,7 +50,7 @@ export function useOffline(guardarRemoto: (compra: CompraEditable) => Promise<st
     }
 
     return sincronizadas;
-  });
+  }, []);
 
   useEffect(() => {
     function manejarOnline() {
@@ -58,7 +61,7 @@ export function useOffline(guardarRemoto: (compra: CompraEditable) => Promise<st
     return () => {
       window.removeEventListener("online", manejarOnline);
     };
-  }, []);
+  }, [sincronizarPendientes]);
 
   async function guardarConFallback(compra: CompraEditable): Promise<ResultadoGuardado> {
     if (typeof navigator !== "undefined" && !navigator.onLine) {

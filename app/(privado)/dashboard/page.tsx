@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, Download, Plus, TrendingUp, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { formatearPeso, formatearPorcentaje } from "@/lib/formatear";
-import { mesClave, fechaLocalISO } from "@/lib/utiles";
+import { formatearPeso, formatearPorcentaje, formatearMesLabel, formatearMesCorto } from "@/lib/formatear";
+import { mesClave, fechaLocalISO, hexToRgba } from "@/lib/utiles";
 import { exportarExcel } from "@/lib/exportar";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
@@ -25,26 +25,6 @@ import {
 import { DeltaBadge } from "@/components/dashboard/DeltaBadge";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function formatearMesLabel(mes: string): string {
-  const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-  const [anio, mesNum] = mes.split("-");
-  return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
-}
-
-function formatearMesCorto(mes: string): string {
-  const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-  const [anio, mesNum] = mes.split("-");
-  return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
-}
-
-function hexToRgba(hex: string, alpha: number): string {
-  const c = hex.replace("#", "");
-  const r = parseInt(c.substring(0, 2), 16);
-  const g = parseInt(c.substring(2, 4), 16);
-  const b = parseInt(c.substring(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 

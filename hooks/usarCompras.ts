@@ -205,3 +205,19 @@ export function useCompras(opciones: OpcionesCompras = {}) {
 }
 
 export const usarCompras = useCompras;
+
+export function useDraftCount() {
+  return useQuery<number>({
+    queryKey: ["draftCount"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("compras")
+        .select("id", { count: "exact", head: true })
+        .eq("estado", "borrador");
+      if (error) throw error;
+      return count ?? 0;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+}

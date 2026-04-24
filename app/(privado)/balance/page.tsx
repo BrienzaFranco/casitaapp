@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Download, ChevronDown, ChevronRight, X, Eye } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -82,102 +82,107 @@ export default function PaginaBalance() {
   const ultimoCorte = balance.cortes.corteActivo;
   const fechaDesde = ultimoCorte?.fecha_corte ?? null;
 
-  const comprasPeriodoActual = balance.compras.compras.filter(c => {
-    if (c.estado === "borrador") return false;
-    if (!fechaDesde) return true;
-    return c.fecha > fechaDesde; // estrictamente despues del corte
-  });
+  const comprasPeriodoActual = useMemo(
+    () => balance.compras.compras.filter(c => {
+      if (c.estado === "borrador") return false;
+      if (!fechaDesde) return true;
+      return c.fecha > fechaDesde;
+    }),
+    [balance.compras.compras, fechaDesde]
+  );
 
-  // Calcular totales: quien pago realmente vs quien deberia haber pagado
-  let totalFrancoPago = 0;  // Lo que Franco efectivamente puso
-  let totalFabiolaPago = 0; // Lo que Fabiola efectivamente puso
-  let francoCorresponde = 0; // Lo que le corresponde a Franco pagar
-  let fabiolaCorresponde = 0; // Lo que le corresponde a Fabiola pagar
+  // Totales y deuda neta
+  const { totalFrancoPago, totalFabiolaPago, francoCorresponde, fabiolaCorresponde,
+    fabiolaDebeAFranco, francoDebeAFabiola } = useMemo(() => {
+    let tpFranco = 0, tpFabiola = 0, fcCorresponde = 0, fbCorresponde = 0;
 
-  for (const compra of comprasPeriodoActual) {
-    for (const item of compra.items) {
-      francoCorresponde += item.pago_franco;
-      fabiolaCorresponde += item.pago_fabiola;
-
-      if (compra.pagador_general === "franco") totalFrancoPago += item.monto_resuelto;
-      else if (compra.pagador_general === "fabiola") totalFabiolaPago += item.monto_resuelto;
-      else { totalFrancoPago += item.pago_franco; totalFabiolaPago += item.pago_fabiola; }
-    }
-  }
-
-  // Deuda neta: diferencia entre lo que pago y lo que le corresponde
-  // Si Franco pago $100 y le correspondia $80 → Fabiola le debe $20
-  // Si Franco pago $80 y le correspondia $100 → Franco le debe $20
-  const diffFranco = totalFrancoPago - francoCorresponde; // positivo = Franco pago de mas
-  const diffFabiola = totalFabiolaPago - fabiolaCorresponde; // positivo = Fabiola pago de mas
-
-  let fabiolaDebeAFranco = 0;
-  let francoDebeAFabiola = 0;
-
-  if (diffFranco > 0.01 && diffFabiola < -0.01) {
-    // Franco pago de mas, Fabiola pago de menos → Fabiola debe
-    fabiolaDebeAFranco = Math.min(diffFranco, Math.abs(diffFabiola));
-  } else if (diffFabiola > 0.01 && diffFranco < -0.01) {
-    // Fabiola pago de mas, Franco pago de menos → Franco debe
-    francoDebeAFabiola = Math.min(diffFabiola, Math.abs(diffFranco));
-  }
-
-  // Construir items de deuda para el analisis detallado
-  const itemsDeuda: ItemDeuda[] = [];
-  for (const compra of comprasPeriodoActual) {
-    for (const item of compra.items) {
-      let francoDebe = 0;
-      let fabiolaDebe = 0;
-
-      if (compra.pagador_general === "franco") {
-        if (item.tipo_reparto === "solo_fabiola") fabiolaDebe = item.monto_resuelto;
-        else if (item.tipo_reparto === "50/50") fabiolaDebe = item.pago_fabiola;
-      } else if (compra.pagador_general === "fabiola") {
-        if (item.tipo_reparto === "solo_franco") francoDebe = item.monto_resuelto;
-        else if (item.tipo_reparto === "50/50") francoDebe = item.pago_franco;
-      } else {
-        if (item.tipo_reparto === "solo_franco") francoDebe = item.monto_resuelto * 0.5;
-        else if (item.tipo_reparto === "solo_fabiola") fabiolaDebe = item.monto_resuelto * 0.5;
-      }
-
-      if (francoDebe > 0.01 || fabiolaDebe > 0.01) {
-        itemsDeuda.push({
-          compraId: compra.id,
-          compraFecha: compra.fecha,
-          compraLugar: compra.nombre_lugar || "Sin lugar",
-          itemDescripcion: item.descripcion || "Sin detalle",
-          itemMonto: item.monto_resuelto,
-          itemCategoria: item.categoria?.nombre ?? "Sin categoria",
-          itemSubcategoria: item.subcategoria?.nombre ?? "",
-          correspondeA: item.tipo_reparto === "solo_franco" ? "franco" : item.tipo_reparto === "solo_fabiola" ? "fabiola" : "ambos",
-          pagoFranco: item.pago_franco,
-          pagoFabiola: item.pago_fabiola,
-          pagadorGeneral: compra.pagador_general,
-          francoDebe,
-          fabiolaDebe,
-        });
+    for (const compra of comprasPeriodoActual) {
+      for (const item of compra.items) {
+        fcCorresponde += item.pago_franco;
+        fbCorresponde += item.pago_fabiola;
+        if (compra.pagador_general === "franco") tpFranco += item.monto_resuelto;
+        else if (compra.pagador_general === "fabiola") tpFabiola += item.monto_resuelto;
+        else { tpFranco += item.pago_franco; tpFabiola += item.pago_fabiola; }
       }
     }
-  }
 
-  // Analisis con checkboxes - calculo por pago vs corresponde
-  const checkedItems = itemsDeuda.filter((_, i) => itemsChecked.has(String(i)));
-  const checkedFrancoPago = checkedItems.reduce((a, i) => {
-    if (i.pagadorGeneral === "franco") return a + i.itemMonto;
-    if (i.pagadorGeneral === "compartido") return a + i.pagoFranco;
-    return a;
-  }, 0);
-  const checkedFabiolaPago = checkedItems.reduce((a, i) => {
-    if (i.pagadorGeneral === "fabiola") return a + i.itemMonto;
-    if (i.pagadorGeneral === "compartido") return a + i.pagoFabiola;
-    return a;
-  }, 0);
-  const checkedFrancoCorresponde = checkedItems.reduce((a, i) => a + i.pagoFranco, 0);
-  const checkedFabiolaCorresponde = checkedItems.reduce((a, i) => a + i.pagoFabiola, 0);
-  const checkedDiffFranco = checkedFrancoPago - checkedFrancoCorresponde;
-  const checkedDiffFabiola = checkedFabiolaPago - checkedFabiolaCorresponde;
-  const checkedFabiolaDebeA = checkedDiffFranco > 0.01 ? checkedDiffFranco : 0;
-  const checkedFrancoDebeA = checkedDiffFabiola > 0.01 ? checkedDiffFabiola : 0;
+    const dFranco = tpFranco - fcCorresponde;
+    const dFabiola = tpFabiola - fbCorresponde;
+    let fbDebe = 0, fDebe = 0;
+
+    if (dFranco > 0.01 && dFabiola < -0.01) {
+      fbDebe = Math.min(dFranco, Math.abs(dFabiola));
+    } else if (dFabiola > 0.01 && dFranco < -0.01) {
+      fDebe = Math.min(dFabiola, Math.abs(dFranco));
+    }
+
+    return {
+      totalFrancoPago: tpFranco, totalFabiolaPago: tpFabiola,
+      francoCorresponde: fcCorresponde, fabiolaCorresponde: fbCorresponde,
+      fabiolaDebeAFranco: fbDebe, francoDebeAFabiola: fDebe,
+    };
+  }, [comprasPeriodoActual]);
+
+  // Items de deuda para el analisis detallado
+  const itemsDeuda = useMemo(() => {
+    const items: ItemDeuda[] = [];
+    for (const compra of comprasPeriodoActual) {
+      for (const item of compra.items) {
+        let francoDebe = 0, fabiolaDebe = 0;
+        if (compra.pagador_general === "franco") {
+          if (item.tipo_reparto === "solo_fabiola") fabiolaDebe = item.monto_resuelto;
+          else if (item.tipo_reparto === "50/50") fabiolaDebe = item.pago_fabiola;
+        } else if (compra.pagador_general === "fabiola") {
+          if (item.tipo_reparto === "solo_franco") francoDebe = item.monto_resuelto;
+          else if (item.tipo_reparto === "50/50") francoDebe = item.pago_franco;
+        } else {
+          if (item.tipo_reparto === "solo_franco") francoDebe = item.monto_resuelto * 0.5;
+          else if (item.tipo_reparto === "solo_fabiola") fabiolaDebe = item.monto_resuelto * 0.5;
+        }
+        if (francoDebe > 0.01 || fabiolaDebe > 0.01) {
+          items.push({
+            compraId: compra.id, compraFecha: compra.fecha,
+            compraLugar: compra.nombre_lugar || "Sin lugar",
+            itemDescripcion: item.descripcion || "Sin detalle",
+            itemMonto: item.monto_resuelto,
+            itemCategoria: item.categoria?.nombre ?? "Sin categoria",
+            itemSubcategoria: item.subcategoria?.nombre ?? "",
+            correspondeA: item.tipo_reparto === "solo_franco" ? "franco" : item.tipo_reparto === "solo_fabiola" ? "fabiola" : "ambos",
+            pagoFranco: item.pago_franco, pagoFabiola: item.pago_fabiola,
+            pagadorGeneral: compra.pagador_general,
+            francoDebe, fabiolaDebe,
+          });
+        }
+      }
+    }
+    return items;
+  }, [comprasPeriodoActual]);
+
+  // Analisis con checkboxes
+  const { checkedFrancoPago, checkedFabiolaPago, checkedFrancoCorresponde, checkedFabiolaCorresponde,
+    checkedFabiolaDebeA, checkedFrancoDebeA } = useMemo(() => {
+    const checked = itemsDeuda.filter((_, i) => itemsChecked.has(String(i)));
+    const cFrancoPago = checked.reduce((a, i) => {
+      if (i.pagadorGeneral === "franco") return a + i.itemMonto;
+      if (i.pagadorGeneral === "compartido") return a + i.pagoFranco;
+      return a;
+    }, 0);
+    const cFabiolaPago = checked.reduce((a, i) => {
+      if (i.pagadorGeneral === "fabiola") return a + i.itemMonto;
+      if (i.pagadorGeneral === "compartido") return a + i.pagoFabiola;
+      return a;
+    }, 0);
+    const cFrancoCorresponde = checked.reduce((a, i) => a + i.pagoFranco, 0);
+    const cFabiolaCorresponde = checked.reduce((a, i) => a + i.pagoFabiola, 0);
+    const cdFranco = cFrancoPago - cFrancoCorresponde;
+    const cdFabiola = cFabiolaPago - cFabiolaCorresponde;
+    return {
+      checkedFrancoPago: cFrancoPago, checkedFabiolaPago: cFabiolaPago,
+      checkedFrancoCorresponde: cFrancoCorresponde, checkedFabiolaCorresponde: cFabiolaCorresponde,
+      checkedFabiolaDebeA: cdFranco > 0.01 ? cdFranco : 0,
+      checkedFrancoDebeA: cdFabiola > 0.01 ? cdFabiola : 0,
+    };
+  }, [itemsDeuda, itemsChecked]);
 
   async function quedarAManoHoy() {
     try {
@@ -196,8 +201,8 @@ export default function PaginaBalance() {
       });
 
       toast.success("Listo: quedaron a mano.");
-      // Force refresh
-      window.location.reload();
+      balance.cortes.recargar();
+      balance.compras.recargar();
     } catch (error) {
       const msg = error instanceof Error ? error.message : "No se pudo marcar el corte.";
       toast.error(msg);
@@ -298,15 +303,23 @@ export default function PaginaBalance() {
 
       {/* Modal de analisis */}
       {mostrarAnalisis && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center">
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-end md:items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-analisis-titulo"
+          onClick={(e) => { if (e.target === e.currentTarget) setMostrarAnalisis(false); }}
+          onKeyDown={(e) => { if (e.key === "Escape") setMostrarAnalisis(false); }}
+        >
           <div className="bg-surface-container-lowest w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col rounded-t-2xl md:rounded-2xl">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/15">
               <div>
-                <p className="font-label text-[10px] uppercase tracking-widest text-outline">Analizar deuda</p>
+                <p className="font-label text-[10px] uppercase tracking-widest text-outline" id="modal-analisis-titulo">Analizar deuda</p>
                 <p className="font-label text-xs text-on-surface-variant">{itemsDeuda.length} items involucrados</p>
               </div>
               <button type="button" onClick={() => setMostrarAnalisis(false)}
+                aria-label="Cerrar"
                 className="w-8 h-8 flex items-center justify-center rounded text-on-surface-variant hover:bg-surface-container-high transition-colors">
                 <X className="h-5 w-5" />
               </button>

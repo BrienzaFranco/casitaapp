@@ -25,3 +25,16 @@ export function formatearFecha(fechaIso: string) {
 export function formatearPorcentaje(valor: number) {
   return `${formateadorPorcentaje.format(valor)}%`;
 }
+
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const MESES_CORTOS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+export function formatearMesLabel(mes: string): string {
+  const [anio, mesNum] = mes.split("-");
+  return `${MESES[parseInt(mesNum, 10) - 1]} ${anio}`;
+}
+
+export function formatearMesCorto(mes: string): string {
+  const [anio, mesNum] = mes.split("-");
+  return `${MESES_CORTOS[parseInt(mesNum, 10) - 1]} ${anio}`;
+}

@@ -148,6 +148,15 @@ export default function PaginaHistorial() {
           <span className="text-[10px] text-on-surface-variant/40 ml-auto">
             {filtradas.length} {filtradas.length === 1 ? "compra" : "compras"}
           </span>
+          {(filtro.personas.length > 0 || filtro.categorias.length > 0 || filtro.etiquetas.length > 0 || filtro.subcategorias.length > 0) && (
+            <button
+              type="button"
+              onClick={() => setFiltro({ personas: [], categorias: [], etiquetas: [], subcategorias: [] })}
+              className="text-[10px] text-secondary font-medium hover:underline ml-1"
+            >
+              Limpiar filtros
+            </button>
+          )}
         </div>
       </div>
 

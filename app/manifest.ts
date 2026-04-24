@@ -7,9 +7,11 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "App de gastos domesticos para dos usuarios.",
     start_url: "/",
     display: "standalone",
+    orientation: "any",
     background_color: "#f8fafc",
     theme_color: "#2563eb",
     lang: "es-AR",
+    categories: ["finance", "utilities"],
     icons: [
       {
         src: "/icon.svg",

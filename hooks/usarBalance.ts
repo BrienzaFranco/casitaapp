@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   calcularBalance,
@@ -33,21 +33,80 @@ export function useBalance() {
   const cortes = usarSettlementCuts();
   const usuario = usarUsuario();
 
-  const nombres = deducirNombresParticipantes(usuario.perfiles);
-  const comprasMes = filtrarComprasPorMes(compras.compras, mesSeleccionado);
-  const mesAnterior = obtenerMesAnterior(mesSeleccionado);
-  const comprasMesAnterior = mesAnterior ? filtrarComprasPorMes(compras.compras, mesAnterior) : [];
-  const resumenMes = calcularBalance(comprasMes, nombres);
-  const resumenMesAnterior = calcularBalance(comprasMesAnterior, nombres);
-  const variacionMensual = calcularVariacionPeriodo(resumenMes.total, resumenMesAnterior.total);
-  const resumenHistorico = construirBalanceHistorico(compras.compras, nombres);
-  const acumulado = calcularBalance(compras.compras, nombres);
-  const comprasAbiertas = filtrarComprasDesdeFechaExclusiva(compras.compras, cortes.corteActivo?.fecha_corte);
-  const saldoAbierto = calcularBalance(comprasAbiertas, nombres);
-  const categoriasMes = calcularCategoriasMes(comprasMes, categorias.categorias, categorias.subcategorias);
-  const etiquetasMes = calcularEtiquetasMes(comprasMes, categorias.etiquetas);
-  const diasMasGasto = calcularDiasMasGasto(comprasMes);
-  const tendenciaDiariaMes = calcularSerieGastoDiario(comprasMes);
+  const nombres = useMemo(
+    () => deducirNombresParticipantes(usuario.perfiles),
+    [usuario.perfiles]
+  );
+
+  const comprasMes = useMemo(
+    () => filtrarComprasPorMes(compras.compras, mesSeleccionado),
+    [compras.compras, mesSeleccionado]
+  );
+
+  const mesAnterior = useMemo(
+    () => obtenerMesAnterior(mesSeleccionado),
+    [mesSeleccionado]
+  );
+
+  const comprasMesAnterior = useMemo(
+    () => mesAnterior ? filtrarComprasPorMes(compras.compras, mesAnterior) : [],
+    [compras.compras, mesAnterior]
+  );
+
+  const resumenMes = useMemo(
+    () => calcularBalance(comprasMes, nombres),
+    [comprasMes, nombres]
+  );
+
+  const resumenMesAnterior = useMemo(
+    () => calcularBalance(comprasMesAnterior, nombres),
+    [comprasMesAnterior, nombres]
+  );
+
+  const variacionMensual = useMemo(
+    () => calcularVariacionPeriodo(resumenMes.total, resumenMesAnterior.total),
+    [resumenMes.total, resumenMesAnterior.total]
+  );
+
+  const resumenHistorico = useMemo(
+    () => construirBalanceHistorico(compras.compras, nombres),
+    [compras.compras, nombres]
+  );
+
+  const acumulado = useMemo(
+    () => calcularBalance(compras.compras, nombres),
+    [compras.compras, nombres]
+  );
+
+  const comprasAbiertas = useMemo(
+    () => filtrarComprasDesdeFechaExclusiva(compras.compras, cortes.corteActivo?.fecha_corte),
+    [compras.compras, cortes.corteActivo?.fecha_corte]
+  );
+
+  const saldoAbierto = useMemo(
+    () => calcularBalance(comprasAbiertas, nombres),
+    [comprasAbiertas, nombres]
+  );
+
+  const categoriasMes = useMemo(
+    () => calcularCategoriasMes(comprasMes, categorias.categorias, categorias.subcategorias),
+    [comprasMes, categorias.categorias, categorias.subcategorias]
+  );
+
+  const etiquetasMes = useMemo(
+    () => calcularEtiquetasMes(comprasMes, categorias.etiquetas),
+    [comprasMes, categorias.etiquetas]
+  );
+
+  const diasMasGasto = useMemo(
+    () => calcularDiasMasGasto(comprasMes),
+    [comprasMes]
+  );
+
+  const tendenciaDiariaMes = useMemo(
+    () => calcularSerieGastoDiario(comprasMes),
+    [comprasMes]
+  );
 
   function exportar() {
     exportarExcel(comprasMes, resumenMes, resumenHistorico, categoriasMes, etiquetasMes, mesSeleccionado);

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChartColumn, Home, Settings, WalletCards, FileClock, LayoutDashboard, Plus } from "lucide-react";
 import { combinarClases } from "@/lib/utiles";
-import { usarCompras } from "@/hooks/usarCompras";
+import { useDraftCount } from "@/hooks/usarCompras";
 
 const enlacesIzq = [
   { href: "/", etiqueta: "Inicio", icono: Home },
@@ -26,8 +26,7 @@ function estaActiva(pathname: string, href: string) {
 export function NavegacionInferior() {
   const pathname = usePathname();
   const router = useRouter();
-  const compras = usarCompras();
-  const cantBorradores = compras.compras.filter(c => c.estado === "borrador").length;
+  const { data: cantBorradores = 0 } = useDraftCount();
 
   if (pathname === "/anotador-rapido") {
     return null;

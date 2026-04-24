@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { formatearPeso, formatearPorcentaje } from "@/lib/formatear";
+import { hexToRgba } from "@/lib/utiles";
 import type { Compra } from "@/types";
 import type { FiltroActivo } from "./FiltroGlobal";
 import { montoFiltrado } from "./FiltroGlobal";
@@ -50,14 +51,6 @@ export function DistribucionPersona({
   const { franco_corresponde, fabiola_corresponde } = resumenMes;
   const diffFran = franco_corresponde - francoPago;
   const diffFab = fabiola_corresponde - fabiolaPago;
-
-  function hexToRgba(hex: string, alpha: number): string {
-    const c = hex.replace("#", "");
-    const r = parseInt(c.substring(0, 2), 16);
-    const g = parseInt(c.substring(2, 4), 16);
-    const b = parseInt(c.substring(4, 6), 16);
-    return `rgba(${r},${g},${b},${alpha})`;
-  }
 
   return (
     <div className="bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3">

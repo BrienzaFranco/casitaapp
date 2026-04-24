@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { mesClave } from "@/lib/utiles";
+import { formatearMesLabel, formatearMesCorto } from "@/lib/formatear";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { FiltroGlobal, type FiltroActivo, montoFiltrado, filtrarCompras } from "@/components/dashboard/FiltroGlobal";
 import { SelectorPeriodo, type PeriodoActivo, filtrarPorPeriodo } from "@/components/dashboard/SelectorPeriodo";
@@ -118,18 +119,6 @@ export default function PaginaExplorar() {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────
-
-function formatearMesLabel(mes: string): string {
-  const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-  const [anio, mesNum] = mes.split("-");
-  return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
-}
-
-function formatearMesCorto(mes: string): string {
-  const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-  const [anio, mesNum] = mes.split("-");
-  return `${meses[parseInt(mesNum, 10) - 1]} ${anio}`;
-}
 
 function formatearPesoCompacto(valor: number): string {
   if (valor >= 1000000) return `$${(valor / 1000000).toFixed(1)}M`;

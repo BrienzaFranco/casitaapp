@@ -1,4 +1,3 @@
-import { evaluate } from "mathjs";
 import { mesClave, normalizarTexto, nombreLegible } from "@/lib/utiles";
 import type {
   BalanceMensualFila,
@@ -26,13 +25,15 @@ export function evaluarExpresion(expresion: string) {
     throw new Error("La expresion contiene caracteres invalidos.");
   }
 
-  const resultado = evaluate(saneada);
-
-  if (typeof resultado !== "number" || Number.isNaN(resultado)) {
+  try {
+    const resultado = new Function(`return (${saneada})`)() as unknown;
+    if (typeof resultado !== "number" || !Number.isFinite(resultado)) {
+      throw new Error("La expresion no pudo resolverse.");
+    }
+    return Number(resultado.toFixed(2));
+  } catch {
     throw new Error("La expresion no pudo resolverse.");
   }
-
-  return Number(resultado.toFixed(2));
 }
 
 export function calcularReparto(

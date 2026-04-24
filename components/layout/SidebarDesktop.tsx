@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChartColumn, Home, Settings, WalletCards, FileClock, LogOut, LayoutDashboard } from "lucide-react";
 import { combinarClases } from "@/lib/utiles";
-import { usarCompras } from "@/hooks/usarCompras";
+import { useDraftCount } from "@/hooks/usarCompras";
 import { usarUsuario } from "@/hooks/usarUsuario";
 
 const enlaces = [
@@ -23,9 +23,8 @@ function estaActiva(pathname: string, href: string) {
 
 export function SidebarDesktop() {
   const pathname = usePathname();
-  const compras = usarCompras();
+  const { data: cantBorradores = 0 } = useDraftCount();
   const usuario = usarUsuario();
-  const cantBorradores = compras.compras.filter(c => c.estado === "borrador").length;
 
   return (
     <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-56 flex-col bg-surface-container-low border-r border-outline-variant/15 z-40">

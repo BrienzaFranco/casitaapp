@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
@@ -8,17 +9,27 @@ import { deducirNombresParticipantes } from "@/lib/calculos";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarUsuario } from "@/hooks/usarUsuario";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Modal } from "@/components/ui/Modal";
 
 export default function PaginaBorradores() {
   const compras = usarCompras({ cargarInicial: true, incluirBorradores: true });
   const usuario = usarUsuario();
+  const [borradorAEliminar, setBorradorAEliminar] = useState<string | null>(null);
   const nombres = deducirNombresParticipantes(usuario.perfiles);
-  const borradores = compras.compras.filter(c => c.estado === "borrador");
+  const borradores = useMemo(
+    () => compras.compras.filter(c => c.estado === "borrador"),
+    [compras.compras]
+  );
 
   async function eliminar(id: string) {
+    setBorradorAEliminar(null);
     await compras.eliminarCompra(id);
     toast.success("Borrador eliminado");
   }
+
+  const borradorSeleccionado = borradorAEliminar
+    ? borradores.find(b => b.id === borradorAEliminar)
+    : null;
 
   if (compras.cargando) {
     return (
@@ -89,7 +100,7 @@ export default function PaginaBorradores() {
             </Link>
             <button
               type="button"
-              onClick={() => eliminar(b.id)}
+              onClick={() => setBorradorAEliminar(b.id)}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded text-error font-label text-[10px] font-bold uppercase tracking-wider hover:bg-error-container transition-colors"
             >
               <Trash2 className="h-3 w-3" /> Eliminar
@@ -97,6 +108,19 @@ export default function PaginaBorradores() {
           </div>
         </article>
       ))}
+
+      <Modal
+        abierto={!!borradorAEliminar}
+        titulo="Eliminar borrador"
+        descripcion={borradorSeleccionado
+          ? `¿Estás seguro de eliminar "${borradorSeleccionado.nombre_lugar || "Sin lugar"}"? No se puede deshacer.`
+          : "¿Estás seguro de eliminar este borrador?"}
+        confirmacion="Eliminar"
+        cancelacion="Cancelar"
+        cargando={compras.guardando}
+        onConfirmar={() => borradorAEliminar && eliminar(borradorAEliminar)}
+        onCancelar={() => setBorradorAEliminar(null)}
+      />
     </div>
   );
 }
