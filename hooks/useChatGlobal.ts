@@ -34,6 +34,13 @@ interface OpcionesEnviar {
   forceIntent?: ChatResponse["intent"];
 }
 
+export interface ChatSession {
+  id: string;
+  titulo: string;
+  fecha: number;
+  mensajes: MensajeChat[];
+}
+
 interface EstadoChat {
   abierto: boolean;
   mensajes: MensajeChat[];
@@ -46,6 +53,8 @@ interface EstadoChat {
 }
 
 const STORAGE_KEY = "casita_chat_v1";
+const SESSIONS_KEY = "casita_chat_sessions_v1";
+const MAX_SESSIONS = 20;
 
 function cargarDesdeStorage(): Partial<EstadoChat> {
   if (typeof window === "undefined") return {};
@@ -78,6 +87,44 @@ function guardarEnStorage(estado: Pick<EstadoChat, "mensajes" | "borradoresGuard
         ts: Date.now(),
       }),
     );
+  } catch {
+    // best-effort
+  }
+}
+
+function guardarSesion(sesion: ChatSession) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(SESSIONS_KEY);
+    const sesiones: ChatSession[] = raw ? JSON.parse(raw) : [];
+    // Evitar duplicados por id
+    const filtradas = sesiones.filter((s) => s.id !== sesion.id);
+    filtradas.unshift(sesion);
+    const recortadas = filtradas.slice(0, MAX_SESSIONS);
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(recortadas));
+  } catch {
+    // best-effort
+  }
+}
+
+function cargarSesiones(): ChatSession[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(SESSIONS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as ChatSession[];
+  } catch {
+    return [];
+  }
+}
+
+function eliminarSesion(id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(SESSIONS_KEY);
+    if (!raw) return;
+    const sesiones = (JSON.parse(raw) as ChatSession[]).filter((s) => s.id !== id);
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sesiones));
   } catch {
     // best-effort
   }
@@ -121,10 +168,34 @@ export function useChatGlobal() {
   }, []);
 
   const limpiar = useCallback(() => {
-    sessionIdRef.current = `chat-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    // Guardar sesion actual antes de limpiar
+    setEstado((prev) => {
+      if (prev.mensajes.length > 0) {
+        const primerUsuario = prev.mensajes.find((m) => m.role === "user");
+        guardarSesion({
+          id: sessionIdRef.current,
+          titulo: primerUsuario?.text.slice(0, 40) ?? "Conversación",
+          fecha: Date.now(),
+          mensajes: prev.mensajes,
+        });
+      }
+      sessionIdRef.current = `chat-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      return {
+        ...prev,
+        mensajes: [],
+        error: null,
+        draftActual: null,
+        ultimoIntent: null,
+        borradoresGuardados: [],
+      };
+    });
+  }, []);
+
+  const cargarSesion = useCallback((sesion: ChatSession) => {
+    sessionIdRef.current = sesion.id;
     setEstado((prev) => ({
       ...prev,
-      mensajes: [],
+      mensajes: sesion.mensajes,
       error: null,
       draftActual: null,
       ultimoIntent: null,
@@ -165,7 +236,8 @@ export function useChatGlobal() {
           sessionId: sessionIdRef.current,
           history,
           draft: opciones?.draft,
-          previousIntent: opciones?.forceIntent ?? estado.ultimoIntent ?? undefined,
+          previousIntent: estado.ultimoIntent ?? undefined,
+          forceIntent: opciones?.forceIntent ?? undefined,
           context: {
             categorias: opciones?.categorias,
             subcategorias: opciones?.subcategorias,
@@ -299,6 +371,9 @@ export function useChatGlobal() {
     limpiar,
     enviar,
     guardarBorrador,
+    cargarSesion,
+    sesiones: cargarSesiones(),
+    eliminarSesion,
     sessionId: sessionIdRef.current,
   };
 }

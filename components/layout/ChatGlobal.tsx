@@ -21,6 +21,8 @@ import {
   TrendingUp,
   FileClock,
   AlertCircle,
+  History,
+  ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useChatGlobal, type MensajeChat, type BorradorGuardado } from "@/hooks/useChatGlobal";
@@ -112,7 +114,18 @@ export function ChatGlobal() {
   const autoOpenedRef = useRef(false);
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [mostrarHistorial, setMostrarHistorial] = useState(false);
   const swipeRef = useRef<{ startY: number; startTime: number } | null>(null);
+
+  // Cerrar guarda la sesion actual si tiene mensajes
+  const cerrarChat = useCallback(() => {
+    if (chat.mensajes.length > 0) {
+      chat.limpiar();
+    }
+    chat.cerrar();
+    setFullscreen(false);
+    setMostrarHistorial(false);
+  }, [chat]);
 
   // Abrir automáticamente si viene ?chat=open
   useEffect(() => {
@@ -141,16 +154,13 @@ export function ChatGlobal() {
     el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
   }, [input]);
 
-  // Voice recognition → input
+  // Voice recognition → input (reemplaza, no appendea)
   useEffect(() => {
-    if (voice.transcript || voice.interimTranscript) {
-      setInput((prev) => {
-        const base = prev.replace(/\s*\.\.\.$/, "").trim();
-        const text = voice.transcript || voice.interimTranscript;
-        return base ? `${base} ${text}` : text;
-      });
+    if (voice.state === "recording" || voice.state === "done") {
+      const text = voice.transcript + (voice.interimTranscript ? ` ${voice.interimTranscript}` : "");
+      setInput(text.trim());
     }
-  }, [voice.transcript, voice.interimTranscript]);
+  }, [voice.transcript, voice.interimTranscript, voice.state]);
 
   async function handleEnviar(textoOverride?: string) {
     const texto = (textoOverride ?? input).trim();
@@ -197,7 +207,7 @@ export function ChatGlobal() {
           {/* Overlay */}
           <div
             className="absolute inset-0 bg-on-surface/20 backdrop-blur-[2px] transition-opacity"
-            onClick={chat.cerrar}
+            onClick={cerrarChat}
           />
 
           {/* Panel */}
@@ -244,6 +254,13 @@ export function ChatGlobal() {
                 </div>
               </div>
               <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => setMostrarHistorial((v) => !v)}
+                  className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container transition-colors"
+                  title="Historial"
+                >
+                  <History className="h-4 w-4" />
+                </button>
                 {chat.mensajes.length > 0 && (
                   <button
                     onClick={chat.limpiar}
@@ -254,7 +271,7 @@ export function ChatGlobal() {
                   </button>
                 )}
                 <button
-                  onClick={chat.cerrar}
+            onClick={cerrarChat}
                   className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container transition-colors"
                 >
                   <X className="h-5 w-5" />
@@ -262,6 +279,48 @@ export function ChatGlobal() {
               </div>
               </div>
             </div>
+
+            {/* Panel de historial */}
+            {mostrarHistorial && (
+              <div className="border-b border-outline-variant/10 bg-surface-container-low/50 px-4 py-3 animar-aparecer">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-on-surface">Conversaciones</p>
+                  <button
+                    onClick={() => setMostrarHistorial(false)}
+                    className="text-[10px] text-on-surface-variant hover:text-on-surface transition-colors"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+                {chat.sesiones.length === 0 ? (
+                  <p className="text-[11px] text-on-surface-variant/60">No hay conversaciones guardadas.</p>
+                ) : (
+                  <div className="space-y-1 max-h-40 overflow-y-auto scrollbar-hide">
+                    {chat.sesiones.map((sesion) => (
+                      <div key={sesion.id} className="flex items-center gap-2 group">
+                        <button
+                          onClick={() => { chat.cargarSesion(sesion); setMostrarHistorial(false); }}
+                          className="flex-1 text-left px-2 py-1.5 rounded-lg text-xs text-on-surface hover:bg-surface-container-high transition-colors truncate"
+                        >
+                          {sesion.titulo}
+                        </button>
+                        <button
+                          onClick={() => {
+                            chat.eliminarSesion(sesion.id);
+                            // Forzar re-render
+                            setMostrarHistorial(false);
+                            setTimeout(() => setMostrarHistorial(true), 0);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-on-surface-variant/40 hover:text-error transition-opacity"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Mensajes */}
             <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3.5 scrollbar-hide">
@@ -342,6 +401,7 @@ export function ChatGlobal() {
                     else if (t === "Nueva compra") { router.push("/nueva-compra"); chat.cerrar(); }
                     else { handleEnviar(t); }
                   }}
+                  onSetInput={setInput}
                 />
               ))}
 
@@ -417,7 +477,24 @@ interface BurbujaMensajeProps {
   onSugerencia?: (sug: { id: string; label: string; action: string; payload?: string }) => void;
   onGuardarBorrador: (draft: ChatDraftPatch) => void;
   onEnviarSugerencia?: (texto: string) => void;
+  onSetInput?: (texto: string) => void;
 }
+
+const CONSULTAS_RAPIDAS = [
+  { label: "¿Cuánto gastamos este mes?", texto: "¿Cuánto gastamos este mes?" },
+  { label: "¿Le debo algo a Fabiola?", texto: "¿Le debo algo a Fabiola?" },
+  { label: "Top gastos", texto: "Top gastos del mes" },
+  { label: "Últimas compras", texto: "Últimas compras" },
+  { label: "Presupuestos", texto: "¿Cómo van los presupuestos?" },
+  { label: "Borradores", texto: "¿Qué borradores tengo?" },
+];
+
+const PLANTILLAS_REGISTRO = [
+  { label: "Pago Franco, compartido", texto: "Pago Franco, es compartido: " },
+  { label: "Pago Fabiola, compartido", texto: "Pago Fabiola, es compartido: " },
+  { label: "Pago Franco, solo mío", texto: "Pago Franco, es solo para mí: " },
+  { label: "Pago Fabiola, solo de ella", texto: "Pago Fabiola, es solo para ella: " },
+];
 
 function BurbujaMensaje({
   mensaje,
@@ -430,9 +507,11 @@ function BurbujaMensaje({
   onSugerencia,
   onGuardarBorrador,
   onEnviarSugerencia,
+  onSetInput,
 }: BurbujaMensajeProps) {
   const esUsuario = mensaje.role === "user";
   const esError = mensaje.text.startsWith("Error:");
+  const [clarifExpandida, setClarifExpandida] = useState<"consulta" | "registro" | null>(null);
 
   const borradorYaGuardado = mensaje.draftPatch
     ? borradoresGuardados.find((b) => b.mensajeId === mensaje.id)
@@ -519,12 +598,70 @@ function BurbujaMensaje({
             {mensaje.sugerencias.map((sug) => (
               <button
                 key={sug.id}
-                onClick={() => onSugerencia?.(sug)}
+                onClick={() => {
+                  if (sug.action === "consulta") {
+                    setClarifExpandida("consulta");
+                  } else if (sug.action === "registro") {
+                    setClarifExpandida("registro");
+                  } else {
+                    onSugerencia?.(sug);
+                  }
+                }}
                 className="rounded-full border border-secondary/30 bg-secondary-container/30 px-3 py-1.5 text-xs font-medium text-secondary hover:bg-secondary-container/50 transition-colors"
               >
                 {sug.label}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Opciones expandidas de clarificacion */}
+        {clarifExpandida === "consulta" && (
+          <div className="rounded-xl border border-secondary/15 bg-secondary-container/10 p-2.5 space-y-2 animar-aparecer">
+            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant/60">¿Qué querés consultar?</p>
+            <div className="flex flex-wrap gap-1.5">
+              {CONSULTAS_RAPIDAS.map((q) => (
+                <button
+                  key={q.label}
+                  onClick={() => onSugerencia?.({ id: q.label, label: q.label, action: "consulta", payload: q.texto })}
+                  className="rounded-full border border-outline-variant/20 bg-surface-container px-2.5 py-1 text-[11px] font-medium text-on-surface hover:bg-surface-container-high transition-colors"
+                >
+                  {q.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setClarifExpandida(null)}
+              className="text-[10px] text-on-surface-variant/50 hover:text-on-surface-variant transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+
+        {clarifExpandida === "registro" && (
+          <div className="rounded-xl border border-secondary/15 bg-secondary-container/10 p-2.5 space-y-2 animar-aparecer">
+            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant/60">¿Quién pagó y cómo se divide?</p>
+            <div className="flex flex-wrap gap-1.5">
+              {PLANTILLAS_REGISTRO.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => {
+                    onSetInput?.(p.texto);
+                    setClarifExpandida(null);
+                  }}
+                  className="rounded-full border border-outline-variant/20 bg-surface-container px-2.5 py-1 text-[11px] font-medium text-on-surface hover:bg-surface-container-high transition-colors"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setClarifExpandida(null)}
+              className="text-[10px] text-on-surface-variant/50 hover:text-on-surface-variant transition-colors"
+            >
+              Cancelar
+            </button>
           </div>
         )}
 

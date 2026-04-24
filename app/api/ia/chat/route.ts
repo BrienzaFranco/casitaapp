@@ -315,9 +315,13 @@ function construirPrompt(params: {
   subs: string;
   mesActual: string;
   previousIntent?: ChatIntent | null;
+  forceIntent?: ChatIntent | null;
 }) {
   const contextoPrevio = params.previousIntent
     ? `\nCONTEXTO PREVIO: El usuario acaba de hacer una accion de tipo "${params.previousIntent}". Si el nuevo mensaje es corto o ambiguo, asumi que sigue en el mismo flujo.`
+    : "";
+  const intentForzado = params.forceIntent
+    ? `\nINTENT FORZADO: El usuario ya confirmó que quiere "${params.forceIntent}". NO uses clarificacion. Directamente procesá como "${params.forceIntent}".`
     : "";
   const promptBase = `Sos el asistente de CasitaApp, una app de gastos domesticos entre Franco y Fabiola.
 Respondes SOLO con JSON valido (sin markdown, sin backticks).
@@ -372,7 +376,18 @@ REGLAS DE TOOLS:
 
 REGISTRO (solo si intent=registro):
 - draftPatch: {lugar, pagador, reparto, total, items: [{descripcion, monto, categoria_id, subcategoria_id}]}
-- Siempre guardamos como borrador`;
+- SIEMPRE guardamos como borrador
+
+DIFERENCIA CLAVE entre pagador y reparto (son independientes):
+- pagador = QUIEN pagó físicamente en ese momento (franco | fabiola | compartido)
+- reparto = COMO se divide el gasto entre los dos (50/50 | solo_franco | solo_fabiola)
+- Ejemplos:
+  * "Lo pagó Franco pero es compartido" → pagador: "franco", reparto: "50/50"
+  * "Pago Fabiola y es solo para ella" → pagador: "fabiola", reparto: "solo_fabiola"
+  * "Pagamos entre los dos" → pagador: "compartido", reparto: "50/50"
+  * "Gasté 10k yo solo" → pagador: "franco", reparto: "solo_franco"
+- NUNCA inferir reparto solo desde pagador. Si el usuario dice "pago Fabiola" sin aclarar reparto, dejar reparto null.
+- Si el usuario dice "compartido", "entre los dos", "a medias" → reparto: "50/50" sin importar quien pagó.`;
 
   return promptBase + promptTools + promptReglas + promptToolsUso + promptRegistro + `
 
@@ -380,7 +395,7 @@ CATALOGO:
 Categorias: ${params.cats}
 Subcategorias: ${params.subs}
 
-MES ACTUAL: ${params.mesActual}${contextoPrevio}
+MES ACTUAL: ${params.mesActual}${contextoPrevio}${intentForzado}
 
 FORMATO JSON:
 {
@@ -629,7 +644,10 @@ export async function POST(request: Request) {
   const { resumenCats, resumenSubs } = obtenerResumenCatalogo(cats, subs);
 
   // Forzar intent por prefijo (/gasto, /consulta)
-  const intentForzado = forzarIntentPorPrefijo(message);
+  const intentForzadoPrefijo = forzarIntentPorPrefijo(message);
+  // Forzar intent por parametro explicito del frontend
+  const intentForzadoBody = body.forceIntent;
+  const hayIntentForzado = intentForzadoBody || intentForzadoPrefijo;
 
   const draftDeterministico = await construirDraftDeterministico(cliente, message, cats, subs);
 
@@ -638,6 +656,7 @@ export async function POST(request: Request) {
     subs: resumenSubs,
     mesActual,
     previousIntent: body.previousIntent,
+    forceIntent: intentForzadoBody ?? undefined,
   });
 
   const history = sanitizarHistory(body.history);
@@ -699,17 +718,22 @@ export async function POST(request: Request) {
     } satisfies Partial<ChatResponse>);
   }
 
-  let intent = inferirIntent(raw);
+  let intent: ChatIntent = inferirIntent(raw);
 
   // Aplicar prefijo forzado si existe
-  if (intentForzado) {
-    intent = intentForzado;
-  } else if (intent === "conversacion" && draftDeterministico && pareceMensajeRegistro(message)) {
+  if (intentForzadoPrefijo) {
+    intent = intentForzadoPrefijo;
+  } else if (!hayIntentForzado && intent === "conversacion" && draftDeterministico && pareceMensajeRegistro(message)) {
     intent = "registro";
   }
 
-  // Detectar ambiguedad y forzar clarificacion
-  if (!intentForzado && esAmbiguo(message, intent, draftDeterministico)) {
+  // Forzar por body si vino explicito (tiene prioridad sobre todo)
+  if (intentForzadoBody) {
+    intent = intentForzadoBody;
+  }
+
+  // Detectar ambiguedad y forzar clarificacion (solo si no vino forzado)
+  if (!hayIntentForzado && esAmbiguo(message, intent, draftDeterministico)) {
     intent = "clarificacion";
   }
 

@@ -185,6 +185,8 @@ export interface ChatRequest {
   draft?: unknown;
   mode?: "rapido" | "completo";
   previousIntent?: ChatIntent;
+  /** Fuerza la intención directamente, saltando clasificación */
+  forceIntent?: ChatIntent;
   context?: {
     categorias?: Array<{ id: string; nombre: string }>;
     subcategorias?: Array<{ id: string; categoria_id: string; nombre: string }>;

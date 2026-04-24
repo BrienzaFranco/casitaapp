@@ -271,21 +271,29 @@ function extraerLugar(texto: string): string {
 
 function extraerPagador(texto: string): PagadorCompra | null {
   const n = normalizarTexto(texto);
-  if (/\b(pago|pague|paga)\s+franco\b/.test(n)) return "franco";
-  if (/\b(pago|pague|paga)\s+(fabiola|fabi)\b/.test(n)) return "fabiola";
-  if (/\b(lo\s+pago|pago)\s+franco\b/.test(n)) return "franco";
-  if (/\b(lo\s+pago|pago)\s+(fabiola|fabi)\b/.test(n)) return "fabiola";
-  if (/\b(pagamos|pago compartido|pagaron ambos)\b/.test(n)) return "compartido";
-  if (/\b(franco)\b/.test(n) && !/\b(fabiola|fabi)\b/.test(n)) return "franco";
-  if (/\b(fabiola|fabi)\b/.test(n) && !/\b(franco)\b/.test(n)) return "fabiola";
+  // Frases explícitas de "quién pagó" (más específicas primero)
+  if (/\b(lo\s+pago|lo\s+pag[oó]|pago)\s+franco\b/.test(n)) return "franco";
+  if (/\b(lo\s+pago|lo\s+pag[oó]|pago)\s+(fabiola|fabi)\b/.test(n)) return "fabiola";
+  if (/\b(pago|pague|pag[ué])\s+franco\b/.test(n)) return "franco";
+  if (/\b(pago|pague|pag[ué])\s+(fabiola|fabi)\b/.test(n)) return "fabiola";
+  if (/\b(pagamos|pagaron ambos|pago\s+compartido)\b/.test(n)) return "compartido";
+  // Fallback por nombre mencionado (solo si no hay reparto explícito que contradiga)
+  const tieneRepartoCompartido = /\b(50\/50|mitad|a medias|compartido|entre los dos|ambos)\b/.test(n);
+  if (!tieneRepartoCompartido) {
+    if (/\b(franco)\b/.test(n) && !/\b(fabiola|fabi)\b/.test(n)) return "franco";
+    if (/\b(fabiola|fabi)\b/.test(n) && !/\b(franco)\b/.test(n)) return "fabiola";
+  }
   return null;
 }
 
 function extraerReparto(texto: string): TipoReparto | null {
   const n = normalizarTexto(texto);
-  if (/\b(50\/50|mitad|a medias|compartido|entre los dos|ambos)\b/.test(n)) return "50/50";
-  if (/\b(solo franco|todo franco|a cargo franco|lo asume franco)\b/.test(n)) return "solo_franco";
-  if (/\b(solo fabiola|solo fabi|todo fabiola|todo fabi|a cargo fabiola|a cargo fabi)\b/.test(n)) return "solo_fabiola";
+  // Compartido / 50/50 — palabras que indican división
+  if (/\b(50\/50|mitad|a medias|compartido|entre los dos|ambos|lo compartimos|compartimos)\b/.test(n)) return "50/50";
+  // Solo Franco
+  if (/\b(solo franco|todo franco|a cargo franco|lo asume franco|para franco|de franco)\b/.test(n)) return "solo_franco";
+  // Solo Fabiola
+  if (/\b(solo fabiola|solo fabi|todo fabiola|todo fabi|a cargo fabiola|a cargo fabi|lo asume fabi|para fabiola|de fabiola)\b/.test(n)) return "solo_fabiola";
   return null;
 }
 
