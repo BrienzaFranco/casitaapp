@@ -190,11 +190,51 @@ function mezclarDrafts(base: ChatDraftPatch | undefined, parcial: ChatDraftPatch
   };
 }
 
-function pareceMensajeRegistro(message: string) {
+const PREFIX_QUERY = ["/consulta", "/pregunta", "/buscar"];
+const PREFIX_REGISTRO = ["/gasto", "/registro", "/anotar", "/cargar"];
+
+function forzarIntentPorPrefijo(message: string): ChatIntent | null {
+  const lower = message.trim().toLowerCase();
+  if (PREFIX_QUERY.some((p) => lower.startsWith(p + " "))) return "consulta";
+  if (PREFIX_REGISTRO.some((p) => lower.startsWith(p + " "))) return "registro";
+  return null;
+}
+
+function pareceMensajeRegistro(message: string): boolean {
   const texto = normalizar(message);
-  return [
-    "anota", "anota", "anotá", "carga", "cargá", "gaste", "gasté", "compre", "compré", "pague", "pagué",
-  ].some((clave) => texto.includes(normalizar(clave)));
+
+  // Si empieza con signo de interrogacion o palabras de consulta, NO es registro
+  const consultaStarters = [
+    "cuanto", "cuanta", "cuando", "donde", "quien", "como", "cual",
+    "que ", "por que", "hace cuanto", "ultima vez", "ultimo", "ultima",
+    "listado", "lista", "resumen", "estado", "status", "balance", "deuda",
+  ];
+  if (consultaStarters.some((s) => texto.startsWith(s) || texto.includes(" " + s + " "))) {
+    // PERO si tambien tiene palabras fuertes de registro + monto, puede ser registro
+    const tieneMonto = /\d{3,}/.test(message);
+    const tienePagador = ["franco", "fabiola", "compartido", "yo", "vos"].some((p) => texto.includes(p));
+    if (!tieneMonto || !tienePagador) return false;
+  }
+
+  // Keywords de registro
+  const registroKeywords = [
+    "anota", "anotá", "carga", "cargá", "gaste", "gasté",
+    "compre", "compré", "pague", "pagué", "pago ", "fui a ",
+    "compre en ", "gaste en ", "pague en ", "fui al ",
+  ];
+  return registroKeywords.some((clave) => texto.includes(normalizar(clave)));
+}
+
+function esAmbiguo(message: string, intentLlm: ChatIntent, draftDeterministico: ChatDraftPatch | undefined): boolean {
+  // Si el LLM dice conversacion pero hay draft, es ambiguo
+  if (intentLlm === "conversacion" && draftDeterministico && (draftDeterministico.items?.length || draftDeterministico.total)) return true;
+  // Si el LLM dice registro pero no hay draft ni tool calls, puede ser una pregunta mal clasificada
+  if (intentLlm === "registro" && !draftDeterministico) {
+    const texto = normalizar(message);
+    const palabrasConsulta = ["cuanto", "cuando", "donde", "quien", "como", "cual", "que "];
+    if (palabrasConsulta.some((p) => texto.startsWith(p) || texto.includes(" " + p + " "))) return true;
+  }
+  return false;
 }
 
 function extraerTextoUltimaCompra(message: string): string | null {
@@ -274,64 +314,77 @@ function construirPrompt(params: {
   cats: string;
   subs: string;
   mesActual: string;
+  previousIntent?: ChatIntent | null;
 }) {
-  return `Sos el asistente de CasitaApp, una app de gastos domésticos entre Franco y Fabiola.
-Respondés SOLO con JSON válido (sin markdown, sin backticks).
+  const contextoPrevio = params.previousIntent
+    ? `\nCONTEXTO PREVIO: El usuario acaba de hacer una accion de tipo "${params.previousIntent}". Si el nuevo mensaje es corto o ambiguo, asumi que sigue en el mismo flujo.`
+    : "";
+  const promptBase = `Sos el asistente de CasitaApp, una app de gastos domesticos entre Franco y Fabiola.
+Respondes SOLO con JSON valido (sin markdown, sin backticks).
 
 INTENTS:
-- "consulta": el usuario pregunta sobre datos. Devolvé toolCalls con la tool y params.
-- "registro": el usuario quiere anotar un gasto. Devolvé draftPatch.
-- "edicion": el usuario quiere modificar/borrar una compra existente. Devolvé answer explicando qué harías.
-- "edicion_borrador": el usuario quiere editar un borrador pendiente. Devolvé toolCalls con actualizar_borrador.
-- "analisis": el usuario quiere comparar, proyectar o entender tendencias. Devolvé toolCalls.
-- "conversacion": saludo, pregunta general, o algo no relacionado. Solo answer.
+- "consulta": el usuario pregunta sobre datos. Devolve toolCalls con la tool y params.
+- "registro": el usuario quiere anotar un gasto. Devolve draftPatch.
+- "clarificacion": NO SABES si es consulta o registro. Solo devolve answer preguntando al usuario que quiere hacer. NO devuelvas toolCalls ni draftPatch.
+- "edicion": el usuario quiere modificar/borrar una compra existente.
+- "edicion_borrador": el usuario quiere editar un borrador pendiente.
+- "analisis": el usuario quiere comparar, proyectar o entender tendencias.
+- "conversacion": saludo, pregunta general, o algo no relacionado. Solo answer.`;
+
+  const promptTools = `
 
 TOOLS DISPONIBLES (solo para intent consulta/analisis/edicion_borrador):
-- gastos_por_categoria({mes?}) → total por categoría. mes=YYYY-MM, default mes actual
-- gastos_por_mes({año?}) → evolución mensual del año
-- compras_recientes({limite?}) → últimas N compras (max 20)
-- balance_actual() → quién debe cuánto a quién
-- presupuesto_status({mes?}) → % usado vs límite por categoría
-- top_gastos({mes?, limite?}) → los gastos más altos
-- ultima_compra_item({texto}) → última vez que se compró un item o producto
-- buscar_compras({texto, limite?, desde?, hasta?}) → buscar por lugar o descripción, con filtro de fechas opcional
-- items_frecuentes({limite?}) → items más comprados, agrupados por descripción
-- borradores_pendientes() → lista de borradores sin confirmar
-- ejecutar_sql({sql}) → ejecutar SQL directo (solo SELECT). Usar como último recurso si ningún otro tool sirve.
+- gastos_por_categoria({mes?}) → total por categoria
+- gastos_por_mes({año?}) → evolucion mensual
+- compras_recientes({limite?}) → ultimas N compras
+- balance_actual() → quien debe cuanto
+- presupuesto_status({mes?}) → % usado vs limite
+- top_gastos({mes?, limite?}) → gastos mas altos
+- ultima_compra_item({texto}) → ultima vez que compro un item
+- buscar_compras({texto, limite?, desde?, hasta?}) → buscar compras
+- items_frecuentes({limite?}) → items mas comprados
+- borradores_pendientes() → borradores sin confirmar
+- ejecutar_sql({sql}) → SQL directo (solo SELECT)`;
 
-REGLAS:
-- Para "¿cuándo compré X?", "última vez que compré X" o "hace cuánto compré X" → ultima_compra_item
-- Para "¿cuándo compramos X?" o "buscá X" → buscar_compras
-- Para "¿le debo algo a Fabiola?" o "¿quién debe?" → balance_actual
-- Para "¿cuánto gastamos en [categoría]?" → gastos_por_categoria
-- Para "¿cuánto gastamos este mes?" → gastos_por_categoria
-- Para "¿en qué gastamos más?" → top_gastos o gastos_por_categoria
-- Para "¿cómo van los presupuestos?" → presupuesto_status
-- Para comparar meses → gastos_por_mes
-- Para "¿cuántas veces compré X?" o "¿cuánto sale X?" → items_frecuentes
-- Para "¿qué borradores tengo?" → borradores_pendientes
-- Para "cambiá el pagador del último borrador" → intent=edicion_borrador
-- Si menciona un monto + lugar + quién pagó → intent=registro
-- Si el usuario dice "anotá", "cargá", "gasté", "compré" → intent=registro
-- Siempre que puedas, completá datos inferidos (lugar, pagador, categoría)
-- Si hay ambigüedad real, preguntá en answer
-- Para queries complejas que ningún tool cubre → ejecutar_sql (solo SELECT)
-- Si el mensaje parece un gasto, asumí intent=registro aunque falten datos. Mejor devolver un borrador corregible que contestar como charla.
+  const promptReglas = `
+
+REGLAS DE CLASIFICACION:
+- Si empieza con "¿", "cuanto", "cuando", "donde", "quien", "como", "cual", "que ", "hace cuanto" → ES CONSULTA (salvo que tenga monto + pagador + lugar claros)
+- Si tiene monto numerico + lugar + quien pago → ES REGISTRO
+- Si dice "anota", "carga", "gaste", "compre", "pague" SIN signo de pregunta al inicio → ES REGISTRO
+- Si dice "cuanto gaste", "cuanto fue", "cuanto salio" → ES CONSULTA
+- Si no sabes con seguridad, usa "clarificacion" y preguntale al usuario`;
+
+  const promptToolsUso = `
+
+REGLAS DE TOOLS:
+- "¿cuando compre X?", "ultima vez que compre X" → ultima_compra_item
+- "¿cuando compramos X?" → buscar_compras
+- "¿le debo algo a Fabiola?" → balance_actual
+- "¿cuanto gastamos en [categoria]?" → gastos_por_categoria
+- "¿cuanto gastamos este mes?" → gastos_por_categoria
+- "¿en que gastamos mas?" → top_gastos
+- "¿como van los presupuestos?" → presupuesto_status
+- "¿cuantas veces compre X?" → items_frecuentes
+- "¿que borradores tengo?" → borradores_pendientes`;
+
+  const promptRegistro = `
 
 REGISTRO (solo si intent=registro):
-- draftPatch: {lugar, pagador, reparto, total, items: [{descripcion, monto, categoria_id, subcategoria_id, categoria_nombre, subcategoria_nombre}]}
-- Los IDs de categoría/subcategoría deben ser del catálogo. Si no los conocés, usá categoria_nombre/subcategoria_nombre como fallback.
-- Siempre guardamos como borrador (estado=borrador)
+- draftPatch: {lugar, pagador, reparto, total, items: [{descripcion, monto, categoria_id, subcategoria_id}]}
+- Siempre guardamos como borrador`;
 
-CATÁLOGO:
-Categorías: ${params.cats}
-Subcategorías: ${params.subs}
+  return promptBase + promptTools + promptReglas + promptToolsUso + promptRegistro + `
 
-MES ACTUAL: ${params.mesActual}
+CATALOGO:
+Categorias: ${params.cats}
+Subcategorias: ${params.subs}
+
+MES ACTUAL: ${params.mesActual}${contextoPrevio}
 
 FORMATO JSON:
 {
-  "intent": "consulta|registro|edicion|edicion_borrador|analisis|conversacion",
+  "intent": "consulta|registro|clarificacion|edicion|edicion_borrador|analisis|conversacion",
   "answer": "respuesta en lenguaje natural (siempre incluir)",
   "toolCalls": [{"tool": "nombre_tool", "params": {}}],
   "draftPatch": { ... },
@@ -466,7 +519,7 @@ function extraerJsonSeguro(texto: string): ChatLlmResponse | null {
 }
 
 function inferirIntent(raw: ChatLlmResponse): ChatIntent {
-  const validos: ChatIntent[] = ["consulta", "registro", "edicion", "edicion_borrador", "analisis", "conversacion"];
+  const validos: ChatIntent[] = ["consulta", "registro", "clarificacion", "edicion", "edicion_borrador", "analisis", "conversacion"];
   if (raw.intent && validos.includes(raw.intent)) return raw.intent;
   if (raw.toolCalls && raw.toolCalls.length > 0) return "consulta";
   if (raw.draftPatch?.items && raw.draftPatch.items.length > 0) return "registro";
@@ -575,12 +628,16 @@ export async function POST(request: Request) {
 
   const { resumenCats, resumenSubs } = obtenerResumenCatalogo(cats, subs);
 
+  // Forzar intent por prefijo (/gasto, /consulta)
+  const intentForzado = forzarIntentPorPrefijo(message);
+
   const draftDeterministico = await construirDraftDeterministico(cliente, message, cats, subs);
 
   const promptSistema = construirPrompt({
     cats: resumenCats,
     subs: resumenSubs,
     mesActual,
+    previousIntent: body.previousIntent,
   });
 
   const history = sanitizarHistory(body.history);
@@ -643,8 +700,17 @@ export async function POST(request: Request) {
   }
 
   let intent = inferirIntent(raw);
-  if (intent === "conversacion" && draftDeterministico && pareceMensajeRegistro(message)) {
+
+  // Aplicar prefijo forzado si existe
+  if (intentForzado) {
+    intent = intentForzado;
+  } else if (intent === "conversacion" && draftDeterministico && pareceMensajeRegistro(message)) {
     intent = "registro";
+  }
+
+  // Detectar ambiguedad y forzar clarificacion
+  if (!intentForzado && esAmbiguo(message, intent, draftDeterministico)) {
+    intent = "clarificacion";
   }
 
   // Ejecutar tools si hay
@@ -722,7 +788,16 @@ export async function POST(request: Request) {
   }
 
   if (!answerFinal) {
-    answerFinal = "¿En qué te puedo ayudar?";
+    answerFinal = "¿En que te puedo ayudar?";
+  }
+
+  // Si es clarificacion, agregar sugerencias para el usuario
+  let sugerencias: ChatResponse["sugerencias"] = undefined;
+  if (intent === "clarificacion") {
+    sugerencias = [
+      { id: "consulta", label: "Quiero consultar datos", action: "consulta", payload: message },
+      { id: "registro", label: "Quiero anotar un gasto", action: "registro", payload: message },
+    ];
   }
 
   const respuesta: ChatResponse = {
@@ -731,6 +806,7 @@ export async function POST(request: Request) {
     toolResults: toolResults.length > 0 ? toolResults : undefined,
     draftPatch,
     warnings: raw.warnings,
+    sugerencias,
     model: modelo,
     meta: {
       sessionId,

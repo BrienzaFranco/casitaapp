@@ -3,7 +3,7 @@ import { calcularReparto } from "@/lib/calculos";
 import { fechaLocalISO } from "@/lib/utiles";
 
 // ─── Intents del chat global ───────────────────────────────────────
-export type ChatIntent = "consulta" | "registro" | "edicion" | "edicion_borrador" | "analisis" | "conversacion";
+export type ChatIntent = "consulta" | "registro" | "edicion" | "edicion_borrador" | "analisis" | "conversacion" | "clarificacion";
 
 // ─── Tools de datos disponibles ────────────────────────────────────
 export type ToolName =
@@ -139,6 +139,13 @@ export interface ChatLlmResponse {
 }
 
 // ─── Respuesta final del endpoint al cliente ───────────────────────
+export interface ChatSugerencia {
+  id: string;
+  label: string;
+  action: "consulta" | "registro" | "reintentar";
+  payload?: string;
+}
+
 export interface ChatResponse {
   intent: ChatIntent;
   answer: string;
@@ -147,6 +154,7 @@ export interface ChatResponse {
   operations?: unknown[];
   resolution?: unknown;
   warnings?: string[];
+  sugerencias?: ChatSugerencia[];
   model?: string;
   error?: {
     code: string;
@@ -176,6 +184,7 @@ export interface ChatRequest {
   // Para flujo de registro
   draft?: unknown;
   mode?: "rapido" | "completo";
+  previousIntent?: ChatIntent;
   context?: {
     categorias?: Array<{ id: string; nombre: string }>;
     subcategorias?: Array<{ id: string; categoria_id: string; nombre: string }>;

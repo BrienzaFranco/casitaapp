@@ -16,6 +16,7 @@ export interface MensajeChat {
   toolResults?: ChatResponse["toolResults"];
   draftPatch?: ChatDraftPatch;
   warnings?: string[];
+  sugerencias?: ChatResponse["sugerencias"];
 }
 
 export interface BorradorGuardado {
@@ -30,6 +31,7 @@ interface OpcionesEnviar {
   categorias?: Array<{ id: string; nombre: string }>;
   subcategorias?: Array<{ id: string; categoria_id: string; nombre: string }>;
   draft?: unknown;
+  forceIntent?: ChatResponse["intent"];
 }
 
 interface EstadoChat {
@@ -163,6 +165,7 @@ export function useChatGlobal() {
           sessionId: sessionIdRef.current,
           history,
           draft: opciones?.draft,
+          previousIntent: opciones?.forceIntent ?? estado.ultimoIntent ?? undefined,
           context: {
             categorias: opciones?.categorias,
             subcategorias: opciones?.subcategorias,
@@ -187,6 +190,7 @@ export function useChatGlobal() {
         toolResults: data.toolResults,
         draftPatch: data.draftPatch,
         warnings: data.warnings,
+        sugerencias: data.sugerencias,
       };
 
       setEstado((prev) => ({
@@ -216,7 +220,7 @@ export function useChatGlobal() {
       }));
       return null;
     }
-  }, [estado.mensajes]);
+  }, [estado.mensajes, estado.ultimoIntent]);
 
   const guardarBorrador = useCallback(async (
     draft: ChatDraftPatch,

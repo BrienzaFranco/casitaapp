@@ -223,6 +223,14 @@ export function ChatGlobal() {
                     const textoOrigen = msg.sourceUserText;
                     if (textoOrigen) handleEnviar(textoOrigen);
                   }}
+                  onSugerencia={(sug) => {
+                    if (sug.action === "consulta" || sug.action === "registro") {
+                      // Reenviar el mensaje original con el intent forzado
+                      chat.enviar(sug.payload ?? msg.sourceUserText ?? msg.text, {
+                        forceIntent: sug.action,
+                      });
+                    }
+                  }}
                   onGuardarBorrador={async (draft) => {
                     const compraId = await chat.guardarBorrador(
                       draft,
@@ -308,6 +316,7 @@ interface BurbujaMensajeProps {
   copiadoId: string | null;
   onCopiar: () => void;
   onReintentar?: () => void;
+  onSugerencia?: (sug: { id: string; label: string; action: string; payload?: string }) => void;
   onGuardarBorrador: (draft: ChatDraftPatch) => void;
 }
 
@@ -319,6 +328,7 @@ function BurbujaMensaje({
   copiadoId,
   onCopiar,
   onReintentar,
+  onSugerencia,
   onGuardarBorrador,
 }: BurbujaMensajeProps) {
   const esUsuario = mensaje.role === "user";
@@ -399,6 +409,21 @@ function BurbujaMensaje({
               <p key={i} className="text-xs text-on-error-container flex items-center gap-1">
                 <AlertCircle className="h-3 w-3 shrink-0" /> {w}
               </p>
+            ))}
+          </div>
+        )}
+
+        {/* Sugerencias de clarificacion */}
+        {mensaje.sugerencias && mensaje.sugerencias.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {mensaje.sugerencias.map((sug) => (
+              <button
+                key={sug.id}
+                onClick={() => onSugerencia?.(sug)}
+                className="rounded-full border border-secondary/30 bg-secondary-container/30 px-3 py-1.5 text-xs font-medium text-secondary hover:bg-secondary-container/50 transition-colors"
+              >
+                {sug.label}
+              </button>
             ))}
           </div>
         )}
