@@ -4,10 +4,9 @@ import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import type { CategoriaBalance, Compra, Item } from "@/types";
-import { formatearPeso, formatearPorcentaje, formatearFecha } from "@/lib/formatear";
+import { formatearPeso, formatearFecha } from "@/lib/formatear";
 import { mesClave } from "@/lib/utiles";
 import { DeltaBadge } from "@/components/dashboard/DeltaBadge";
-import { Skeleton } from "@/components/ui/Skeleton";
 
 interface Props {
   categoria: CategoriaBalance;
@@ -15,8 +14,6 @@ interface Props {
   comprasMesAnterior: Compra[];
   todasLasCompras: Compra[];
   nombres: { franco: string; fabiola: string };
-  colorFran: string;
-  colorFabi: string;
   onSubcategoriaClick: (nombre: string, compras: Compra[]) => void;
   onLugarClick: (nombre: string, compras: Compra[]) => void;
   onItemClick: (item: Item, lugar: string, fecha: string, compraId: string) => void;

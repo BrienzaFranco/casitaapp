@@ -9,8 +9,6 @@ interface Props {
   titulo: string;
   compras: Compra[];
   nombres: { franco: string; fabiola: string };
-  colorFran: string;
-  colorFabi: string;
   onItemClick: (item: Item, nombreLugar: string, fechaCompra: string, compraId: string) => void;
 }
 

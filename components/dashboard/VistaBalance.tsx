@@ -136,12 +136,10 @@ export function VistaBalance({
         actualizado_por: nombrePerfil ?? "Sistema",
       });
       toast.success("Listo: quedaron a mano.");
-    } catch (e) {
+    } catch {
       toast.error("No se pudo marcar el corte.");
     }
   }
-
-  const inputClase = "w-full bg-surface-container-low rounded-lg px-3 py-2 text-sm text-on-surface outline-none border border-outline-variant/15 focus:border-secondary/40 transition-colors";
 
   return (
     <div className="space-y-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -11,9 +11,8 @@ import {
   ArrowUpRight,
   FileClock,
 } from "lucide-react";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { formatearPeso, formatearPorcentaje, formatearMesLabel, formatearMesCorto } from "@/lib/formatear";
-import { mesClave, fechaLocalISO, hexToRgba } from "@/lib/utiles";
+import { formatearPeso, formatearMesCorto } from "@/lib/formatear";
+import { mesClave } from "@/lib/utiles";
 import { exportarExcel } from "@/lib/exportar";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
@@ -31,7 +30,7 @@ import {
 import { DeltaBadge } from "@/components/dashboard/DeltaBadge";
 import { DonutCategorias } from "@/components/dashboard/DonutCategorias";
 import { SparklineMes } from "@/components/dashboard/SparklineMes";
-import type { CategoriaBalance, Compra, Item } from "@/types";
+import type { CategoriaBalance, Item } from "@/types";
 
 interface Callbacks {
   onCategoriaClick: (cat: CategoriaBalance) => void;
@@ -51,10 +50,8 @@ export function VistaOverview({ callbacks, filtro, setFiltro, periodo, setPeriod
   const balance = usarBalance();
   const config = usarConfiguracion();
   const colorFran = config.colores.franco;
-  const colorFabi = config.colores.fabiola;
 
   const mesAnterior = obtenerMesAnterior(balance.mesSeleccionado);
-  const mesAnteriorLabel = mesAnterior ? formatearMesCorto(mesAnterior) : "";
 
   const comprasPeriodo = useMemo(() => {
     if (periodo.tipo === "este-mes") return balance.comprasMes;
@@ -113,7 +110,7 @@ export function VistaOverview({ callbacks, filtro, setFiltro, periodo, setPeriod
       {/* Header sticky */}
       <div className="flex items-center justify-between gap-2">
         <h1 className="font-headline text-lg font-semibold tracking-tight text-on-surface">Dashboard</h1>
-        <SelectorPeriodo periodo={periodo} setPeriodo={setPeriodo} mesActualLabel={""} />
+        <SelectorPeriodo periodo={periodo} setPeriodo={setPeriodo} mesActualLabel={formatearMesCorto(balance.mesSeleccionado)} />
       </div>
 
       {/* Filters */}
