@@ -9,6 +9,7 @@ import type {
   RegistroIaItem,
   RegistroIaResultado,
 } from "./contracts";
+import { tipoRepartoDesdePagador } from "./contracts-chat";
 
 const PALABRAS_NUMERO = new Set([
   "cero",
@@ -573,12 +574,6 @@ export function preguntaSiguiente(faltantes: CampoFaltanteRegistroIa[]): string 
   if (faltantes.includes("items")) return "Decime al menos un item de la compra.";
   if (faltantes.includes("items_sin_monto")) return "Faltan montos por item. ¿Me pasás cuánto costó cada uno?";
   return null;
-}
-
-function tipoRepartoDesdePagador(pagador: PagadorCompra): TipoReparto {
-  if (pagador === "franco") return "solo_franco";
-  if (pagador === "fabiola") return "solo_fabiola";
-  return "50/50";
 }
 
 export function convertirDraftACompraEditable(

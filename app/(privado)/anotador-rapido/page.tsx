@@ -8,7 +8,7 @@ import type { CompraEditable, PagadorCompra, TipoReparto } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
 import { calcularReparto } from "@/lib/calculos";
 import { vibrarExito } from "@/lib/haptics";
-import { fechaLocalISO, mesClave } from "@/lib/utiles";
+import { fechaLocalISO } from "@/lib/utiles";
 import { usarCompras } from "@/hooks/usarCompras";
 import { usarOffline } from "@/hooks/usarOffline";
 import { usarUsuario } from "@/hooks/usarUsuario";
@@ -31,8 +31,6 @@ interface BorradorRapido {
   textoReferencia?: string;
   fuenteEntrada: ModoEntrada;
 }
-
-function hoy() { return fechaLocalISO(); }
 
 function generarIdTemporal() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return `tmp-${crypto.randomUUID()}`;
@@ -232,7 +230,7 @@ export default function PaginaAnotadorRapido() {
 
       const compra: CompraEditable = {
         id: generarIdTemporal(),
-        fecha: hoy(),
+        fecha: fechaLocalISO(),
         nombre_lugar: borrador.lugar || "Sin especificar",
         notas,
         registrado_por: nombrePagador,

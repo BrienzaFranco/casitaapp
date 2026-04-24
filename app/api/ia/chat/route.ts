@@ -16,6 +16,7 @@ import type {
 } from "@/lib/ai/contracts-chat";
 import type { RegistroIaDraft } from "@/lib/ai/contracts";
 import type { PagadorCompra, TipoReparto } from "@/types";
+import { normalizarTexto } from "@/lib/utiles";
 
 const MODELO_DEFAULT = "openai/gpt-4o-mini";
 const CACHE_TTL_MS = 1000 * 60 * 5;
@@ -75,9 +76,6 @@ async function obtenerModelo(): Promise<string> {
 }
 
 // ─── Sanitización ──────────────────────────────────────────────────
-function normalizar(texto: string) {
-  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-}
 
 function sanitizarPagador(v: unknown): PagadorCompra | null {
   return v === "franco" || v === "fabiola" || v === "compartido" ? v : null;
@@ -93,9 +91,9 @@ function resolverCategoriaId(
 ): string {
   if (item.categoria_id && cats.some((c) => c.id === item.categoria_id)) return item.categoria_id;
   if (!item.categoria_nombre) return "";
-  const nombre = normalizar(item.categoria_nombre);
-  const cat = cats.find((c) => normalizar(c.nombre) === nombre)
-    ?? cats.find((c) => normalizar(c.nombre).includes(nombre));
+  const nombre = normalizarTexto(item.categoria_nombre);
+  const cat = cats.find((c) => normalizarTexto(c.nombre) === nombre)
+    ?? cats.find((c) => normalizarTexto(c.nombre).includes(nombre));
   return cat?.id ?? "";
 }
 
@@ -106,10 +104,10 @@ function resolverSubcategoriaId(
 ): string {
   if (item.subcategoria_id && subs.some((s) => s.id === item.subcategoria_id)) return item.subcategoria_id;
   if (!item.subcategoria_nombre) return "";
-  const nombre = normalizar(item.subcategoria_nombre);
+  const nombre = normalizarTexto(item.subcategoria_nombre);
   const candidatas = categoriaId ? subs.filter((s) => s.categoria_id === categoriaId) : subs;
-  const sub = candidatas.find((s) => normalizar(s.nombre) === nombre)
-    ?? candidatas.find((s) => normalizar(s.nombre).includes(nombre));
+  const sub = candidatas.find((s) => normalizarTexto(s.nombre) === nombre)
+    ?? candidatas.find((s) => normalizarTexto(s.nombre).includes(nombre));
   return sub?.id ?? "";
 }
 
@@ -201,7 +199,7 @@ function forzarIntentPorPrefijo(message: string): ChatIntent | null {
 }
 
 function pareceMensajeRegistro(message: string): boolean {
-  const texto = normalizar(message);
+  const texto = normalizarTexto(message);
 
   // Si empieza con signo de interrogacion o palabras de consulta, NO es registro
   const consultaStarters = [
@@ -222,7 +220,7 @@ function pareceMensajeRegistro(message: string): boolean {
     "compre", "compré", "pague", "pagué", "pago ", "fui a ",
     "compre en ", "gaste en ", "pague en ", "fui al ",
   ];
-  return registroKeywords.some((clave) => texto.includes(normalizar(clave)));
+  return registroKeywords.some((clave) => texto.includes(normalizarTexto(clave)));
 }
 
 function esAmbiguo(message: string, intentLlm: ChatIntent, draftDeterministico: ChatDraftPatch | undefined): boolean {
@@ -230,7 +228,7 @@ function esAmbiguo(message: string, intentLlm: ChatIntent, draftDeterministico: 
   if (intentLlm === "conversacion" && draftDeterministico && (draftDeterministico.items?.length || draftDeterministico.total)) return true;
   // Si el LLM dice registro pero no hay draft ni tool calls, puede ser una pregunta mal clasificada
   if (intentLlm === "registro" && !draftDeterministico) {
-    const texto = normalizar(message);
+  const texto = normalizarTexto(message);
     const palabrasConsulta = ["cuanto", "cuando", "donde", "quien", "como", "cual", "que "];
     if (palabrasConsulta.some((p) => texto.startsWith(p) || texto.includes(" " + p + " "))) return true;
   }
@@ -583,11 +581,6 @@ function validarDraftCompleto(draft: ChatDraftPatch | undefined): { completo: bo
   }
 
   return { completo: faltantes.length === 0, faltantes };
-}
-
-/** Genera un nombre de compra por defecto secuencial */
-function generarNombreLugar(index: number): string {
-  return `Compra ${index}`;
 }
 
 // ─── Telemetría ────────────────────────────────────────────────────

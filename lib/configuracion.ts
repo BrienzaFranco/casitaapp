@@ -28,7 +28,7 @@ function setCache<T>(clave: string, valor: T) {
     const cache: Record<string, CacheEntry<T>> = raw ? JSON.parse(raw) : {};
     cache[clave] = { valor, timestamp: Date.now() };
     sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  } catch { /* ignore */ }
+  } catch { /* sessionStorage not available */ }
 }
 
 export async function getConfiguracion<T>(clave: string, fallback: T): Promise<T> {
@@ -83,8 +83,7 @@ export const MODELOS_IA: Array<{ id: string; nombre: string; desc: string; preci
   { id: "anthropic/claude-3-haiku", nombre: "Claude 3 Haiku", desc: "Rápido, buen español, muy seguro. Buena opción intermedia.", precio: "~$0.50/M tokens" },
 ];
 
-/** @deprecated usar MODELOS_IA */
-export const MODELOS_IA_DISPONIBLES = MODELOS_IA.map((m) => m.id) as unknown as readonly string[];
+const MODELOS_IA_IDS = MODELOS_IA.map((m) => m.id);
 
 export async function obtenerColores(): Promise<ColoresPersonas> {
   return getConfiguracion<ColoresPersonas>("colores_personas", { franco: "#3b82f6", fabiola: "#10b981" });
@@ -117,7 +116,7 @@ export async function mostrarLugar(lugar: string, actualizadoPor?: string) {
 }
 
 export async function obtenerModeloIa(): Promise<string> {
-  return getConfiguracion<string>("ia_modelo_openrouter", MODELOS_IA_DISPONIBLES[0]);
+  return getConfiguracion<string>("ia_modelo_openrouter", MODELOS_IA_IDS[0]);
 }
 
 export async function guardarModeloIa(modelo: string, actualizadoPor?: string) {

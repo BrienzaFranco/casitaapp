@@ -22,7 +22,6 @@ import {
   FileClock,
   AlertCircle,
   History,
-  ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useChatGlobal, type MensajeChat, type BorradorGuardado } from "@/hooks/useChatGlobal";

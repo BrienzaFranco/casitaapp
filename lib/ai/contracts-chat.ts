@@ -197,7 +197,7 @@ export interface ChatRequest {
 }
 
 // ─── Conversión ChatDraftPatch → CompraEditable ────────────────────
-function tipoRepartoDesdePagador(pagador: PagadorCompra): TipoReparto {
+export function tipoRepartoDesdePagador(pagador: PagadorCompra): TipoReparto {
   if (pagador === "franco") return "solo_franco";
   if (pagador === "fabiola") return "solo_fabiola";
   return "50/50";

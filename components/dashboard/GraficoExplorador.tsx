@@ -41,12 +41,12 @@ function loadConfig(): ConfigGrafico {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
-  } catch {}
+  } catch { /* localStorage not available */ }
   return { ejeX: "dia", ejeY: "monto", tipo: "barras", desglose: "ninguno" };
 }
 
 function saveConfig(cfg: ConfigGrafico) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch { /* localStorage not available */ }
 }
 
 // ─── Data builder ───────────────────────────────────────────────────────────

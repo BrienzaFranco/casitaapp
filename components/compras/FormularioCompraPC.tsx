@@ -8,7 +8,7 @@ import { fechaLocalISO } from "@/lib/utiles";
 import { cargarMapaLugares, cargarMapaDetalles } from "@/lib/categorizacion";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 
-// ─── Props (same interface as FormularioCompra) ─────────────────────────────
+// ─── Props ──────────────────────────────────────────────────────────────────
 
 interface Props {
   categorias: Categoria[];
@@ -19,13 +19,10 @@ interface Props {
   compraInicial?: CompraEditable | null;
   onGuardar: (compra: CompraEditable) => Promise<void> | void;
   comprasHistoria?: Array<{ nombre_lugar: string; fecha?: string; items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }> }>;
-  onCrearCategoria?: (nombre: string) => Promise<string | null>;
-  onCrearEtiqueta?: (nombre: string) => Promise<string | null>;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function hoy() { return fechaLocalISO(); }
 function genId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return `tmp-${crypto.randomUUID()}`;
   return `tmp-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
@@ -52,7 +49,7 @@ function recalcular(item: ItemEditable) {
 
 function crearCompraInicial(def: string, inicial?: CompraEditable | null, historia: Array<{ nombre_lugar: string; fecha?: string; items: Array<{ descripcion: string; categoria_id: string | null; subcategoria_id: string | null }> }> = []): CompraEditable {
   if (inicial) return { ...inicial, estado: inicial.estado ?? "confirmada", pagador_general: inicial.pagador_general ?? "compartido", etiquetas_compra_ids: inicial.etiquetas_compra_ids ?? [], items: (inicial.items.length ? inicial.items : [itemVacio("compartido")]).map(i => ({ ...i, id: i.id ?? genId(), etiquetas_ids: i.etiquetas_ids ?? [] })) };
-  const ultimaFecha = historia.length > 0 && historia[0].fecha ? historia[0].fecha : hoy();
+  const ultimaFecha = historia.length > 0 && historia[0].fecha ? historia[0].fecha : fechaLocalISO();
   return { fecha: ultimaFecha, nombre_lugar: "", notas: "", registrado_por: def, estado: "confirmada", pagador_general: "compartido", etiquetas_compra_ids: [], items: [itemVacio("compartido")] };
 }
 
@@ -255,7 +252,7 @@ const FilaItem = memo(function FilaItem({ item, index, categorias, subsPorCat, c
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombres, registradoPorDefecto, compraInicial, onGuardar, comprasHistoria = [], onCrearCategoria, onCrearEtiqueta }: Props) {
+export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombres, registradoPorDefecto, compraInicial, onGuardar, comprasHistoria = [] }: Props) {
   const config = usarConfiguracion();
   const [compra, setCompra] = useState<CompraEditable>(() => crearCompraInicial(registradoPorDefecto, compraInicial, comprasHistoria));
   const [guardando, setGuardando] = useState(false);
@@ -376,8 +373,8 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
   }, []);
 
   // Item focus handler for tab navigation
-  const handleItemFocus = useCallback((index: number, field: string) => {
-    // Could be used for custom focus management
+  const handleItemFocus = useCallback((_index: number, _field: string) => {
+    // No-op: keyboard navigation is handled by the browser
   }, []);
 
   // Validation
@@ -488,7 +485,7 @@ export function FormularioCompraPC({ categorias, subcategorias, etiquetas, nombr
               <label className="font-label text-[10px] uppercase tracking-wider text-on-surface-variant/60 mb-1 block">Fecha</label>
               <div className="flex items-center gap-1">
                 {[
-                  { label: "Hoy", val: hoy() },
+                  { label: "Hoy", val: fechaLocalISO() },
                   { label: "Ayer", val: fechaStr(ayer) },
                   { label: "Ant.", val: fechaStr(anteayer) },
                 ].map(({ label, val }) => (

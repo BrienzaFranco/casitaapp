@@ -104,26 +104,6 @@ export default function PaginaNuevaCompra() {
       etiquetas={categorias.etiquetas}
       onGuardar={guardar}
       comprasHistoria={historia}
-      onCrearCategoria={async (nombre) => {
-        try {
-          const nueva = await categorias.crearCategoria({ nombre, color: "", limite_mensual: 0 });
-          if (nueva) toast.success(`Categoria "${nombre}" creada`);
-          return nueva?.id ?? null;
-        } catch {
-          toast.error("No se pudo crear la categoria");
-          return null;
-        }
-      }}
-      onCrearEtiqueta={async (nombre) => {
-        try {
-          const nueva = await categorias.crearEtiqueta({ nombre, color: "" });
-          if (nueva) toast.success(`Etiqueta "${nombre}" creada`);
-          return nueva?.id ?? null;
-        } catch {
-          toast.error("No se pudo crear la etiqueta");
-          return null;
-        }
-      }}
     />
   );
 }
