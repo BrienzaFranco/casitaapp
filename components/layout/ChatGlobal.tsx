@@ -28,8 +28,10 @@ import { toast } from "sonner";
 import { useChatGlobal, type MensajeChat, type BorradorGuardado } from "@/hooks/useChatGlobal";
 import { usarCategorias } from "@/hooks/usarCategorias";
 import { usarUsuario } from "@/hooks/usarUsuario";
+import { usarCompras } from "@/hooks/usarCompras";
 import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
 import { formatearPeso } from "@/lib/formatear";
+import { fechaLocalISO } from "@/lib/utiles";
 import type { ChatDraftPatch, ChatDraftItem, ToolResult } from "@/lib/ai/contracts-chat";
 import type { PagadorCompra } from "@/types";
 
@@ -105,6 +107,16 @@ export function ChatGlobal() {
   const chat = useChatGlobal();
   const categorias = usarCategorias();
   const usuario = usarUsuario();
+  const compras = usarCompras({ cargarInicial: true });
+
+  // Insight del día
+  const hoy = fechaLocalISO();
+  const comprasHoy = compras.compras.filter((c) => c.fecha === hoy && c.estado === "confirmada");
+  const totalHoy = comprasHoy.reduce((sum, c) => sum + c.items.reduce((s, i) => s + i.monto_resuelto, 0), 0);
+  const itemsHoy = comprasHoy.flatMap((c) => c.items);
+  const insightHoy = totalHoy > 0
+    ? `Hoy llevan ${formatearPeso(totalHoy)} en ${itemsHoy.length} item${itemsHoy.length !== 1 ? "s" : ""}`
+    : null;
   const voice = useVoiceRecognition();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -330,9 +342,11 @@ export function ChatGlobal() {
                     <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary-container">
                       <Sparkles className="h-7 w-7 text-on-primary-container" />
                     </div>
-                    <p className="font-headline text-base font-semibold text-on-surface">¿En qué te ayudo?</p>
+                    <p className="font-headline text-base font-semibold text-on-surface">
+                      {new Date().getHours() < 12 ? "¡Buen día!" : new Date().getHours() < 19 ? "¡Buenas tardes!" : "¡Buenas noches!"}
+                    </p>
                     <p className="mt-1 text-xs text-on-surface-variant/70">
-                      Preguntá sobre tus gastos o anotá uno nuevo
+                      {insightHoy ?? "Aún no hay gastos hoy. ¿Querés anotar algo?"}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-center">

@@ -317,6 +317,7 @@ function extraerItems(texto: string): RegistroIaItem[] {
   const normalizado = texto.replace(/\n/g, " ");
   const items: RegistroIaItem[] = [];
 
+  // Patron 1: item con monto ("leche a 800", "pan salio 400")
   const itemConMontoRegex = /(?:el|la|los|las)?\s*([a-zA-ZáéíóúñÁÉÍÓÚÑ][a-zA-ZáéíóúñÁÉÍÓÚÑ\s]{1,40}?)\s+(?:salio|salió|costo|costó|vale|valio|valió|a)\s+([0-9][0-9+\-*/.,\s]*(?:k|mil|m|millones?)?)/gi;
   for (const match of normalizado.matchAll(itemConMontoRegex)) {
     const descripcion = limpiarDescripcionItem(match[1] ?? "");
@@ -335,6 +336,35 @@ function extraerItems(texto: string): RegistroIaItem[] {
     });
   }
 
+  // Patron 2: listas con coma o "y" ("leche $800, pan $400 y queso $1200")
+  // Extraemos segmentos separados por "," o " y " que tengan monto
+  const partes = normalizado.split(/,\s*|\s+y\s+/i);
+  for (const parte of partes) {
+    // Buscar: [descripcion] [$monto] o [descripcion] [numero]
+    const matchLista = parte.match(/([a-zA-ZáéíóúñÁÉÍÓÚÑ][a-zA-ZáéíóúñÁÉÍÓÚÑ\s]{1,35}?)\s*(?:\$?\s*)([0-9][0-9+\-*/.,\s]*(?:k|mil|m)?)\s*(?:pesos?)?/i);
+    if (matchLista) {
+      const descripcion = limpiarDescripcionItem(matchLista[1] ?? "");
+      const expresion = (matchLista[2] ?? "").trim();
+      if (!descripcion || /peso/i.test(descripcion)) continue;
+      // Evitar duplicados
+      if (items.some((i) => normalizarTexto(i.descripcion) === normalizarTexto(descripcion))) continue;
+      const monto = aNumeroSeguro(expresion);
+      if (monto != null && monto > 0) {
+        items.push({
+          id: generarIdItem(),
+          descripcion,
+          cantidad: 1,
+          expresionMonto: expresion,
+          monto,
+          categoria_id: "",
+          subcategoria_id: "",
+          fuente: "deterministico",
+        });
+      }
+    }
+  }
+
+  // Patron 3: cantidad + item sin monto ("2 leches", "un pan")
   const countRegex = /(?:^|[\s,.;])(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)\s+([a-zA-ZáéíóúñÁÉÍÓÚÑ][a-zA-ZáéíóúñÁÉÍÓÚÑ\s]{1,32}?)(?=(?:\s+y\s+|\s+ah\b|\s+tambien\b|[,.]|$))/gi;
   for (const match of normalizado.matchAll(countRegex)) {
     const cantidad = cantidadDesdeToken(match[1] ?? "");

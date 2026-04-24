@@ -323,17 +323,22 @@ function construirPrompt(params: {
   const intentForzado = params.forceIntent
     ? `\nINTENT FORZADO: El usuario ya confirmó que quiere "${params.forceIntent}". NO uses clarificacion. Directamente procesá como "${params.forceIntent}".`
     : "";
-  const promptBase = `Sos el asistente de CasitaApp, una app de gastos domesticos entre Franco y Fabiola.
-Respondes SOLO con JSON valido (sin markdown, sin backticks).
+  const hora = new Date().getHours();
+  const saludoHora = hora < 12 ? "buen dia" : hora < 19 ? "buenas tardes" : "buenas noches";
+
+  const promptBase = `Sos Casi, el asistente personal de CasitaApp — una app de gastos domesticos entre Franco y Fabiola.
+Tenés personalidad: sos calido, practico, directo, con un toque de humor. Hablas como un amigo que entiende de finanzas. Usas "vos" y "ustedes". Sos proactivo: si detectas algo relevante, lo mencionas.
+
+IMPORTANTE: Respondes SIEMPRE con JSON valido (sin markdown, sin backticks). El campo "answer" es obligatorio y debe ser en lenguaje natural, cálido, como si hablaras con un amigo.
 
 INTENTS:
-- "consulta": el usuario pregunta sobre datos. Devolve toolCalls con la tool y params.
-- "registro": el usuario quiere anotar un gasto. Devolve draftPatch.
-- "clarificacion": NO SABES si es consulta o registro. Solo devolve answer preguntando al usuario que quiere hacer. NO devuelvas toolCalls ni draftPatch.
+- "consulta": el usuario pregunta sobre datos. Devolve toolCalls con la tool y params. Luego resumis amigablemente en answer.
+- "registro": el usuario quiere anotar un gasto. Devolve draftPatch. En answer confirmá lo que entendiste, tipo "Listo, anoté: [lugar] $[total], pagó [x], es [reparto]".
+- "clarificacion": NO SABES si es consulta o registro. Solo devolve answer preguntando con opciones concretas. NO devuelvas toolCalls ni draftPatch.
 - "edicion": el usuario quiere modificar/borrar una compra existente.
 - "edicion_borrador": el usuario quiere editar un borrador pendiente.
 - "analisis": el usuario quiere comparar, proyectar o entender tendencias.
-- "conversacion": saludo, pregunta general, o algo no relacionado. Solo answer.`;
+- "conversacion": saludo, pregunta general, o algo no relacionado. Solo answer, con onda.`;
 
   const promptTools = `
 
@@ -357,7 +362,14 @@ REGLAS DE CLASIFICACION:
 - Si tiene monto numerico + lugar + quien pago → ES REGISTRO
 - Si dice "anota", "carga", "gaste", "compre", "pague" SIN signo de pregunta al inicio → ES REGISTRO
 - Si dice "cuanto gaste", "cuanto fue", "cuanto salio" → ES CONSULTA
-- Si no sabes con seguridad, usa "clarificacion" y preguntale al usuario`;
+- Si no sabes con seguridad, usa "clarificacion" y preguntale al usuario con opciones concretas
+
+REGLAS DE TONO:
+- ${saludoHora.charAt(0).toUpperCase() + saludoHora.slice(1)} si es la primera interacción
+- Si el usuario gasta mucho en una categoría, avisale amablemente: "Ojo, ya llevas $X en [categoría] este mes"
+- Si hay un borrador pendiente, mencionarlo: "Tenes un borrador de [lugar] sin guardar"
+- Celebrá cuando detectan ahorro: "¡Bien! Este mes gastaron menos que el anterior"
+- Siempre confirmá los datos clave en el answer cuando sea registro`;
 
   const promptToolsUso = `
 
@@ -685,7 +697,7 @@ export async function POST(request: Request) {
     void registrarLog({ userId: user.id, sessionId, intent: "error", latenciaMs, modelo, tokensIn: 0, tokensOut: 0, errorCode: "provider_unreachable" });
     return NextResponse.json({
       intent: "conversacion",
-      answer: "No pude conectar con la IA. Probá de nuevo en un momento.",
+      answer: "Me quedé sin conexión con mi cerebro por un segundo. ¿Me das otra chance? Probá de nuevo.",
       error: { code: "provider_unreachable", retryable: true },
     } satisfies Partial<ChatResponse>);
   }
@@ -696,7 +708,7 @@ export async function POST(request: Request) {
     void registrarLog({ userId: user.id, sessionId, intent: "error", latenciaMs, modelo, tokensIn: 0, tokensOut: 0, errorCode: "provider_error" });
     return NextResponse.json({
       intent: "conversacion",
-      answer: `Error de IA: ${errTxt.slice(0, 120)}`,
+      answer: `Ups, mi proveedor de IA está medio dormido (${errTxt.slice(0, 80)}). Probá de nuevo en un toque.`,
       error: { code: "provider_error", retryable: true },
     } satisfies Partial<ChatResponse>);
   }
@@ -713,7 +725,7 @@ export async function POST(request: Request) {
     void registrarLog({ userId: user.id, sessionId, intent: "error", latenciaMs, modelo, tokensIn, tokensOut, errorCode: "json_invalid" });
     return NextResponse.json({
       intent: "conversacion",
-      answer: "No entendí bien. ¿Podés reformular?",
+      answer: "Perdón, me perdí un poco. ¿Querías consultar algo o anotar un gasto? Decime con más detalles y lo resuelvo.",
       error: { code: "json_invalid", retryable: true },
     } satisfies Partial<ChatResponse>);
   }
@@ -799,28 +811,29 @@ export async function POST(request: Request) {
     }
   }
 
-  // Si no hay answer pero hay draft, construir uno
+  // Si no hay answer pero hay draft, construir uno amigable
   if (!answerFinal && draftPatch) {
     const partes: string[] = [];
-    if (draftPatch.lugar) partes.push(`Lugar: ${draftPatch.lugar}`);
-    if (draftPatch.total) partes.push(`Total: $${draftPatch.total.toLocaleString("es-AR")}`);
-    if (draftPatch.pagador) partes.push(`Pagó: ${draftPatch.pagador}`);
-    if (draftPatch.items?.length) partes.push(`${draftPatch.items.length} item(s)`);
+    if (draftPatch.lugar) partes.push(`${draftPatch.lugar}`);
+    if (draftPatch.total) partes.push(`$${draftPatch.total.toLocaleString("es-AR")}`);
+    if (draftPatch.pagador) partes.push(`pagó ${draftPatch.pagador}`);
+    if (draftPatch.reparto) partes.push(`es ${draftPatch.reparto === "50/50" ? "compartido" : draftPatch.reparto.replace("solo_", "solo para ")}`);
+    if (draftPatch.items?.length) partes.push(`${draftPatch.items.length} item${draftPatch.items.length > 1 ? "s" : ""}`);
     answerFinal = partes.length > 0
-      ? `Listo, armé el borrador:\n${partes.join("\n")}`
-      : "Necesito más datos para armar el borrador.";
+      ? `¡Listo! Armé el borrador: ${partes.join(", ")}. ¿Lo guardo o querés cambiar algo?`
+      : "Estoy armando el borrador, pero me faltan algunos datos. ¿Me decís lugar y monto?";
   }
 
   if (!answerFinal) {
-    answerFinal = "¿En que te puedo ayudar?";
+    answerFinal = "¿En qué te ayudo? Preguntá lo que quieras o anotá un gasto directamente.";
   }
 
   // Si es clarificacion, agregar sugerencias para el usuario
   let sugerencias: ChatResponse["sugerencias"] = undefined;
   if (intent === "clarificacion") {
     sugerencias = [
-      { id: "consulta", label: "Quiero consultar datos", action: "consulta", payload: message },
-      { id: "registro", label: "Quiero anotar un gasto", action: "registro", payload: message },
+      { id: "consulta", label: "Consultar datos", action: "consulta", payload: message },
+      { id: "registro", label: "Anotar un gasto", action: "registro", payload: message },
     ];
   }
 
