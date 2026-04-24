@@ -17,6 +17,7 @@ export interface MensajeChat {
   draftPatch?: ChatDraftPatch;
   warnings?: string[];
   sugerencias?: ChatResponse["sugerencias"];
+  camposFaltantes?: string[];
 }
 
 export interface BorradorGuardado {
@@ -228,6 +229,13 @@ export function useChatGlobal() {
         .slice(-8)
         .map((m) => ({ role: m.role, content: m.text }));
 
+      // Solo enviamos el draft pendiente si estamos en medio de un flujo de registro
+      const enFlujoRegistro =
+        estado.ultimoIntent === "registro" ||
+        estado.ultimoIntent === "registro_incompleto" ||
+        estado.ultimoIntent === "edicion_borrador";
+      const draftAEnviar = opciones?.draft ?? (enFlujoRegistro ? estado.draftActual : undefined);
+
       const res = await fetch("/api/ia/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -235,7 +243,7 @@ export function useChatGlobal() {
           message: mensaje,
           sessionId: sessionIdRef.current,
           history,
-          draft: opciones?.draft,
+          draft: draftAEnviar,
           previousIntent: estado.ultimoIntent ?? undefined,
           forceIntent: opciones?.forceIntent ?? undefined,
           context: {
@@ -263,13 +271,20 @@ export function useChatGlobal() {
         draftPatch: data.draftPatch,
         warnings: data.warnings,
         sugerencias: data.sugerencias,
+        camposFaltantes: data.camposFaltantes ?? data.draftPatch?.camposFaltantes,
       };
+
+      // Limpiar draft si la respuesta ya no es de registro
+      const esRegistro = data.intent === "registro" || data.intent === "registro_incompleto" || data.intent === "edicion_borrador";
+      const nuevoDraft = esRegistro
+        ? (data.draftPatch ?? estado.draftActual)
+        : null;
 
       setEstado((prev) => ({
         ...prev,
         mensajes: [...prev.mensajes, respuestaMsg],
         cargando: false,
-        draftActual: data.draftPatch ?? prev.draftActual,
+        draftActual: nuevoDraft,
         ultimoIntent: data.intent,
       }));
 
@@ -292,7 +307,7 @@ export function useChatGlobal() {
       }));
       return null;
     }
-  }, [estado.mensajes, estado.ultimoIntent]);
+  }, [estado.mensajes, estado.ultimoIntent, estado.draftActual]);
 
   const guardarBorrador = useCallback(async (
     draft: ChatDraftPatch,

@@ -731,6 +731,13 @@ function DraftPreview({ draft, guardando, yaGuardado, onGuardar }: DraftPreviewP
     setModoEdicion(false);
   }, [draft]);
 
+  // Validar campos obligatorios en tiempo real
+  const faltantes: string[] = [];
+  const tieneMonto = (editado.total != null && editado.total > 0) || (editado.items?.some((it) => (it.monto ?? 0) > 0));
+  if (!tieneMonto) faltantes.push("cuánto salió");
+  if (!editado.pagador) faltantes.push("quién pagó");
+  const puedeGuardar = faltantes.length === 0 && !guardando;
+
   if (!editado.items?.length && !editado.lugar && !editado.total) return null;
 
   function actualizarItem(index: number, cambios: Partial<ChatDraftItem>) {
@@ -777,7 +784,7 @@ function DraftPreview({ draft, guardando, yaGuardado, onGuardar }: DraftPreviewP
             )}
             <button
               onClick={() => { onGuardar(editado); setModoEdicion(false); }}
-              disabled={guardando}
+              disabled={!puedeGuardar}
               className="rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold text-on-secondary transition-all disabled:opacity-50 hover:bg-secondary/90 active:scale-95"
             >
               {guardando ? "Guardando..." : "Guardar"}
@@ -785,6 +792,13 @@ function DraftPreview({ draft, guardando, yaGuardado, onGuardar }: DraftPreviewP
           </div>
         )}
       </div>
+
+      {!yaGuardado && faltantes.length > 0 && (
+        <div className="mb-2 flex items-center gap-1 text-[11px] text-error font-medium">
+          <AlertCircle className="h-3 w-3" />
+          Falta saber: {faltantes.join(" y ")}
+        </div>
+      )}
 
       {modoEdicion ? (
         <div className="space-y-2.5">
@@ -804,9 +818,10 @@ function DraftPreview({ draft, guardando, yaGuardado, onGuardar }: DraftPreviewP
             <label className="text-[10px] uppercase tracking-wider text-on-surface-variant/60">Pagó</label>
             <select
               className={inputClase}
-              value={editado.pagador ?? "compartido"}
-              onChange={(e) => setEditado((p) => ({ ...p, pagador: e.target.value as PagadorCompra }))}
+              value={editado.pagador ?? ""}
+              onChange={(e) => setEditado((p) => ({ ...p, pagador: e.target.value as PagadorCompra || null }))}
             >
+              <option value="">Seleccionar...</option>
               <option value="compartido">Compartido</option>
               <option value="franco">Franco</option>
               <option value="fabiola">Fabiola</option>

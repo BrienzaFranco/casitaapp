@@ -3,7 +3,7 @@ import { calcularReparto } from "@/lib/calculos";
 import { fechaLocalISO } from "@/lib/utiles";
 
 // ─── Intents del chat global ───────────────────────────────────────
-export type ChatIntent = "consulta" | "registro" | "edicion" | "edicion_borrador" | "analisis" | "conversacion" | "clarificacion";
+export type ChatIntent = "consulta" | "registro" | "registro_incompleto" | "edicion" | "edicion_borrador" | "analisis" | "conversacion" | "clarificacion";
 
 // ─── Tools de datos disponibles ────────────────────────────────────
 export type ToolName =
@@ -125,6 +125,8 @@ export interface ChatDraftPatch {
   pagador?: PagadorCompra | null;
   items?: ChatDraftItem[];
   warnings?: string[];
+  /** Campos que faltan para considerar el registro completo */
+  camposFaltantes?: string[];
 }
 
 // ─── Respuesta cruda del LLM ───────────────────────────────────────
@@ -155,6 +157,7 @@ export interface ChatResponse {
   resolution?: unknown;
   warnings?: string[];
   sugerencias?: ChatSugerencia[];
+  camposFaltantes?: string[];
   model?: string;
   error?: {
     code: string;

@@ -314,6 +314,7 @@ function construirPrompt(params: {
   cats: string;
   subs: string;
   mesActual: string;
+  nombreUsuario: string;
   previousIntent?: ChatIntent | null;
   forceIntent?: ChatIntent | null;
 }) {
@@ -330,6 +331,8 @@ function construirPrompt(params: {
 Tenés personalidad: sos calido, practico, directo, con un toque de humor. Hablas como un amigo que entiende de finanzas. Usas "vos" y "ustedes". Sos proactivo: si detectas algo relevante, lo mencionas.
 
 IMPORTANTE: Respondes SIEMPRE con JSON valido (sin markdown, sin backticks). El campo "answer" es obligatorio y debe ser en lenguaje natural, cálido, como si hablaras con un amigo.
+
+USUARIO ACTUAL: ${params.nombreUsuario}. Cuando diga "yo", "me", "mi" o "pagué", se refiere a ${params.nombreUsuario}.
 
 INTENTS:
 - "consulta": el usuario pregunta sobre datos. Devolve toolCalls con la tool y params. Luego resumis amigablemente en answer.
@@ -386,20 +389,28 @@ REGLAS DE TOOLS:
 
   const promptRegistro = `
 
-REGISTRO (solo si intent=registro):
-- draftPatch: {lugar, pagador, reparto, total, items: [{descripcion, monto, categoria_id, subcategoria_id}]}
-- SIEMPRE guardamos como borrador
+REGISTRO:
+Hay dos tipos de registro:
 
-DIFERENCIA CLAVE entre pagador y reparto (son independientes):
-- pagador = QUIEN pagó físicamente en ese momento (franco | fabiola | compartido)
-- reparto = COMO se divide el gasto entre los dos (50/50 | solo_franco | solo_fabiola)
-- Ejemplos:
-  * "Lo pagó Franco pero es compartido" → pagador: "franco", reparto: "50/50"
-  * "Pago Fabiola y es solo para ella" → pagador: "fabiola", reparto: "solo_fabiola"
-  * "Pagamos entre los dos" → pagador: "compartido", reparto: "50/50"
-  * "Gasté 10k yo solo" → pagador: "franco", reparto: "solo_franco"
-- NUNCA inferir reparto solo desde pagador. Si el usuario dice "pago Fabiola" sin aclarar reparto, dejar reparto null.
-- Si el usuario dice "compartido", "entre los dos", "a medias" → reparto: "50/50" sin importar quien pagó.`;
+1. "registro" → cuando el usuario dio TODOS los datos obligatorios:
+   - draftPatch: {lugar, pagador, reparto, total, items: [{descripcion, monto}]}
+   - SIEMPRE guardamos como borrador
+   - Datos obligatorios: monto (total o en items), pagador
+   - reparto default: "50/50" si no se aclara
+   - lugar: opcional. Si no se menciona, dejar null.
+
+2. "registro_incompleto" → cuando FALTAN datos obligatorios:
+   - Devolvé draftPatch con TODO lo que hayas entendido (items, lugar, pagador, etc.), aunque falten campos.
+   - En "answer" preguntá amablemente lo que falta.
+   - Ejemplo: "Anoté: 2kg de milanesa. ¿Cuánto salió y quién pagó?"
+   - Ejemplo: "¿Dónde compraste y cuánto gastaste?"
+
+DIFERENCIA CLAVE pagador vs reparto:
+- pagador = QUIEN pagó (franco | fabiola | compartido)
+- reparto = COMO se divide (50/50 | solo_franco | solo_fabiola)
+- Si no aclara reparto → "50/50" por defecto
+- Si no aclara pagador → FALTA, preguntar
+- Si no aclara monto → FALTA, preguntar`;
 
   return promptBase + promptTools + promptReglas + promptToolsUso + promptRegistro + `
 
@@ -546,11 +557,37 @@ function extraerJsonSeguro(texto: string): ChatLlmResponse | null {
 }
 
 function inferirIntent(raw: ChatLlmResponse): ChatIntent {
-  const validos: ChatIntent[] = ["consulta", "registro", "clarificacion", "edicion", "edicion_borrador", "analisis", "conversacion"];
+  const validos: ChatIntent[] = ["consulta", "registro", "registro_incompleto", "clarificacion", "edicion", "edicion_borrador", "analisis", "conversacion"];
   if (raw.intent && validos.includes(raw.intent)) return raw.intent;
   if (raw.toolCalls && raw.toolCalls.length > 0) return "consulta";
   if (raw.draftPatch?.items && raw.draftPatch.items.length > 0) return "registro";
   return "conversacion";
+}
+
+/** Detecta qué campos obligatorios faltan en el draft */
+function validarDraftCompleto(draft: ChatDraftPatch | undefined): { completo: boolean; faltantes: string[] } {
+  if (!draft) return { completo: false, faltantes: ["items", "monto", "pagador"] };
+  const faltantes: string[] = [];
+
+  // Verificar monto: total o items con monto > 0
+  const tieneMonto = (draft.total != null && draft.total > 0) ||
+    (draft.items?.some((it) => (it.monto ?? 0) > 0));
+  if (!tieneMonto) faltantes.push("monto");
+
+  // Verificar pagador
+  if (!draft.pagador) faltantes.push("pagador");
+
+  // Lugar es opcional pero se pregunta amablemente
+  if (!draft.lugar || draft.lugar.trim() === "") {
+    // No es obligatorio, no se agrega a faltantes críticos
+  }
+
+  return { completo: faltantes.length === 0, faltantes };
+}
+
+/** Genera un nombre de compra por defecto secuencial */
+function generarNombreLugar(index: number): string {
+  return `Compra ${index}`;
 }
 
 // ─── Telemetría ────────────────────────────────────────────────────
@@ -600,6 +637,10 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
+
+  // Obtener nombre del usuario para contexto de pronombres ("yo", "pagué")
+  const { data: perfilData } = await cliente.from("perfiles").select("nombre").eq("id", user.id).single();
+  const nombreUsuario = perfilData?.nombre ?? "Usuario";
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -667,6 +708,7 @@ export async function POST(request: Request) {
     cats: resumenCats,
     subs: resumenSubs,
     mesActual,
+    nombreUsuario,
     previousIntent: body.previousIntent,
     forceIntent: intentForzadoBody ?? undefined,
   });
@@ -769,12 +811,40 @@ export async function POST(request: Request) {
     }
   }
 
-  // Si es registro, sanitizar draft
+  // ─── REGISTRO: armar draft, mergear con anterior si existe, validar ───
   let draftPatch: ChatDraftPatch | undefined;
-  if (intent === "registro") {
-    const draftFusionado = mezclarDrafts(draftDeterministico, raw.draftPatch);
-    if (draftFusionado) {
-      draftPatch = sanitizarDraftPatch(draftFusionado, cats, subs);
+  let camposFaltantes: string[] = [];
+
+  if (intent === "registro" || intent === "registro_incompleto") {
+    // 1. Mergear con draft anterior si el frontend envió uno
+    const draftAnterior = body.draft as ChatDraftPatch | undefined;
+    let draftBase = mezclarDrafts(draftDeterministico, raw.draftPatch);
+    if (draftAnterior && draftBase) {
+      draftBase = mezclarDrafts(draftAnterior, draftBase);
+    } else if (draftAnterior) {
+      draftBase = draftAnterior;
+    }
+
+    if (draftBase) {
+      draftPatch = sanitizarDraftPatch(draftBase, cats, subs);
+
+      // 2. Validar completitud
+      const validacion = validarDraftCompleto(draftPatch);
+      camposFaltantes = validacion.faltantes;
+
+      if (!validacion.completo) {
+        intent = "registro_incompleto";
+        draftPatch = { ...draftPatch, camposFaltantes };
+      } else {
+        // Completó: normalizar opcionales
+        intent = "registro";
+        if (!draftPatch.lugar || draftPatch.lugar.trim() === "") {
+          draftPatch = { ...draftPatch, lugar: "Compra" };
+        }
+        if (!draftPatch.reparto) {
+          draftPatch = { ...draftPatch, reparto: "50/50" };
+        }
+      }
     }
   }
 
@@ -820,17 +890,40 @@ export async function POST(request: Request) {
     }
   }
 
-  // Si no hay answer pero hay draft, construir uno amigable
-  if (!answerFinal && draftPatch) {
+  // ─── Construir answer para registro incompleto ───
+  if (!answerFinal && intent === "registro_incompleto" && draftPatch) {
+    const entendido: string[] = [];
+    if (draftPatch.items?.length) {
+      const itemsTexto = draftPatch.items.map((it) => it.descripcion).join(", ");
+      entendido.push(itemsTexto);
+    }
+    if (draftPatch.lugar) entendido.push(`en ${draftPatch.lugar}`);
+    if (draftPatch.total) entendido.push(`$${draftPatch.total.toLocaleString("es-AR")}`);
+
+    const faltan = camposFaltantes.map((c) => {
+      if (c === "monto") return "cuánto salió";
+      if (c === "pagador") return "quién pagó";
+      return c;
+    });
+
+    if (entendido.length > 0) {
+      answerFinal = `Anoté: ${entendido.join(", ")}. ${faltan.length > 0 ? `Falta saber: ${faltan.join(" y ")}.` : ""}`;
+    } else {
+      answerFinal = `¿Querés anotar un gasto? ${faltan.length > 0 ? `Me faltan: ${faltan.join(" y ")}.` : ""}`;
+    }
+  }
+
+  // ─── Construir answer para registro completo ───
+  if (!answerFinal && intent === "registro" && draftPatch) {
     const partes: string[] = [];
-    if (draftPatch.lugar) partes.push(`${draftPatch.lugar}`);
+    if (draftPatch.lugar && draftPatch.lugar !== "Compra") partes.push(`${draftPatch.lugar}`);
     if (draftPatch.total) partes.push(`$${draftPatch.total.toLocaleString("es-AR")}`);
     if (draftPatch.pagador) partes.push(`pagó ${draftPatch.pagador}`);
     if (draftPatch.reparto) partes.push(`es ${draftPatch.reparto === "50/50" ? "compartido" : draftPatch.reparto.replace("solo_", "solo para ")}`);
     if (draftPatch.items?.length) partes.push(`${draftPatch.items.length} item${draftPatch.items.length > 1 ? "s" : ""}`);
     answerFinal = partes.length > 0
       ? `¡Listo! Armé el borrador: ${partes.join(", ")}. ¿Lo guardo o querés cambiar algo?`
-      : "Estoy armando el borrador, pero me faltan algunos datos. ¿Me decís lugar y monto?";
+      : "¿En qué te ayudo?";
   }
 
   if (!answerFinal) {
@@ -853,6 +946,7 @@ export async function POST(request: Request) {
     draftPatch,
     warnings: raw.warnings,
     sugerencias,
+    camposFaltantes: camposFaltantes.length > 0 ? camposFaltantes : undefined,
     model: modelo,
     meta: {
       sessionId,
