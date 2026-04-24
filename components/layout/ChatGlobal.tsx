@@ -1,8 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Send, X, Sparkles, Trash2, Mic, MicOff, Check, ExternalLink } from "lucide-react";
+import {
+  Send,
+  X,
+  Sparkles,
+  Trash2,
+  Mic,
+  MicOff,
+  Check,
+  ExternalLink,
+  RotateCcw,
+  Copy,
+  CheckCheck,
+  BarChart3,
+  Scale,
+  Flame,
+  Receipt,
+  TrendingUp,
+  FileClock,
+  AlertCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useChatGlobal, type MensajeChat, type BorradorGuardado } from "@/hooks/useChatGlobal";
 import { usarCategorias } from "@/hooks/usarCategorias";
@@ -13,13 +32,22 @@ import type { ChatDraftPatch, ToolResult } from "@/lib/ai/contracts-chat";
 
 // ─── Chips de acciones rápidas ─────────────────────────────────────
 const CHIPS_RAPIDOS = [
-  { label: "¿Cuánto gastamos este mes?", icon: "📊" },
-  { label: "¿Le debo algo a Fabiola?", icon: "⚖️" },
-  { label: "Top gastos del mes", icon: "🔥" },
-  { label: "Últimas compras", icon: "🧾" },
-  { label: "¿Cómo van los presupuestos?", icon: "📈" },
-  { label: "Ver borradores", icon: "📝" },
+  { label: "¿Cuánto gastamos este mes?", icon: BarChart3 },
+  { label: "¿Le debo algo a Fabiola?", icon: Scale },
+  { label: "Top gastos del mes", icon: Flame },
+  { label: "Últimas compras", icon: Receipt },
+  { label: "¿Cómo van los presupuestos?", icon: TrendingUp },
+  { label: "Ver borradores", icon: FileClock },
 ];
+
+// ─── Helpers ───────────────────────────────────────────────────────
+function tiempoRelativo(ts: number): string {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return "ahora";
+  if (s < 3600) return `hace ${Math.floor(s / 60)}m`;
+  if (s < 86400) return `hace ${Math.floor(s / 3600)}h`;
+  return `hace ${Math.floor(s / 86400)}d`;
+}
 
 // ─── Componente principal ──────────────────────────────────────────
 export function ChatGlobal() {
@@ -33,6 +61,7 @@ export function ChatGlobal() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const autoOpenedRef = useRef(false);
+  const [copiadoId, setCopiadoId] = useState<string | null>(null);
 
   // Abrir automáticamente si viene ?chat=open
   useEffect(() => {
@@ -40,7 +69,6 @@ export function ChatGlobal() {
     if (searchParams.get("chat") === "open") {
       autoOpenedRef.current = true;
       chat.abrir();
-      // Limpiar el parámetro de la URL sin recargar
       const url = new URL(window.location.href);
       url.searchParams.delete("chat");
       window.history.replaceState({}, "", url.toString());
@@ -54,10 +82,19 @@ export function ChatGlobal() {
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [chat.mensajes, chat.cargando]);
 
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
+  }, [input]);
+
   async function handleEnviar(textoOverride?: string) {
     const texto = (textoOverride ?? input).trim();
     if (!texto || chat.cargando) return;
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
     await chat.enviar(texto, {
       categorias: categorias.categorias.map((c) => ({ id: c.id, nombre: c.nombre })),
       subcategorias: categorias.subcategorias.map((s) => ({ id: s.id, categoria_id: s.categoria_id, nombre: s.nombre })),
@@ -70,6 +107,13 @@ export function ChatGlobal() {
       handleEnviar();
     }
   }
+
+  const copiarTexto = useCallback((texto: string, id: string) => {
+    navigator.clipboard.writeText(texto).then(() => {
+      setCopiadoId(id);
+      setTimeout(() => setCopiadoId(null), 1500);
+    });
+  }, []);
 
   return (
     <>
@@ -90,28 +134,30 @@ export function ChatGlobal() {
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           {/* Overlay */}
           <div
-            className="absolute inset-0 bg-on-surface/30 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-on-surface/20 backdrop-blur-[2px] transition-opacity"
             onClick={chat.cerrar}
           />
 
           {/* Panel */}
-          <div className="relative z-10 flex max-h-[85vh] flex-col rounded-t-2xl border-t border-outline-variant/15 bg-surface-container-lowest shadow-xl animar-aparecer-abajo">
+          <div className="relative z-10 flex max-h-[85vh] flex-col rounded-t-2xl border-t border-outline-variant/15 bg-surface-container-lowest shadow-2xl animar-aparecer-abajo">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-outline-variant/10 px-4 py-3">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary-container">
-                  <Sparkles className="h-4 w-4 text-on-secondary-container" />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary-container">
+                  <Sparkles className="h-4.5 w-4.5 text-on-secondary-container" />
                 </div>
                 <div>
                   <h2 className="font-headline text-sm font-semibold text-on-surface">Asistente IA</h2>
-                  <p className="text-xs text-on-surface-variant">Consultá o anotá gastos</p>
+                  <p className="text-[11px] text-on-surface-variant/70">
+                    {chat.cargando ? "Pensando..." : "Consultá o anotá gastos"}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 {chat.mensajes.length > 0 && (
                   <button
                     onClick={chat.limpiar}
-                    className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container"
+                    className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container transition-colors"
                     title="Limpiar chat"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -119,7 +165,7 @@ export function ChatGlobal() {
                 )}
                 <button
                   onClick={chat.cerrar}
-                  className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container"
+                  className="rounded-lg p-2 text-on-surface-variant hover:bg-surface-container transition-colors"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -127,46 +173,56 @@ export function ChatGlobal() {
             </div>
 
             {/* Mensajes */}
-            <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-hide">
+            <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3.5 scrollbar-hide">
               {chat.mensajes.length === 0 && !chat.cargando && (
-                <div className="space-y-4 pt-4">
+                <div className="space-y-5 pt-6">
                   <div className="text-center">
-                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary-container">
-                      <Sparkles className="h-6 w-6 text-on-primary-container" />
+                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary-container">
+                      <Sparkles className="h-7 w-7 text-on-primary-container" />
                     </div>
-                    <p className="font-headline text-sm font-semibold text-on-surface">¿En qué te ayudo?</p>
-                    <p className="mt-1 text-xs text-on-surface-variant">
+                    <p className="font-headline text-base font-semibold text-on-surface">¿En qué te ayudo?</p>
+                    <p className="mt-1 text-xs text-on-surface-variant/70">
                       Preguntá sobre tus gastos o anotá uno nuevo
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 justify-center">
-                    {CHIPS_RAPIDOS.map((chip) => (
-                      <button
-                        key={chip.label}
-                        onClick={() => {
-                          if (chip.label === "Ver borradores") {
-                            router.push("/borradores");
-                            chat.cerrar();
-                          } else {
-                            handleEnviar(chip.label);
-                          }
-                        }}
-                        className="rounded-full border border-outline-variant/20 bg-surface-container px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high"
-                      >
-                        <span className="mr-1">{chip.icon}</span>
-                        {chip.label}
-                      </button>
-                    ))}
+                    {CHIPS_RAPIDOS.map((chip) => {
+                      const Icon = chip.icon;
+                      return (
+                        <button
+                          key={chip.label}
+                          onClick={() => {
+                            if (chip.label === "Ver borradores") {
+                              router.push("/borradores");
+                              chat.cerrar();
+                            } else {
+                              handleEnviar(chip.label);
+                            }
+                          }}
+                          className="rounded-full border border-outline-variant/20 bg-surface-container px-3 py-2 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-high hover:border-outline-variant/40 flex items-center gap-1.5"
+                        >
+                          <Icon className="h-3.5 w-3.5 text-on-surface-variant" />
+                          {chip.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {chat.mensajes.map((msg) => (
+              {chat.mensajes.map((msg, idx) => (
                 <BurbujaMensaje
                   key={msg.id}
                   mensaje={msg}
                   guardando={chat.guardando}
                   borradoresGuardados={chat.borradoresGuardados}
+                  esUltimo={idx === chat.mensajes.length - 1}
+                  copiadoId={copiadoId}
+                  onCopiar={() => copiarTexto(msg.text, msg.id)}
+                  onReintentar={msg.role === "user" ? undefined : () => {
+                    const textoOrigen = msg.sourceUserText;
+                    if (textoOrigen) handleEnviar(textoOrigen);
+                  }}
                   onGuardarBorrador={async (draft) => {
                     const compraId = await chat.guardarBorrador(
                       draft,
@@ -184,12 +240,12 @@ export function ChatGlobal() {
               ))}
 
               {chat.cargando && (
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2.5 animar-aparecer">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary-container">
                     <Sparkles className="h-3.5 w-3.5 text-on-secondary-container" />
                   </div>
-                  <div className="rounded-2xl rounded-tl-md bg-surface-container px-3 py-2">
-                    <div className="flex gap-1">
+                  <div className="rounded-2xl rounded-tl-md bg-surface-container px-3.5 py-2.5">
+                    <div className="flex gap-1.5 items-center h-4">
                       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-on-surface-variant/40 [animation-delay:0ms]" />
                       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-on-surface-variant/40 [animation-delay:150ms]" />
                       <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-on-surface-variant/40 [animation-delay:300ms]" />
@@ -222,7 +278,7 @@ export function ChatGlobal() {
                     onKeyDown={handleKeyDown}
                     placeholder="Preguntá o anotá un gasto..."
                     rows={1}
-                    className="w-full resize-none rounded-xl border border-outline-variant/20 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-secondary/40 focus:outline-none focus:ring-1 focus:ring-secondary/20"
+                    className="w-full resize-none rounded-xl border border-outline-variant/20 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-secondary/40 focus:outline-none focus:ring-1 focus:ring-secondary/20 transition-all"
                     style={{ maxHeight: "6rem" }}
                   />
                 </div>
@@ -248,33 +304,77 @@ interface BurbujaMensajeProps {
   mensaje: MensajeChat;
   guardando: boolean;
   borradoresGuardados: BorradorGuardado[];
+  esUltimo: boolean;
+  copiadoId: string | null;
+  onCopiar: () => void;
+  onReintentar?: () => void;
   onGuardarBorrador: (draft: ChatDraftPatch) => void;
 }
 
-function BurbujaMensaje({ mensaje, guardando, borradoresGuardados, onGuardarBorrador }: BurbujaMensajeProps) {
+function BurbujaMensaje({
+  mensaje,
+  guardando,
+  borradoresGuardados,
+  esUltimo,
+  copiadoId,
+  onCopiar,
+  onReintentar,
+  onGuardarBorrador,
+}: BurbujaMensajeProps) {
   const esUsuario = mensaje.role === "user";
+  const esError = mensaje.text.startsWith("Error:");
 
   const borradorYaGuardado = mensaje.draftPatch
     ? borradoresGuardados.find((b) => b.mensajeId === mensaje.id)
     : undefined;
 
   return (
-    <div className={`flex items-start gap-2 ${esUsuario ? "flex-row-reverse" : ""}`}>
+    <div className={`flex items-start gap-2.5 ${esUsuario ? "flex-row-reverse" : ""} animar-aparecer`}>
       {!esUsuario && (
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary-container">
-          <Sparkles className="h-3.5 w-3.5 text-on-secondary-container" />
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary-container mt-0.5">
+          {esError ? (
+            <AlertCircle className="h-3.5 w-3.5 text-error" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5 text-on-secondary-container" />
+          )}
         </div>
       )}
 
       <div className={`max-w-[85%] space-y-1.5 ${esUsuario ? "items-end" : "items-start"} flex flex-col`}>
         <div
-          className={`rounded-2xl px-3 py-2 text-sm ${
+          className={`relative group rounded-2xl px-3.5 py-2.5 text-sm ${
             esUsuario
               ? "rounded-tr-md bg-secondary text-on-secondary"
-              : "rounded-tl-md bg-surface-container text-on-surface"
+              : esError
+                ? "rounded-tl-md bg-error-container/40 text-on-error-container border border-error/10"
+                : "rounded-tl-md bg-surface-container text-on-surface"
           }`}
         >
-          <p className="whitespace-pre-wrap break-words">{mensaje.text}</p>
+          <p className="whitespace-pre-wrap break-words leading-relaxed">{mensaje.text}</p>
+
+          {/* Acciones hover */}
+          <div className={`absolute ${esUsuario ? "left-0 -translate-x-full pl-1" : "right-0 translate-x-full pr-1"} top-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
+            <button
+              onClick={onCopiar}
+              className="p-1.5 rounded-md text-on-surface-variant/60 hover:bg-surface-container hover:text-on-surface transition-colors"
+              title="Copiar"
+            >
+              {copiadoId === mensaje.id ? <CheckCheck className="h-3.5 w-3.5 text-tertiary" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Timestamp + reintentar */}
+        <div className={`flex items-center gap-2 ${esUsuario ? "justify-end" : ""}`}>
+          <span className="text-[10px] text-on-surface-variant/40">{tiempoRelativo(mensaje.timestamp)}</span>
+          {!esUsuario && esError && onReintentar && (
+            <button
+              onClick={onReintentar}
+              className="text-[10px] text-secondary font-medium flex items-center gap-0.5 hover:underline"
+            >
+              <RotateCcw className="h-3 w-3" /> Reintentar
+            </button>
+          )}
         </div>
 
         {/* Draft preview si hay */}
@@ -294,9 +394,11 @@ function BurbujaMensaje({ mensaje, guardando, borradoresGuardados, onGuardarBorr
 
         {/* Warnings */}
         {mensaje.warnings && mensaje.warnings.length > 0 && (
-          <div className="rounded-lg bg-error-container/30 px-2 py-1">
+          <div className="rounded-lg bg-error-container/30 px-2.5 py-1.5 space-y-0.5">
             {mensaje.warnings.map((w, i) => (
-              <p key={i} className="text-xs text-on-error-container">⚠ {w}</p>
+              <p key={i} className="text-xs text-on-error-container flex items-center gap-1">
+                <AlertCircle className="h-3 w-3 shrink-0" /> {w}
+              </p>
             ))}
           </div>
         )}
@@ -317,10 +419,10 @@ function DraftPreview({ draft, guardando, yaGuardado, onGuardar }: DraftPreviewP
   if (!draft.items?.length && !draft.lugar && !draft.total) return null;
 
   return (
-    <div className="w-full rounded-xl border border-secondary/20 bg-secondary-container/10 p-2.5 text-xs">
-      <div className="mb-1.5 flex items-center justify-between">
+    <div className="w-full rounded-xl border border-secondary/20 bg-secondary-container/10 p-3 text-xs animar-aparecer">
+      <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-secondary font-semibold">
-          <span>📝</span>
+          <FileClock className="h-3.5 w-3.5" />
           <span>Borrador</span>
         </div>
         {yaGuardado ? (
@@ -351,7 +453,7 @@ function DraftPreview({ draft, guardando, yaGuardado, onGuardar }: DraftPreviewP
         <p className="text-on-surface"><span className="text-on-surface-variant">Reparto:</span> {draft.reparto}</p>
       )}
       {draft.items && draft.items.length > 0 && (
-        <div className="mt-1.5 space-y-0.5">
+        <div className="mt-2 space-y-0.5">
           {draft.items.map((item, i) => (
             <div key={i} className="flex justify-between text-on-surface">
               <span className="truncate mr-2">{item.descripcion}</span>
@@ -376,7 +478,7 @@ function DraftPreview({ draft, guardando, yaGuardado, onGuardar }: DraftPreviewP
 // ─── Resultados de tools ───────────────────────────────────────────
 function ResultadosTools({ results }: { results: ToolResult[] }) {
   return (
-    <div className="w-full space-y-1.5">
+    <div className="w-full space-y-2">
       {results.map((r, i) => (
         <ResultadoTool key={i} result={r} />
       ))}
@@ -387,7 +489,8 @@ function ResultadosTools({ results }: { results: ToolResult[] }) {
 function ResultadoTool({ result }: { result: ToolResult }) {
   if (!result.ok) {
     return (
-      <div className="rounded-lg bg-error-container/20 px-2 py-1.5 text-xs text-on-error-container">
+      <div className="rounded-lg bg-error-container/20 px-2.5 py-1.5 text-xs text-on-error-container flex items-center gap-1.5">
+        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
         Error: {result.error}
       </div>
     );
@@ -444,9 +547,9 @@ function CardBalance({ data }: { data: Record<string, unknown> }) {
   const monto = data.montoAdeudado as number;
 
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs animar-aparecer">
       <div className="flex items-center gap-1.5 mb-1.5">
-        <span>⚖️</span>
+        <Scale className="h-4 w-4 text-on-surface-variant" />
         <span className="font-semibold text-on-surface">Balance</span>
       </div>
       {deudor ? (
@@ -459,7 +562,9 @@ function CardBalance({ data }: { data: Record<string, unknown> }) {
           </p>
         </div>
       ) : (
-        <p className="text-sm font-semibold text-tertiary">Están en cero</p>
+        <p className="text-sm font-semibold text-tertiary flex items-center gap-1">
+          <Check className="h-4 w-4" /> Están en cero
+        </p>
       )}
       <div className="mt-2 flex justify-between text-on-surface-variant">
         <span>Franco pagó: {formatearPeso(data.francoPago as number)}</span>
@@ -475,10 +580,10 @@ function CardGastosCategoria({ data }: { data: Record<string, unknown> }) {
   const total = data.total as number;
 
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs animar-aparecer">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
-          <span>📊</span>
+          <BarChart3 className="h-4 w-4 text-on-surface-variant" />
           <span className="font-semibold text-on-surface">Gastos del mes</span>
         </div>
         <span className="font-mono font-semibold text-sm text-on-surface">{formatearPeso(total)}</span>
@@ -508,9 +613,9 @@ function CardTopGastos({ data }: { data: Record<string, unknown> }) {
   const gastos = data.topGastos as Array<{ lugar: string; total: number; fecha: string; pagador: string }>;
 
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs animar-aparecer">
       <div className="flex items-center gap-1.5 mb-2">
-        <span>🔥</span>
+        <Flame className="h-4 w-4 text-on-surface-variant" />
         <span className="font-semibold text-on-surface">Top gastos</span>
       </div>
       <div className="space-y-1">
@@ -535,9 +640,9 @@ function CardComprasRecientes({ data }: { data: Record<string, unknown> }) {
   const compras = data.compras as Array<{ fecha: string; lugar: string | null; total: number; estado: string; categorias: string[] }>;
 
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs animar-aparecer">
       <div className="flex items-center gap-1.5 mb-2">
-        <span>🧾</span>
+        <Receipt className="h-4 w-4 text-on-surface-variant" />
         <span className="font-semibold text-on-surface">Últimas compras</span>
       </div>
       <div className="space-y-1.5">
@@ -565,9 +670,9 @@ function CardPresupuesto({ data }: { data: Record<string, unknown> }) {
   const presus = data.presupuestos as Array<{ nombre: string; gastado: number; limite: number; porcentaje: string; excedido: boolean }>;
 
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs animar-aparecer">
       <div className="flex items-center gap-1.5 mb-2">
-        <span>📈</span>
+        <TrendingUp className="h-4 w-4 text-on-surface-variant" />
         <span className="font-semibold text-on-surface">Presupuestos</span>
       </div>
       <div className="space-y-2">
@@ -608,16 +713,16 @@ function CardUltimaCompra({ data }: { data: Record<string, unknown> }) {
 
   if (!ultima) {
     return (
-      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant">
+      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant animar-aparecer">
         No encontré compras recientes de {texto}.
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs animar-aparecer">
       <div className="flex items-center gap-1.5 mb-2">
-        <span>🕘</span>
+        <Receipt className="h-4 w-4 text-on-surface-variant" />
         <span className="font-semibold text-on-surface">Última compra</span>
       </div>
       <p className="text-on-surface font-medium">{ultima.descripcion}</p>
@@ -641,17 +746,17 @@ function CardBuscarCompras({ data }: { data: Record<string, unknown> }) {
 
   if (!compras || compras.length === 0) {
     return (
-      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant">
+      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant animar-aparecer">
         No encontré compras para esa búsqueda.
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs animar-aparecer">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
-          <span>🔍</span>
+          <Receipt className="h-4 w-4 text-on-surface-variant" />
           <span className="font-semibold text-on-surface">Búsqueda</span>
         </div>
         <span className="text-on-surface-variant">{cantidad} resultado(s)</span>
@@ -677,7 +782,7 @@ function CardGastosPorMes({ data }: { data: Record<string, unknown> }) {
 
   if (!meses || meses.length === 0) {
     return (
-      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant">
+      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant animar-aparecer">
         Sin datos para mostrar.
       </div>
     );
@@ -686,9 +791,9 @@ function CardGastosPorMes({ data }: { data: Record<string, unknown> }) {
   const maximo = Math.max(...meses.map((m) => m.total));
 
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs animar-aparecer">
       <div className="flex items-center gap-1.5 mb-2">
-        <span>📅</span>
+        <BarChart3 className="h-4 w-4 text-on-surface-variant" />
         <span className="font-semibold text-on-surface">Evolución mensual</span>
       </div>
       <div className="space-y-1.5">
@@ -717,16 +822,16 @@ function CardItemsFrecuentes({ data }: { data: Record<string, unknown> }) {
 
   if (!items || items.length === 0) {
     return (
-      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant">
+      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant animar-aparecer">
         Sin datos de items frecuentes.
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs animar-aparecer">
       <div className="flex items-center gap-1.5 mb-2">
-        <span>🛒</span>
+        <Receipt className="h-4 w-4 text-on-surface-variant" />
         <span className="font-semibold text-on-surface">Items más comprados</span>
       </div>
       <div className="space-y-1.5">
@@ -750,16 +855,16 @@ function CardBorradoresPendientes({ data }: { data: Record<string, unknown> }) {
 
   if (!borradores || borradores.length === 0) {
     return (
-      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant">
+      <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs text-on-surface-variant animar-aparecer">
         No hay borradores pendientes.
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs">
+    <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-3 text-xs animar-aparecer">
       <div className="flex items-center gap-1.5 mb-2">
-        <span>📋</span>
+        <FileClock className="h-4 w-4 text-on-surface-variant" />
         <span className="font-semibold text-on-surface">Borradores pendientes</span>
       </div>
       <div className="space-y-1.5">

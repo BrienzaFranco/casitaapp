@@ -19,7 +19,9 @@ import type { PagadorCompra, TipoReparto } from "@/types";
 
 const MODELO_DEFAULT = "minimax/minimax-m2.7";
 const CACHE_TTL_MS = 1000 * 60 * 5;
-const TIMEOUT_FETCH_MS = 10000;
+const TIMEOUT_FETCH_MS = 15000;
+const MAX_RETRIES = 1;
+const RETRY_DELAY_MS = 1500;
 
 // ─── Cache de catálogo ─────────────────────────────────────────────
 interface CacheCatalogo {
@@ -416,7 +418,7 @@ function construirAnswerDesdeTools(results: ToolResult[]): string {
 }
 
 // ─── Llamada a OpenRouter ──────────────────────────────────────────
-async function llamarOpenRouter(payload: object, apiKey: string) {
+async function llamarOpenRouter(payload: object, apiKey: string, retry = 0): Promise<Response> {
   const init: RequestInit = {
     method: "POST",
     headers: {
@@ -431,7 +433,18 @@ async function llamarOpenRouter(payload: object, apiKey: string) {
   const timer = setTimeout(() => controller.abort(), TIMEOUT_FETCH_MS);
   try {
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", { ...init, signal: controller.signal });
+    // Retry en 5xx o timeout (abort)
+    if (!res.ok && res.status >= 500 && retry < MAX_RETRIES) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * (retry + 1)));
+      return llamarOpenRouter(payload, apiKey, retry + 1);
+    }
     return res;
+  } catch (err) {
+    if (retry < MAX_RETRIES) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * (retry + 1)));
+      return llamarOpenRouter(payload, apiKey, retry + 1);
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -684,9 +697,15 @@ export async function POST(request: Request) {
         const jsonFormato = await resFormato.json() as { choices?: Array<{ message?: { content?: string } }> };
         const textoFormato = jsonFormato.choices?.[0]?.message?.content?.trim();
         if (textoFormato) answerFinal = textoFormato;
+      } else {
+        // Fallback a formateo local si la segunda llamada falla
+        const fallbackLocal = construirAnswerDesdeTools(toolResults);
+        if (fallbackLocal) answerFinal = fallbackLocal;
       }
     } catch {
       // fallback al answer del primer call o al formateo local
+      const fallbackLocal = construirAnswerDesdeTools(toolResults);
+      if (fallbackLocal) answerFinal = fallbackLocal;
     }
   }
 

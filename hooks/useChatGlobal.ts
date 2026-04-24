@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import type { ChatResponse, ChatDraftPatch } from "@/lib/ai/contracts-chat";
@@ -43,21 +43,68 @@ interface EstadoChat {
   borradoresGuardados: BorradorGuardado[];
 }
 
+const STORAGE_KEY = "casita_chat_v1";
+
+function cargarDesdeStorage(): Partial<EstadoChat> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as { mensajes?: MensajeChat[]; borradoresGuardados?: BorradorGuardado[]; ts?: number };
+    // Expira después de 24h
+    if (parsed.ts && Date.now() - parsed.ts > 1000 * 60 * 60 * 24) {
+      localStorage.removeItem(STORAGE_KEY);
+      return {};
+    }
+    return {
+      mensajes: parsed.mensajes ?? [],
+      borradoresGuardados: parsed.borradoresGuardados ?? [],
+    };
+  } catch {
+    return {};
+  }
+}
+
+function guardarEnStorage(estado: Pick<EstadoChat, "mensajes" | "borradoresGuardados">) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        mensajes: estado.mensajes,
+        borradoresGuardados: estado.borradoresGuardados,
+        ts: Date.now(),
+      }),
+    );
+  } catch {
+    // best-effort
+  }
+}
+
 // ─── Hook ──────────────────────────────────────────────────────────
 export function useChatGlobal() {
   const queryClient = useQueryClient();
+  const saved = cargarDesdeStorage();
   const [estado, setEstado] = useState<EstadoChat>({
     abierto: false,
-    mensajes: [],
+    mensajes: saved.mensajes ?? [],
     cargando: false,
     guardando: false,
     error: null,
     draftActual: null,
     ultimoIntent: null,
-    borradoresGuardados: [],
+    borradoresGuardados: saved.borradoresGuardados ?? [],
   });
 
   const sessionIdRef = useRef(`chat-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`);
+
+  // Persistir en localStorage
+  useEffect(() => {
+    guardarEnStorage({
+      mensajes: estado.mensajes,
+      borradoresGuardados: estado.borradoresGuardados,
+    });
+  }, [estado.mensajes, estado.borradoresGuardados]);
 
   const toggle = useCallback(() => {
     setEstado((prev) => ({ ...prev, abierto: !prev.abierto }));
