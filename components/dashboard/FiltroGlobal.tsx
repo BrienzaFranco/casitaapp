@@ -200,7 +200,7 @@ export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas, subcate
     <>
       {/* Filter bar */}
       <div className="sticky top-[52px] z-40 bg-surface/95 backdrop-blur-sm border-b border-outline-variant/10">
-        <div className="max-w-[430px] mx-auto px-4 py-2 flex items-center gap-1.5 flex-wrap">
+        <div className="py-2 flex items-center gap-1.5 flex-wrap">
           {/* Persona dropdown */}
           <DropdownFiltro
             label="Persona"
@@ -269,13 +269,13 @@ export function FiltroGlobal({ filtro, setFiltro, categorias, etiquetas, subcate
 
       {/* Active filter banner */}
       {tieneFiltro && (
-        <div className="max-w-[430px] mx-auto px-4 py-1.5">
-          <div className="flex items-center gap-1.5 flex-wrap bg-[#E6F1FB] rounded-[10px] px-2.5 py-1.5">
-            <span className="text-[10px] text-[#042C53] opacity-60 shrink-0">Filtrando:</span>
+        <div className="py-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap bg-secondary-fixed/40 rounded-xl px-2.5 py-1.5">
+            <span className="text-[10px] text-on-secondary-fixed-variant opacity-60 shrink-0">Filtrando:</span>
             {etiquetasActivas().map((et, i) => (
               <span
                 key={i}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-[#042C53] bg-[#d0e5f5] rounded-full px-1.5 py-0.5"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-on-secondary-fixed-variant bg-secondary-fixed rounded-full px-1.5 py-0.5"
               >
                 {et.label}
                 <button

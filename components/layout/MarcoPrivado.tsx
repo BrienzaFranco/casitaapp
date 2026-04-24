@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { BannerPendientes } from "@/components/layout/BannerPendientes";
 import { ChatGlobal } from "@/components/layout/ChatGlobal";
 import { ContenedorPagina } from "@/components/layout/ContenedorPagina";
@@ -13,11 +14,14 @@ interface Props {
 }
 
 export function MarcoPrivado({ children }: Props) {
+  const pathname = usePathname();
+  const esAnotador = pathname === "/anotador-rapido";
+
   return (
     <>
       <SidebarDesktop />
       <div className="md:pl-56">
-        <ContenedorPagina className="pb-24 md:pb-8 md:pt-6">
+        <ContenedorPagina className={esAnotador ? "" : "pb-24 pt-14 md:pb-8 md:pt-6"}>
           <Header />
           <BannerPendientes />
           {children}

@@ -146,7 +146,7 @@ export function SelectorPeriodo({ periodo, setPeriodo, mesActualLabel, mesAnteri
                     {op.sub && <p className="text-[9px] text-on-surface-variant/40">{op.sub}</p>}
                   </div>
                   {activo && (
-                    <span className="w-2 h-2 rounded-full bg-[#5B9BD5]" />
+                    <span className="w-2 h-2 rounded-full bg-secondary" />
                   )}
                 </button>
               );
@@ -175,7 +175,7 @@ export function SelectorPeriodo({ periodo, setPeriodo, mesActualLabel, mesAnteri
                 <button
                   type="button"
                   onClick={() => seleccionar("rango")}
-                  className="w-full text-[11px] py-1 rounded-[8px] bg-[#5B9BD5] text-white font-medium hover:bg-[#4a8ac4] transition-colors"
+                  className="w-full text-[11px] py-1 rounded-lg bg-secondary text-on-secondary font-medium hover:bg-secondary/90 transition-colors"
                 >
                   Aplicar
                 </button>

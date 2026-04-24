@@ -3,7 +3,7 @@
 import { useMemo, useState, useRef, useEffect, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Camera, Mic, ChevronRight, ChevronLeft, X } from "lucide-react";
+import { Camera, Mic, ChevronRight, ChevronLeft, X, Zap, Sparkles, Mic2, Square, RotateCcw, Check, AlertTriangle, User, Banknote, Package, MapPin } from "lucide-react";
 import type { CompraEditable, PagadorCompra, TipoReparto } from "@/types";
 import { formatearPeso } from "@/lib/formatear";
 import { calcularReparto } from "@/lib/calculos";
@@ -288,203 +288,206 @@ export default function PaginaAnotadorRapido() {
   // ── Entry screen ──
   if (!modo) {
     return (
-      <div className="min-h-screen bg-surface">
-        <div className="max-w-md mx-auto px-4 pt-12 pb-8 space-y-6">
-          <div>
-            <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/50">Registro rápido</p>
-            <h1 className="font-headline text-2xl font-bold tracking-tight text-on-surface mt-1">
-              Anotar gasto
-            </h1>
-          </div>
-
-          {/* Mode buttons */}
-          <button
-            type="button"
-            onClick={() => setModo("pasos")}
-            className="w-full py-5 rounded-[16px] bg-secondary text-on-secondary font-headline text-lg font-bold shadow-lg shadow-secondary/20 active:scale-[0.98] transition-transform"
-          >
-            ⚡ Paso a paso
-            <p className="text-xs font-label font-normal opacity-70 mt-0.5">Elegí quién pagó, cuánto, qué y dónde</p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => router.push("/?chat=open")}
-            className="w-full py-4 rounded-[14px] bg-primary text-on-primary font-headline text-base font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform"
-          >
-            ✨ Chat IA
-            <p className="text-xs font-label font-normal opacity-80 mt-0.5">Consultá datos o anotá gastos con IA</p>
-          </button>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => imgRef.current?.click()}
-              className="py-5 rounded-[14px] bg-surface-container-low border border-outline-variant/15 text-on-surface font-headline text-sm font-medium active:scale-[0.97] transition-transform text-center"
-            >
-              <Camera className="h-5 w-5 mx-auto mb-1.5 opacity-50" />
-              Foto del ticket
-              <p className="text-[9px] font-label text-on-surface-variant/50 mt-0.5 leading-tight">Sacá foto y completá los datos a mano</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setModo("voz"); iniciarVoz(); }}
-              className="py-5 rounded-[14px] bg-surface-container-low border border-outline-variant/15 text-on-surface font-headline text-sm font-medium active:scale-[0.97] transition-transform text-center"
-            >
-              <Mic className="h-5 w-5 mx-auto mb-1.5 opacity-50" />
-              Nota de voz
-              <p className="text-[9px] font-label text-on-surface-variant/50 mt-0.5 leading-tight">Grabá y completá los datos a mano</p>
-            </button>
-          </div>
-
-          <input ref={imgRef} type="file" accept="image/*" capture="environment" onChange={handleFoto} className="hidden" />
-
-          {/* Pending drafts */}
-          {borradoresPendientes.length > 0 && (
-            <div>
-              <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/50 mb-2">
-                Borradores pendientes ({borradoresPendientes.length})
-              </p>
-              <div className="space-y-1.5">
-                {borradoresPendientes.map((b) => {
-                  const total = b.items.reduce((a, i) => a + i.monto_resuelto, 0);
-                  const hace = (() => {
-                    if (!b.creado_en) return "";
-                    const diff = Date.now() - new Date(b.creado_en).getTime();
-                    const horas = Math.round(diff / (1000 * 60 * 60));
-                    if (horas < 1) return "hace poco";
-                    if (horas < 24) return `hace ${horas}h`;
-                    return `hace ${Math.round(horas / 24)}d`;
-                  })();
-                  return (
-                    <button
-                      key={b.id}
-                      type="button"
-                      onClick={() => router.push("/borradores")}
-                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-[12px] bg-surface-container-low active:bg-surface-container transition-colors"
-                    >
-                      <div className="text-left min-w-0">
-                        <p className="text-[13px] text-on-surface truncate">{b.nombre_lugar || "Sin lugar"}</p>
-                        <p className="text-[10px] text-on-surface-variant/50">{hace}</p>
-                      </div>
-                      <span className="text-[14px] font-semibold tabular-nums text-on-surface">{formatearPeso(total)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+      <div className="space-y-6">
+        <div>
+          <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/50">Registro rápido</p>
+          <h1 className="font-headline text-2xl font-bold tracking-tight text-on-surface mt-1">
+            Anotar gasto
+          </h1>
         </div>
+
+        {/* Mode buttons */}
+        <button
+          type="button"
+          onClick={() => setModo("pasos")}
+          className="w-full py-5 rounded-2xl bg-secondary text-on-secondary font-headline text-lg font-bold shadow-lg shadow-secondary/20 active:scale-[0.98] transition-transform"
+        >
+          <span className="inline-flex items-center gap-2">
+            <Zap className="h-5 w-5" /> Paso a paso
+          </span>
+          <p className="text-xs font-label font-normal opacity-70 mt-0.5">Elegí quién pagó, cuánto, qué y dónde</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => router.push("/?chat=open")}
+          className="w-full py-4 rounded-xl bg-primary text-on-primary font-headline text-base font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform"
+        >
+          <span className="inline-flex items-center gap-2">
+            <Sparkles className="h-5 w-5" /> Chat IA
+          </span>
+          <p className="text-xs font-label font-normal opacity-80 mt-0.5">Consultá datos o anotá gastos con IA</p>
+        </button>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => imgRef.current?.click()}
+            className="py-5 rounded-xl bg-surface-container-low border border-outline-variant/15 text-on-surface font-headline text-sm font-medium active:scale-[0.97] transition-transform text-center"
+          >
+            <Camera className="h-5 w-5 mx-auto mb-1.5 opacity-50" />
+            Foto del ticket
+            <p className="text-[9px] font-label text-on-surface-variant/50 mt-0.5 leading-tight">Sacá foto y completá los datos a mano</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setModo("voz"); iniciarVoz(); }}
+            className="py-5 rounded-xl bg-surface-container-low border border-outline-variant/15 text-on-surface font-headline text-sm font-medium active:scale-[0.97] transition-transform text-center"
+          >
+            <Mic className="h-5 w-5 mx-auto mb-1.5 opacity-50" />
+            Nota de voz
+            <p className="text-[9px] font-label text-on-surface-variant/50 mt-0.5 leading-tight">Grabá y completá los datos a mano</p>
+          </button>
+        </div>
+
+        <input ref={imgRef} type="file" accept="image/*" capture="environment" onChange={handleFoto} className="hidden" />
+
+        {/* Pending drafts */}
+        {borradoresPendientes.length > 0 && (
+          <div>
+            <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/50 mb-2">
+              Borradores pendientes ({borradoresPendientes.length})
+            </p>
+            <div className="space-y-1.5">
+              {borradoresPendientes.map((b) => {
+                const total = b.items.reduce((a, i) => a + i.monto_resuelto, 0);
+                const hace = (() => {
+                  if (!b.creado_en) return "";
+                  const diff = Date.now() - new Date(b.creado_en).getTime();
+                  const horas = Math.round(diff / (1000 * 60 * 60));
+                  if (horas < 1) return "hace poco";
+                  if (horas < 24) return `hace ${horas}h`;
+                  return `hace ${Math.round(horas / 24)}d`;
+                })();
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => router.push("/borradores")}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-surface-container-low active:bg-surface-container transition-colors"
+                  >
+                    <div className="text-left min-w-0">
+                      <p className="text-[13px] text-on-surface truncate">{b.nombre_lugar || "Sin lugar"}</p>
+                      <p className="text-[10px] text-on-surface-variant/50">{hace}</p>
+                    </div>
+                    <span className="text-[14px] font-semibold tabular-nums text-on-surface">{formatearPeso(total)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   if (modo === "voz") {
-    const estados: Record<string, { icon: string; title: string; sub: string }> = {
-      idle: { icon: "🎤", title: "Grabar nota de voz", sub: "Tocá para empezar" },
-      recording: { icon: "🔴", title: "Escuchando...", sub: "Decí tu gasto en voz alta" },
-      done: { icon: "✅", title: "Texto capturado", sub: "Revisalo y seguí" },
-      error: { icon: "❌", title: "Error al grabar", sub: "Intentá de nuevo" },
-      unsupported: { icon: "⚠️", title: "Voz no disponible", sub: "Usá el modo paso a paso" },
+    const estados: Record<string, { Icon: React.ElementType; title: string; sub: string }> = {
+      idle: { Icon: Mic2, title: "Grabar nota de voz", sub: "Tocá para empezar" },
+      recording: { Icon: Mic2, title: "Escuchando...", sub: "Decí tu gasto en voz alta" },
+      done: { Icon: Check, title: "Texto capturado", sub: "Revisalo y seguí" },
+      error: { Icon: X, title: "Error al grabar", sub: "Intentá de nuevo" },
+      unsupported: { Icon: AlertTriangle, title: "Voz no disponible", sub: "Usá el modo paso a paso" },
     };
     const est = estados[voice.state];
+    const EstadoIcon = est.Icon;
 
     return (
-      <div className="min-h-screen bg-surface">
-        <div className="max-w-md mx-auto px-4 pt-6 pb-8 space-y-6">
-          <button type="button" onClick={irInicio} className="text-[12px] text-on-surface-variant/50 hover:text-on-surface">
-            ← Volver
-          </button>
+      <div className="space-y-6">
+        <button type="button" onClick={irInicio} className="text-sm text-on-surface-variant/50 hover:text-on-surface flex items-center gap-1">
+          <ChevronLeft className="h-4 w-4" /> Volver
+        </button>
 
-          <div className="text-center space-y-4">
-            <div className="text-6xl">{est.icon}</div>
-            <h2 className="font-headline text-xl font-bold text-on-surface">{est.title}</h2>
-            <p className="text-sm text-on-surface-variant">{est.sub}</p>
+        <div className="text-center space-y-4">
+          <div className="mx-auto w-16 h-16 rounded-full bg-surface-container-high flex items-center justify-center">
+            <EstadoIcon className="h-8 w-8 text-on-surface-variant" />
           </div>
+          <h2 className="font-headline text-xl font-bold text-on-surface">{est.title}</h2>
+          <p className="text-sm text-on-surface-variant">{est.sub}</p>
+        </div>
 
-          {/* Recording button / transcript */}
-          {(voice.state === "idle" || voice.state === "recording") && (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={voice.state === "idle" ? voice.start : voice.stop}
-                className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl shadow-lg transition-all ${
-                  voice.state === "recording"
-                    ? "bg-[#E24B4A] text-white animate-pulse"
-                    : "bg-secondary text-on-secondary active:scale-95"
-                }`}
-              >
-                {voice.state === "recording" ? "⏹" : "🎤"}
-              </button>
-            </div>
-          )}
-
-          {voice.state === "done" && (
-            <div className="space-y-3">
-              <textarea
-                value={textoVozEditable || voice.transcript}
-                onChange={(e) => setTextoVozEditable(e.target.value)}
-                className="w-full h-24 rounded-[12px] bg-surface-container-low p-3 text-sm text-on-surface outline-none border border-outline-variant/15"
-                placeholder="Texto capturado..."
-              />
-              <button
-                type="button"
-                onClick={usarTextoVoz}
-                className="w-full py-4 rounded-[14px] bg-secondary text-on-secondary font-headline text-base font-bold active:scale-[0.98] transition-transform"
-              >
-                Continuar al registro →
-              </button>
-              <button
-                type="button"
-                onClick={() => { voice.reset(); voice.start(); setTextoVozEditable(""); }}
-                className="w-full py-3 rounded-[14px] bg-surface-container-low text-on-surface-variant font-label text-sm"
-              >
-                Grabar de nuevo
-              </button>
-            </div>
-          )}
-
-          {voice.state === "error" && (
+        {/* Recording button / transcript */}
+        {(voice.state === "idle" || voice.state === "recording") && (
+          <div className="flex justify-center">
             <button
               type="button"
-              onClick={() => { voice.reset(); voice.start(); }}
-              className="w-full py-4 rounded-[14px] bg-secondary text-on-secondary font-headline text-base font-bold"
+              onClick={voice.state === "idle" ? voice.start : voice.stop}
+              className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-all ${
+                voice.state === "recording"
+                  ? "bg-error text-on-error animate-pulse"
+                  : "bg-secondary text-on-secondary active:scale-95"
+              }`}
             >
-              Intentar de nuevo
+              {voice.state === "recording" ? <Square className="h-8 w-8" /> : <Mic2 className="h-8 w-8" />}
             </button>
-          )}
+          </div>
+        )}
 
-          {voice.state === "unsupported" && (
-            <div className="space-y-3">
-              <p className="text-sm text-on-surface-variant text-center">
-                Tu navegador no soporta reconocimiento de voz. Usá el modo paso a paso:
-              </p>
-              <button
-                type="button"
-                onClick={() => setModo("pasos")}
-                className="w-full py-4 rounded-[14px] bg-secondary text-on-secondary font-headline text-base font-bold"
-              >
-                Ir al paso a paso
-              </button>
-            </div>
-          )}
-        </div>
+        {voice.state === "done" && (
+          <div className="space-y-3">
+            <textarea
+              value={textoVozEditable || voice.transcript}
+              onChange={(e) => setTextoVozEditable(e.target.value)}
+              className="w-full h-24 rounded-xl bg-surface-container-low p-3 text-sm text-on-surface outline-none border border-outline-variant/15"
+              placeholder="Texto capturado..."
+            />
+            <button
+              type="button"
+              onClick={usarTextoVoz}
+              className="w-full py-4 rounded-xl bg-secondary text-on-secondary font-headline text-base font-bold active:scale-[0.98] transition-transform"
+            >
+              Continuar al registro →
+            </button>
+            <button
+              type="button"
+              onClick={() => { voice.reset(); voice.start(); setTextoVozEditable(""); }}
+              className="w-full py-3 rounded-xl bg-surface-container-low text-on-surface-variant font-label text-sm flex items-center justify-center gap-1"
+            >
+              <RotateCcw className="h-4 w-4" /> Grabar de nuevo
+            </button>
+          </div>
+        )}
+
+        {voice.state === "error" && (
+          <button
+            type="button"
+            onClick={() => { voice.reset(); voice.start(); }}
+            className="w-full py-4 rounded-xl bg-secondary text-on-secondary font-headline text-base font-bold"
+          >
+            Intentar de nuevo
+          </button>
+        )}
+
+        {voice.state === "unsupported" && (
+          <div className="space-y-3">
+            <p className="text-sm text-on-surface-variant text-center">
+              Tu navegador no soporta reconocimiento de voz. Usá el modo paso a paso:
+            </p>
+            <button
+              type="button"
+              onClick={() => setModo("pasos")}
+              className="w-full py-4 rounded-xl bg-secondary text-on-secondary font-headline text-base font-bold"
+            >
+              Ir al paso a paso
+            </button>
+          </div>
+        )}
       </div>
     );
   }
 
   // ── Step-by-step mode ──
-  const pasos: Record<number, { titulo: string; icon: string }> = {
-    1: { titulo: "¿Quién pagó?", icon: "👤" },
-    2: { titulo: "¿Cuánto?", icon: "💰" },
-    3: { titulo: "¿Qué cosa?", icon: "📦" },
-    4: { titulo: "¿Dónde?", icon: "📍" },
-    5: { titulo: "Confirmar", icon: "✓" },
+  const pasos: Record<number, { titulo: string; Icon: React.ElementType }> = {
+    1: { titulo: "¿Quién pagó?", Icon: User },
+    2: { titulo: "¿Cuánto?", Icon: Banknote },
+    3: { titulo: "¿Qué cosa?", Icon: Package },
+    4: { titulo: "¿Dónde?", Icon: MapPin },
+    5: { titulo: "Confirmar", Icon: Check },
   };
 
   return (
     <div
-      className="min-h-screen bg-surface flex flex-col"
+      className="flex flex-col"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -492,11 +495,11 @@ export default function PaginaAnotadorRapido() {
       {borrador.imagenBase64 && (
         <div className="absolute top-2 right-2 z-30">
           <div className="relative">
-            <img src={borrador.imagenBase64} alt="Ticket" className="w-12 h-12 rounded-[8px] object-cover border border-outline-variant/20" />
+            <img src={borrador.imagenBase64} alt="Ticket" className="w-12 h-12 rounded-lg object-cover border border-outline-variant/20" />
             <button
               type="button"
               onClick={() => setBorrador((b) => ({ ...b, imagenBase64: undefined }))}
-              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E24B4A] text-white text-[8px] flex items-center justify-center"
+              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-error text-on-error text-[8px] flex items-center justify-center"
             >
               <X className="h-2.5 w-2.5" />
             </button>
@@ -506,7 +509,7 @@ export default function PaginaAnotadorRapido() {
 
       {/* Reference text (voice mode) */}
       {borrador.textoReferencia && (
-        <div className="bg-[#E6F1FB] px-4 py-2 text-[11px] text-[#042C53]">
+        <div className="bg-secondary-fixed/40 px-4 py-2 text-[11px] text-on-secondary-fixed-variant">
           <span className="opacity-60">Voz:</span> {borrador.textoReferencia}
           <button type="button" onClick={() => setBorrador((b) => ({ ...b, textoReferencia: undefined }))} className="ml-2 underline">Quitar</button>
         </div>
@@ -525,23 +528,23 @@ export default function PaginaAnotadorRapido() {
       </div>
 
       {/* Steps container */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden min-h-[50vh]">
         <div
           key={paso}
-          className="absolute inset-0 flex flex-col items-center justify-center px-4"
+          className="absolute inset-0 flex flex-col items-center justify-center"
           style={{
             animation: direccion === "forward" ? "slideInRight 250ms ease-out" : "slideInLeft 250ms ease-out",
           }}
         >
           {/* ── PASO 1: Quién pagó ── */}
           {paso === 1 && (
-            <div className="w-full max-w-md space-y-3 pt-8">
+            <div className="w-full space-y-3 pt-8">
               <h2 className="font-headline text-xl font-bold text-on-surface text-center mb-6">{pasos[1].titulo}</h2>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => { setBorrador((b) => ({ ...b, pagador: "franco" })); avanzar(); }}
-                  className="py-6 rounded-[16px] font-headline text-base font-bold active:scale-[0.97] transition-transform"
+                  className="py-6 rounded-2xl font-headline text-base font-bold active:scale-[0.97] transition-transform"
                   style={{ backgroundColor: `${colorFran}20`, color: colorFran }}
                 >
                   Franco
@@ -549,7 +552,7 @@ export default function PaginaAnotadorRapido() {
                 <button
                   type="button"
                   onClick={() => { setBorrador((b) => ({ ...b, pagador: "fabiola" })); avanzar(); }}
-                  className="py-6 rounded-[16px] font-headline text-base font-bold active:scale-[0.97] transition-transform"
+                  className="py-6 rounded-2xl font-headline text-base font-bold active:scale-[0.97] transition-transform"
                   style={{ backgroundColor: `${colorFabi}20`, color: colorFabi }}
                 >
                   Fabiola
@@ -558,7 +561,7 @@ export default function PaginaAnotadorRapido() {
               <button
                 type="button"
                 onClick={() => { setBorrador((b) => ({ ...b, pagador: "compartido" })); avanzar(); }}
-                className="w-full py-4 rounded-[14px] bg-surface-container-low border border-outline-variant/15 text-on-surface font-label text-sm active:scale-[0.98] transition-transform"
+                className="w-full py-4 rounded-xl bg-surface-container-low border border-outline-variant/15 text-on-surface font-label text-sm active:scale-[0.98] transition-transform"
               >
                 Compartido (50/50)
               </button>
@@ -567,7 +570,7 @@ export default function PaginaAnotadorRapido() {
 
           {/* ── PASO 2: Cuánto ── */}
           {paso === 2 && (
-            <div className="w-full max-w-md space-y-4 pt-8">
+            <div className="w-full space-y-4 pt-8">
               <h2 className="font-headline text-xl font-bold text-on-surface text-center mb-6">{pasos[2].titulo}</h2>
               <div className="flex items-baseline justify-center gap-1">
                 <span className="text-2xl text-on-surface-variant/40">$</span>
@@ -595,7 +598,7 @@ export default function PaginaAnotadorRapido() {
                 type="button"
                 disabled={borrador.monto == null || borrador.monto <= 0}
                 onClick={avanzar}
-                className="w-full py-4 rounded-[14px] bg-secondary text-on-secondary font-headline text-base font-bold disabled:opacity-30 active:scale-[0.98] transition-transform"
+                className="w-full py-4 rounded-xl bg-secondary text-on-secondary font-headline text-base font-bold disabled:opacity-30 active:scale-[0.98] transition-transform"
               >
                 Listo
               </button>
@@ -604,7 +607,7 @@ export default function PaginaAnotadorRapido() {
 
           {/* ── PASO 3: Qué cosa ── */}
           {paso === 3 && (
-            <div className="w-full max-w-md space-y-3 pt-8">
+            <div className="w-full space-y-3 pt-8">
               <h2 className="font-headline text-xl font-bold text-on-surface text-center mb-6">{pasos[3].titulo}</h2>
               <input
                 type="text"
@@ -612,7 +615,7 @@ export default function PaginaAnotadorRapido() {
                 value={borrador.item || ""}
                 onChange={(e) => setBorrador((b) => ({ ...b, item: e.target.value }))}
                 placeholder="Ej: Yerba, Pan, Nafta..."
-                className="w-full bg-surface-container-lowest rounded-[12px] border border-outline-variant/15 px-4 py-3 text-base text-on-surface outline-none placeholder:text-on-surface-variant/40"
+                className="w-full bg-surface-container-lowest rounded-xl border border-outline-variant/15 px-4 py-3 text-base text-on-surface outline-none placeholder:text-on-surface-variant/40"
                 autoFocus
               />
               {sugerenciasItems.length > 0 && (
@@ -652,7 +655,7 @@ export default function PaginaAnotadorRapido() {
                 type="button"
                 disabled={!borrador.item}
                 onClick={avanzar}
-                className="w-full py-4 rounded-[14px] bg-secondary text-on-secondary font-headline text-base font-bold disabled:opacity-30 active:scale-[0.98] transition-transform mt-3"
+                className="w-full py-4 rounded-xl bg-secondary text-on-secondary font-headline text-base font-bold disabled:opacity-30 active:scale-[0.98] transition-transform mt-3"
               >
                 Siguiente →
               </button>
@@ -661,7 +664,7 @@ export default function PaginaAnotadorRapido() {
 
           {/* ── PASO 4: Dónde ── */}
           {paso === 4 && (
-            <div className="w-full max-w-md space-y-3 pt-8">
+            <div className="w-full space-y-3 pt-8">
               <h2 className="font-headline text-xl font-bold text-on-surface text-center mb-2">{pasos[4].titulo} <span className="text-sm font-normal text-on-surface-variant/50">(opcional)</span></h2>
               <input
                 type="text"
@@ -669,7 +672,7 @@ export default function PaginaAnotadorRapido() {
                 value={borrador.lugar || ""}
                 onChange={(e) => setBorrador((b) => ({ ...b, lugar: e.target.value }))}
                 placeholder="Ej: Carrefour, Farmacia..."
-                className="w-full bg-surface-container-lowest rounded-[12px] border border-outline-variant/15 px-4 py-3 text-base text-on-surface outline-none placeholder:text-on-surface-variant/40"
+                className="w-full bg-surface-container-lowest rounded-xl border border-outline-variant/15 px-4 py-3 text-base text-on-surface outline-none placeholder:text-on-surface-variant/40"
               />
               {sugerenciasLugar.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
@@ -688,7 +691,7 @@ export default function PaginaAnotadorRapido() {
               <button
                 type="button"
                 onClick={avanzar}
-                className="w-full py-4 rounded-[14px] bg-secondary text-on-secondary font-headline text-base font-bold active:scale-[0.98] transition-transform mt-3"
+                className="w-full py-4 rounded-xl bg-secondary text-on-secondary font-headline text-base font-bold active:scale-[0.98] transition-transform mt-3"
               >
                 Saltear →
               </button>
@@ -697,9 +700,9 @@ export default function PaginaAnotadorRapido() {
 
           {/* ── PASO 5: Confirmar ── */}
           {paso === 5 && (
-            <div className="w-full max-w-md space-y-4 pt-8">
+            <div className="w-full space-y-4 pt-8">
               <h2 className="font-headline text-xl font-bold text-on-surface text-center mb-6">{pasos[5].titulo}</h2>
-              <div className="bg-surface-container-lowest rounded-[16px] border border-outline-variant/10 p-4 space-y-2.5">
+              <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/10 p-4 space-y-2.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-on-surface-variant/60">Pagador</span>
                   <span className="text-on-surface font-medium">
@@ -723,7 +726,10 @@ export default function PaginaAnotadorRapido() {
                 {borrador.fuenteEntrada !== "pasos" && (
                   <div className="flex justify-between text-sm">
                     <span className="text-on-surface-variant/60">Fuente</span>
-                    <span className="text-on-surface">{borrador.fuenteEntrada === "foto" ? "📷 Foto" : "🎤 Voz"}</span>
+                    <span className="text-on-surface flex items-center gap-1">
+                      {borrador.fuenteEntrada === "foto" ? <Camera className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                      {borrador.fuenteEntrada === "foto" ? "Foto" : "Voz"}
+                    </span>
                   </div>
                 )}
               </div>
@@ -731,7 +737,7 @@ export default function PaginaAnotadorRapido() {
                 type="button"
                 onClick={() => guardarBorrador(true)}
                 disabled={guardando}
-                className="w-full py-4 rounded-[14px] bg-secondary text-on-secondary font-headline text-base font-bold disabled:opacity-50 active:scale-[0.98] transition-transform"
+                className="w-full py-4 rounded-xl bg-secondary text-on-secondary font-headline text-base font-bold disabled:opacity-50 active:scale-[0.98] transition-transform"
               >
                 {guardando ? "Guardando..." : "Guardar como borrador"}
               </button>
@@ -740,14 +746,14 @@ export default function PaginaAnotadorRapido() {
                   type="button"
                   onClick={() => guardarBorrador(false)}
                   disabled={guardando}
-                  className="py-3 rounded-[12px] bg-surface-container-low text-on-surface font-label text-sm disabled:opacity-50"
+                  className="py-3 rounded-xl bg-surface-container-low text-on-surface font-label text-sm disabled:opacity-50"
                 >
                   + Agregar otro
                 </button>
                 <button
                   type="button"
                   onClick={() => router.push("/borradores")}
-                  className="py-3 rounded-[12px] bg-surface-container-low text-on-surface font-label text-sm"
+                  className="py-3 rounded-xl bg-surface-container-low text-on-surface font-label text-sm"
                 >
                   Ir a borradores →
                 </button>
@@ -759,7 +765,7 @@ export default function PaginaAnotadorRapido() {
 
       {/* Nav buttons */}
       {paso > 1 && paso < 5 && (
-        <div className="flex items-center justify-between px-4 py-4">
+        <div className="flex items-center justify-between py-4">
           <button
             type="button"
             onClick={retroceder}
@@ -773,7 +779,7 @@ export default function PaginaAnotadorRapido() {
             onClick={irInicio}
             className="text-on-surface-variant/40 hover:text-on-surface-variant"
           >
-            ✕
+            <X className="h-5 w-5" />
           </button>
           {paso < 5 && (
             <button
@@ -791,8 +797,8 @@ export default function PaginaAnotadorRapido() {
       {/* Step 1 home button */}
       {paso === 1 && (
         <div className="flex justify-center py-4">
-          <button type="button" onClick={irInicio} className="text-on-surface-variant/40 hover:text-on-surface-variant text-sm">
-            ✕ Cancelar
+          <button type="button" onClick={irInicio} className="text-on-surface-variant/40 hover:text-on-surface-variant text-sm flex items-center gap-1">
+            <X className="h-4 w-4" /> Cancelar
           </button>
         </div>
       )}

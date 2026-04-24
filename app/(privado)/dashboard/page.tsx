@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Check, Download, Plus, TrendingUp, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatearPeso, formatearPorcentaje } from "@/lib/formatear";
 import { mesClave, fechaLocalISO } from "@/lib/utiles";
@@ -10,7 +11,6 @@ import { exportarExcel } from "@/lib/exportar";
 import { usarBalance } from "@/hooks/usarBalance";
 import { usarConfiguracion } from "@/hooks/usarConfiguracion";
 import { obtenerMesAnterior } from "@/lib/calculos";
-import type { CategoriaBalance } from "@/types";
 
 import {
   FiltroGlobal,
@@ -22,13 +22,7 @@ import {
   type PeriodoActivo,
   filtrarPorPeriodo,
 } from "@/components/dashboard/SelectorPeriodo";
-import { KPIStrip } from "@/components/dashboard/KPIStrip";
 import { DeltaBadge } from "@/components/dashboard/DeltaBadge";
-import { GraficoDiarioComparativo } from "@/components/dashboard/GraficoDiarioComparativo";
-import { DrawerCategoria } from "@/components/dashboard/DrawerCategoria";
-import { DistribucionPersona } from "@/components/dashboard/DistribucionPersona";
-import { TopGastosMes } from "@/components/dashboard/TopGastosMes";
-import { generarInsights } from "@/lib/insights";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -63,23 +57,6 @@ export default function PaginaDashboard() {
 
   const [filtro, setFiltro] = useState<FiltroActivo>({ personas: [], categorias: [], etiquetas: [], subcategorias: [] });
   const [periodo, setPeriodo] = useState<PeriodoActivo>({ tipo: "este-mes", label: "Este mes" });
-  const [categoriaDrawer, setCategoriaDrawer] = useState<CategoriaBalance["categoria"] | null>(null);
-  const [diaFiltro, setDiaFiltro] = useState<number | null>(null);
-
-  function handlePersonaClick(persona: "franco" | "fabiola" | "todos") {
-    if (persona === "todos") {
-      setFiltro((prev) => ({ ...prev, personas: [] }));
-    } else {
-      setFiltro((prev) => ({
-        ...prev,
-        personas: prev.personas.includes(persona) ? [] : [persona],
-      }));
-    }
-  }
-
-  function handleDiaClick(dia: number) {
-    setDiaFiltro((prev) => (prev === dia ? null : dia));
-  }
 
   const mesAnterior = obtenerMesAnterior(balance.mesSeleccionado);
   const mesAnteriorLabel = mesAnterior ? formatearMesCorto(mesAnterior) : "";
@@ -115,83 +92,21 @@ export default function PaginaDashboard() {
   const restante = presupuestoTotal - totalGastado;
   const pctUsado = presupuestoTotal > 0 ? (totalGastado / presupuestoTotal) * 100 : 0;
 
-  const promedioDiario = diasEnMes > 0 ? totalGastado / diasEnMes : 0;
-
   const totalMesAnterior = montoFiltrado(comprasMesAnteriorData, filtro);
-  const diasEnMesAnterior = mesAnterior
-    ? new Date(parseInt(mesAnterior.split("-")[0]), parseInt(mesAnterior.split("-")[1]), 0).getDate()
-    : diasEnMes;
-  const promedioDiarioAnterior = diasEnMesAnterior > 0 ? totalMesAnterior / diasEnMesAnterior : 0;
-  const variacionDiaria = promedioDiarioAnterior > 0
-    ? ((promedioDiario - promedioDiarioAnterior) / promedioDiarioAnterior) * 100
-    : 0;
-
-  const factorProyeccion = diaDelMes > 0 ? diasEnMes / diaDelMes : 1;
-  const proyeccionFinMes = Math.round(totalGastado * factorProyeccion * 100) / 100;
-  const diffProyeccion = proyeccionFinMes - presupuestoTotal;
 
   const numBorradores = balance.compras.compras.filter((c) => c.estado === "borrador").length;
   const totalBorradores = balance.compras.compras
     .filter((c) => c.estado === "borrador")
     .reduce((acc, c) => acc + c.items.reduce((a, i) => a + i.monto_resuelto, 0), 0);
 
-  const categoriasConLimite = useMemo(() => {
-    const conLimite = balance.categoriasMes.filter(
-      (c) => c.categoria.limite_mensual && c.categoria.limite_mensual > 0,
-    );
-    const ordenPrioridad = (cat: CategoriaBalance) => {
-      const pct = cat.porcentaje ?? 0;
-      if (pct > 100) return 0;
-      if (pct >= 80) return 1;
-      if (cat.es_fijo) return 4;
-      return 2;
-    };
-    return [...conLimite].sort((a, b) => {
-      const oa = ordenPrioridad(a);
-      const ob = ordenPrioridad(b);
-      if (oa !== ob) return oa - ob;
-      return (b.porcentaje ?? 0) - (a.porcentaje ?? 0);
-    });
+  // Categorías con alertas (excedidas o cerca del límite)
+  const categoriasAlerta = useMemo(() => {
+    return balance.categoriasMes
+      .filter((c) => c.categoria.limite_mensual && c.categoria.limite_mensual > 0)
+      .filter((c) => (c.porcentaje ?? 0) >= 80)
+      .sort((a, b) => (b.porcentaje ?? 0) - (a.porcentaje ?? 0))
+      .slice(0, 3);
   }, [balance.categoriasMes]);
-
-  const categoriasSinLimite = useMemo(() => {
-    return balance.categoriasMes.filter(
-      (c) => (!c.categoria.limite_mensual || c.categoria.limite_mensual <= 0) && c.total > 0,
-    );
-  }, [balance.categoriasMes]);
-
-  const comprasMesParaGrafico = useMemo(() => {
-    if (!diaFiltro) return comprasPeriodo;
-    return comprasPeriodo.filter((c) => new Date(`${c.fecha}T00:00:00`).getDate() === diaFiltro);
-  }, [comprasPeriodo, diaFiltro]);
-
-  const comprasMesAnteriorParaGrafico = useMemo(() => {
-    if (!diaFiltro) return comprasMesAnteriorData;
-    return comprasMesAnteriorData.filter((c) => new Date(`${c.fecha}T00:00:00`).getDate() === diaFiltro);
-  }, [comprasMesAnteriorData, diaFiltro]);
-
-  const insights = useMemo(() => generarInsights({
-    categoriasConLimite,
-    totalGastado,
-    presupuestoTotal,
-    diffProyeccion,
-    proyeccionFinMes,
-    variacionDiaria,
-    mesAnteriorKey: balance.mesSeleccionado,
-    totalMesAnterior,
-    deudor: balance.saldoAbierto.deudor,
-    acreedor: balance.saldoAbierto.acreedor,
-    saldoAbiertoBalance: balance.saldoAbierto.balance,
-    numBorradores,
-    totalBorradores,
-    comprasMes: comprasPeriodo,
-    resumenHistorico: balance.resumenHistorico,
-    diasDelMes: diasEnMes,
-    diaDelMes,
-  }), [categoriasConLimite, totalGastado, presupuestoTotal, diffProyeccion, proyeccionFinMes, variacionDiaria, balance.mesSeleccionado, totalMesAnterior, balance.saldoAbierto, numBorradores, totalBorradores, comprasPeriodo, balance.resumenHistorico, diasEnMes, diaDelMes]);
-
-  const insightsVisibles = insights.slice(0, 3);
-  const insightsOcultos = insights.slice(3);
 
   function exportar() {
     exportarExcel(comprasPeriodo, balance.resumenMes, balance.resumenHistorico, balance.categoriasMes, balance.etiquetasMes, balance.mesSeleccionado);
@@ -221,9 +136,9 @@ export default function PaginaDashboard() {
 
   if (balance.compras.cargando || balance.categorias.cargando || balance.usuario.cargando) {
     return (
-      <div className="space-y-3 px-4 pt-4">
+      <div className="space-y-3">
         <Skeleton className="h-10 w-full rounded-xl" />
-        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
         <Skeleton className="h-28 w-full rounded-xl" />
       </div>
     );
@@ -232,32 +147,32 @@ export default function PaginaDashboard() {
   const sinCompras = !balance.compras.cargando && balance.compras.compras.length === 0;
   if (sinCompras) {
     return (
-      <section className="px-4 pt-4">
+      <section>
         <div className="rounded-xl border border-outline-variant/10 p-5 bg-surface-container-lowest">
           <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant/70 mb-1">Dashboard</p>
           <h2 className="font-headline text-2xl font-semibold tracking-tight text-on-surface mt-0.5">Sin compras registradas</h2>
-          <p className="text-sm text-on-surface-variant mt-1">Agrega tu primera compra para ver las metricas aqui.</p>
+          <p className="text-sm text-on-surface-variant mt-1">Agregá tu primera compra para ver las métricas acá.</p>
         </div>
       </section>
     );
   }
 
-  const heroBadgeClass = pctUsado > 100 ? "bg-[#FCEBEB] text-[#791F1F]" : pctUsado > 75 ? "bg-[#FAEEDA] text-[#633806]" : "bg-[#EAF3DE] text-[#173404]";
-  const heroBarColor = pctUsado > 100 ? "#E24B4A" : pctUsado > 75 ? "#EF9F27" : "#1D9E75";
+  const heroBadgeClass = pctUsado > 100
+    ? "bg-error-container text-error"
+    : pctUsado > 75
+      ? "bg-secondary-fixed text-on-secondary-fixed-variant"
+      : "bg-tertiary-fixed text-on-tertiary-fixed-variant";
 
-  const insightIconMap: Record<string, string> = { warning: "⚠", positive: "✓", info: "→", anomaly: "📌" };
-  const insightBgMap: Record<string, string> = {
-    warning: "bg-[#FCEBEB] text-[#791F1F]",
-    positive: "bg-[#EAF3DE] text-[#173404]",
-    info: "bg-[#E6F1FB] text-[#042C53]",
-    anomaly: "bg-[#FAEEDA] text-[#633806]",
-  };
+  const heroBarColor = pctUsado > 100
+    ? "var(--color-error)"
+    : pctUsado > 75
+      ? "var(--color-secondary)"
+      : "var(--color-tertiary)";
 
   return (
-    <div className="max-w-[430px] mx-auto pb-10" style={{ fontFamily: "var(--font-sans, system-ui, sans-serif)" }}>
-
+    <div className="space-y-5">
       {/* ── TOPBAR ── */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+      <div className="flex items-center justify-between">
         <SelectorPeriodo
           periodo={periodo}
           setPeriodo={setPeriodo}
@@ -265,11 +180,21 @@ export default function PaginaDashboard() {
           mesAnteriorLabel={mesAnteriorLabel}
         />
         <div className="flex gap-1.5">
-          <button type="button" onClick={exportar} className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors" title="Exportar Excel">
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v9M4 7l3.5 3.5L11 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /><path d="M2 11v1.5a.5.5 0 00.5.5h10a.5.5 0 00.5-.5V11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" /></svg>
+          <button
+            type="button"
+            onClick={exportar}
+            className="w-9 h-9 rounded-xl border border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"
+            title="Exportar Excel"
+          >
+            <Download className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => router.push("/nueva-compra")} className="w-[34px] h-[34px] rounded-[10px] border-[0.5px] border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors" title="Nueva compra">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
+          <button
+            type="button"
+            onClick={() => router.push("/nueva-compra")}
+            className="w-9 h-9 rounded-xl border border-outline-variant/20 bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"
+            title="Nueva compra"
+          >
+            <Plus className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -277,20 +202,17 @@ export default function PaginaDashboard() {
       {/* ── FILTROS ── */}
       <FiltroGlobal
         filtro={filtro}
-        setFiltro={(f) => { setFiltro(f); setDiaFiltro(null); }}
+        setFiltro={(f) => { setFiltro(f); }}
         categorias={balance.categorias.categorias}
         etiquetas={balance.categorias.etiquetas}
         subcategorias={balance.categorias.subcategorias}
       />
 
-      {/* ── HERO ── */}
-      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-3 mb-2">
-        gasto del período
-      </p>
-      <div className="mx-4 rounded-[18px] overflow-hidden bg-surface-container-lowest border-[0.5px] border-outline-variant/10">
+      {/* ── HERO: Gasto del período ── */}
+      <div className="rounded-2xl overflow-hidden bg-surface-container-lowest border border-outline-variant/10">
         <div className="px-5 py-5 pb-3">
           <p className="text-[10px] font-medium uppercase tracking-[.08em] text-on-surface-variant/50 mb-1">
-            total gastado
+            Total gastado
           </p>
           <div className="flex items-end justify-between gap-2">
             <div className="flex items-baseline gap-1.5">
@@ -309,8 +231,9 @@ export default function PaginaDashboard() {
               </span>
             )}
           </div>
+
           {presupuestoTotal > 0 && (
-            <div className="mt-2 space-y-1">
+            <div className="mt-3 space-y-1">
               <p className="text-[12px] text-on-surface-variant/70">
                 Presupuesto: <strong className="text-on-surface font-medium">{formatearPeso(presupuestoTotal)}</strong> · Quedan{" "}
                 <strong className="text-on-surface font-medium">{formatearPeso(restante)}</strong> para{" "}
@@ -321,29 +244,19 @@ export default function PaginaDashboard() {
                   </span>
                 )}
               </p>
-              {proyeccionFinMes > 0 && (
-                <p className="text-[11px] text-on-surface-variant/50">
-                  Proyección fin de mes: <strong className={`font-medium ${diffProyeccion > 0 ? "text-[#A32D2D]" : "text-[#0F6E56]"}`}>
-                    {formatearPeso(proyeccionFinMes)}
-                  </strong>
-                  {presupuestoTotal > 0 && (
-                    <span className={diffProyeccion > 0 ? "text-[#A32D2D]" : "text-[#0F6E56]"}>
-                      {" "}({diffProyeccion > 0 ? "+" : ""}{formatearPeso(diffProyeccion)} vs presupuesto)
-                    </span>
-                  )}
-                </p>
-              )}
             </div>
           )}
         </div>
 
         {presupuestoTotal > 0 && (
           <>
-            <div className="h-[10px] bg-surface-container-low relative overflow-hidden">
-              <div className="h-full transition-all duration-500" style={{ width: `${Math.min(pctUsado, 100)}%`, background: heroBarColor }} />
-              <div className="absolute top-0 bottom-0 w-[1.5px] bg-outline-variant/30" style={{ left: "100%" }} />
+            <div className="h-2.5 bg-surface-container-low relative overflow-hidden">
+              <div
+                className="h-full transition-all duration-500 rounded-r-full"
+                style={{ width: `${Math.min(pctUsado, 100)}%`, backgroundColor: heroBarColor }}
+              />
             </div>
-            <div className="flex justify-between px-5 pb-3 pt-1 text-[10px] text-on-surface-variant/40">
+            <div className="flex justify-between px-5 pb-3 pt-1.5 text-[10px] text-on-surface-variant/40">
               <span>$0</span>
               <span>{formatearPeso(presupuestoTotal)}</span>
             </div>
@@ -351,265 +264,130 @@ export default function PaginaDashboard() {
         )}
       </div>
 
-      {/* ── KPIs ── */}
-      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-        métricas
-      </p>
-      <KPIStrip
-        comprasMes={comprasPeriodo}
-        filtro={filtro}
-        presupuestoTotal={presupuestoTotal}
-        diasRestantes={diasRestantes}
-        diasEnMes={diasEnMes}
-        diaDelMes={diaDelMes}
-        totalMesAnterior={totalMesAnterior}
-        diasEnMesAnterior={diasEnMesAnterior}
-        proyeccionFinMes={proyeccionFinMes}
-        numBorradores={numBorradores}
-        totalBorradores={totalBorradores}
-        onPersonaClick={handlePersonaClick}
-        onBorradoresClick={() => router.push("/borradores")}
-        colorFran={colorFran}
-        colorFabi={colorFabi}
-      />
+      {/* ── ALERTAS: Categorías en riesgo ── */}
+      {categoriasAlerta.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50">
+            Alertas
+          </p>
+          {categoriasAlerta.map((cat) => {
+            const limite = Number(cat.categoria.limite_mensual);
+            const pct = cat.porcentaje ?? 0;
+            const excedido = pct > 100;
+            const restanteCat = limite - cat.total;
 
-      {/* ── GRÁFICO DIARIO ── */}
-      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-        ritmo diario
-      </p>
-      <GraficoDiarioComparativo
-        comprasMes={comprasMesParaGrafico}
-        comprasMesAnterior={comprasMesAnteriorParaGrafico}
-        filtro={filtro}
-        promedioDiario={promedioDiario}
-        onDiaClick={handleDiaClick}
-        colorActual={colorFran}
-        colorAnterior={colorFabi}
-      />
-
-      {/* ── DISTRIBUCIÓN ── */}
-      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-        quién pagó qué
-      </p>
-      <DistribucionPersona
-        comprasMes={comprasPeriodo}
-        filtro={filtro}
-        resumenMes={balance.resumenMes}
-        colorFran={colorFran}
-        colorFabi={colorFabi}
-        onPersonaClick={handlePersonaClick}
-      />
-
-      {/* ── CATEGORÍAS ── */}
-      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-        límites por categoría
-      </p>
-      <div className="px-4">
-        {categoriasConLimite.map((cat) => {
-          const limite = Number(cat.categoria.limite_mensual);
-          const pct = cat.porcentaje ?? 0;
-          const restanteCat = limite - cat.total;
-          const excedido = pct > 100;
-          const casiLimite = pct >= 80 && pct <= 100;
-          const esFijo = cat.es_fijo;
-          const pagadoFijo = esFijo && cat.total >= limite && pct <= 105;
-
-          let cardClass = "bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3 mb-1.5 cursor-pointer transition-colors hover:border-outline-variant/20";
-          if (excedido) cardClass += " border-[#F09595] bg-[#FCEBEB]/40";
-          if (casiLimite && !excedido) cardClass += " border-l-[3px] border-l-[#EF9F27]";
-          if (esFijo && !excedido) cardClass += " opacity-80";
-
-          let barColor = "#1D9E75";
-          if (excedido) barColor = "#E24B4A";
-          else if (casiLimite) barColor = "#EF9F27";
-          if (pagadoFijo) barColor = "#7F77DD";
-
-          let remColor = "#0F6E56";
-          if (excedido) remColor = "#A32D2D";
-          else if (casiLimite) remColor = "#854F0B";
-          if (pagadoFijo) remColor = "#534AB7";
-
-          return (
-            <div key={cat.categoria.id} className={cardClass} onClick={() => setCategoriaDrawer(cat.categoria)}>
-              <div className="flex items-center justify-between mb-[7px]">
-                <div className="flex items-center gap-2">
-                  <div className="w-[9px] h-[9px] rounded-full shrink-0" style={{ backgroundColor: cat.categoria.color }} />
-                  <span className="text-[13px] font-medium text-on-surface">{cat.categoria.nombre}</span>
-                  {esFijo && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant/50 font-medium">FIJO</span>}
-                </div>
-                <div className="text-right">
-                  {excedido ? (
-                    <div className="text-[13px] font-medium text-[#A32D2D]">–{formatearPeso(Math.abs(restanteCat))} excedido</div>
-                  ) : pagadoFijo ? (
-                    <div className="text-[13px] font-medium text-[#534AB7]">Pagado ✓</div>
-                  ) : (
-                    <div className="text-[13px] font-medium" style={{ color: remColor }}>{formatearPeso(restanteCat)} restante</div>
-                  )}
-                  <div className="text-[10px] text-on-surface-variant/40 mt-0.5">{formatearPeso(cat.total)} de {formatearPeso(limite)}</div>
-                </div>
-              </div>
-              <div className="h-[5px] bg-surface-container-low rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-400" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }} />
-              </div>
-              <div className="flex justify-between mt-1 text-[10px] text-on-surface-variant/40">
-                <span>{formatearPorcentaje(Math.round(pct))} del limite</span>
-                <span>{excedido ? "Excediste el limite" : casiLimite ? "Casi al limite" : ""}</span>
-              </div>
-            </div>
-          );
-        })}
-
-        {categoriasSinLimite.length > 0 && (
-          <div className="mt-2">
-            <p className="text-[10px] text-on-surface-variant/40 mb-1 pl-0.5">sin limite configurado</p>
-            {categoriasSinLimite.map((cat) => (
+            return (
               <div
                 key={cat.categoria.id}
-                className="flex items-center justify-between px-2.5 py-[7px] bg-surface-container-low rounded-[10px] mb-1 cursor-pointer hover:bg-surface-container"
-                onClick={() => setCategoriaDrawer(cat.categoria)}
+                className={`rounded-xl px-4 py-3 border ${excedido ? "bg-error-container/30 border-error/20" : "bg-secondary-fixed/40 border-secondary/15"}`}
               >
-                <div className="flex items-center gap-1.5">
-                  <div className="w-[9px] h-[9px] rounded-full shrink-0" style={{ backgroundColor: cat.categoria.color }} />
-                  <span className="text-[12px] text-on-surface-variant/70">{cat.categoria.nombre}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.categoria.color }} />
+                    <span className="text-[13px] font-medium text-on-surface">{cat.categoria.nombre}</span>
+                    {excedido && <AlertTriangle className="h-3.5 w-3.5 text-error" />}
+                  </div>
+                  <span className={`text-[13px] font-medium ${excedido ? "text-error" : "text-on-secondary-fixed-variant"}`}>
+                    {excedido ? `+${formatearPeso(Math.abs(restanteCat))}` : `${formatearPeso(restanteCat)} rest.`}
+                  </span>
                 </div>
-                <span className="text-[12px] font-medium text-on-surface">{formatearPeso(cat.total)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── ETIQUETAS DEL MES ── */}
-      {balance.etiquetasMes.length > 0 && (
-        <>
-          <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-            etiquetas del mes
-          </p>
-          <div className="px-4">
-            {balance.etiquetasMes.map((et) => (
-              <div key={et.etiqueta.id} className="flex items-center justify-between px-2.5 py-[7px] bg-surface-container-low rounded-[10px] mb-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-[9px] h-[9px] rounded-full shrink-0" style={{ backgroundColor: et.etiqueta.color }} />
-                  <span className="text-[12px] text-on-surface-variant/70">{et.etiqueta.nombre}</span>
-                  <span className="text-[10px] text-on-surface-variant/40">({et.cantidad_items})</span>
+                <div className="mt-2 h-1.5 bg-surface-container-low rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-400"
+                    style={{
+                      width: `${Math.min(pct, 100)}%`,
+                      backgroundColor: excedido ? "var(--color-error)" : "var(--color-secondary)",
+                    }}
+                  />
                 </div>
-                <span className="text-[12px] font-medium text-on-surface">{formatearPeso(et.total)}</span>
+                <p className="mt-1 text-[10px] text-on-surface-variant/50">
+                  {formatearPeso(cat.total)} de {formatearPeso(limite)} · {formatearPorcentaje(Math.round(pct))}
+                </p>
               </div>
-            ))}
-          </div>
-        </>
+            );
+          })}
+        </div>
       )}
-
-      {/* ── TOP GASTOS ── */}
-      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-        ranking de gastos
-      </p>
-      <div className="mx-4">
-        <TopGastosMes comprasMes={comprasPeriodo} filtro={filtro} />
-      </div>
 
       {/* ── BALANCE ── */}
-      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-        balance entre los dos
-      </p>
-      <div className="mx-4 bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[14px] px-4 py-3 flex items-center justify-between gap-2.5">
-        <div className="flex">
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0" style={{ backgroundColor: hexToRgba(colorFran, 0.15), color: colorFran, zIndex: 1 }}>
-            {balance.nombres.franco.slice(0, 3)}
+      <div className="space-y-2">
+        <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50">
+          Balance
+        </p>
+        <div className="bg-surface-container-lowest border border-outline-variant/10 rounded-2xl px-4 py-3 flex items-center justify-between gap-2.5">
+          <div className="flex">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0"
+              style={{ backgroundColor: hexToRgba(colorFran, 0.15), color: colorFran, zIndex: 1 }}
+            >
+              {balance.nombres.franco.slice(0, 2)}
+            </div>
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0 -ml-2"
+              style={{ backgroundColor: hexToRgba(colorFabi, 0.15), color: colorFabi }}
+            >
+              {balance.nombres.fabiola.slice(0, 2)}
+            </div>
           </div>
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-medium border-2 border-surface-container-lowest shrink-0 -ml-[7px]" style={{ backgroundColor: hexToRgba(colorFabi, 0.15), color: colorFabi }}>
-            {balance.nombres.fabiola.slice(0, 3)}
-          </div>
+
+          {balance.resumenMes.deudor ? (
+            <div className="flex-1 text-[12px] text-on-surface-variant/70">
+              <strong className="text-on-surface font-medium">{balance.resumenMes.deudor}</strong> le debe a{" "}
+              <strong className="text-on-surface font-medium">{balance.resumenMes.acreedor}</strong>
+            </div>
+          ) : (
+            <div className="flex-1 text-[12px] text-on-surface-variant/70 flex items-center gap-1">
+              <Check className="h-3.5 w-3.5 text-tertiary" />
+              <span>Al día, <strong className="text-on-surface font-medium">sin deuda</strong></span>
+            </div>
+          )}
+
+          {balance.resumenMes.deudor ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[15px] font-medium text-error">{formatearPeso(Math.abs(balance.resumenMes.balance))}</span>
+              <button
+                type="button"
+                onClick={saldarBalance}
+                className="text-[11px] px-2.5 py-1 rounded-full border border-outline-variant/20 bg-transparent text-on-surface-variant/70 hover:bg-surface-container-low transition-colors whitespace-nowrap"
+              >
+                Saldar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 text-[15px] font-medium text-tertiary shrink-0">
+              <Check className="h-4 w-4" />
+              <span>Al día</span>
+            </div>
+          )}
         </div>
-
-        {balance.resumenMes.deudor ? (
-          <div className="flex-1 text-[12px] text-on-surface-variant/70">
-            <strong className="text-on-surface font-medium">{balance.resumenMes.deudor}</strong> le debe a{" "}
-            <strong className="text-on-surface font-medium">{balance.resumenMes.acreedor}</strong>
-          </div>
-        ) : (
-          <div className="flex-1 text-[12px] text-on-surface-variant/70">Al dia, <strong className="text-on-surface font-medium">sin deuda</strong></div>
-        )}
-
-        {balance.resumenMes.deudor ? (
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[15px] font-medium text-[#A32D2D]">{formatearPeso(Math.abs(balance.resumenMes.balance))}</span>
-            <button type="button" onClick={saldarBalance} className="text-[11px] px-2.5 py-1 rounded-full border-[0.5px] border-outline-variant/20 bg-transparent text-on-surface-variant/70 hover:bg-surface-container-low transition-colors whitespace-nowrap">Saldar</button>
-          </div>
-        ) : (
-          <div className="text-[15px] font-medium text-[#0F6E56] shrink-0">Al dia ✓</div>
-        )}
       </div>
 
-      {/* ── INSIGHTS ── */}
-      <p className="text-[10px] font-medium uppercase tracking-[.09em] text-on-surface-variant/50 px-4 mt-5 mb-2">
-        insights
-      </p>
-      <div className="px-4 flex flex-col gap-1.5">
-        {insightsVisibles.map((insight, i) => (
-          <div key={i} className={`rounded-[11px] px-2.5 py-2 text-[12px] flex items-start gap-2 leading-[1.45] ${insightBgMap[insight.tipo]}`}>
-            <span className="text-[13px] shrink-0 mt-px">{insightIconMap[insight.tipo]}</span>
-            <div className="flex-1">
-              <strong>{insight.titulo}</strong>
-              <span className="ml-1">{insight.detalle}</span>
-              {insight.accion && (
-                <button
-                  type="button"
-                  onClick={insight.accion.onClick}
-                  className="ml-1.5 underline opacity-70 hover:opacity-100 transition-opacity"
-                >
-                  {insight.accion.label}
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-        {insightsOcultos.length > 0 && (
-          <details className="group">
-            <summary className="text-[11px] text-on-surface-variant/50 cursor-pointer py-1 hover:text-on-surface-variant/70">
-              Ver {insightsOcultos.length} más
-            </summary>
-            <div className="flex flex-col gap-1.5 mt-1">
-              {insightsOcultos.map((insight, i) => (
-                <div key={i} className={`rounded-[11px] px-2.5 py-2 text-[12px] flex items-start gap-2 leading-[1.45] ${insightBgMap[insight.tipo]}`}>
-                  <span className="text-[13px] shrink-0 mt-px">{insightIconMap[insight.tipo]}</span>
-                  <div>
-                    <strong>{insight.titulo}</strong>
-                    <span className="ml-1">{insight.detalle}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
-      </div>
-
-      {/* ── EXPLORAR ── */}
-      <div className="px-4 mt-5">
+      {/* ── BORRADORES ── */}
+      {(numBorradores > 0 || totalBorradores > 0) && (
         <button
           type="button"
-          onClick={() => router.push("/dashboard/explorar")}
-          className="w-full rounded-[14px] border-[0.5px] border-outline-variant/20 bg-surface-container-low px-4 py-3 text-[13px] font-medium text-on-surface-variant hover:bg-surface-container transition-colors flex items-center justify-center gap-2"
+          onClick={() => router.push("/borradores")}
+          className="w-full rounded-2xl border border-outline-variant/10 bg-surface-container-low px-4 py-3 flex items-center justify-between hover:bg-surface-container transition-colors"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 14V6l4-4 4 4v8M10 14V8l4-4v10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          Explorar datos
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-medium text-on-surface">Borradores pendientes</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-on-secondary font-bold">
+              {numBorradores}
+            </span>
+          </div>
+          <span className="text-[14px] font-medium text-on-surface-variant">{formatearPeso(totalBorradores)}</span>
         </button>
-      </div>
-
-      {/* Divider */}
-      <div className="h-px bg-outline-variant/10 mx-4 mt-5" />
-
-      {/* ── CATEGORY DRAWER ── */}
-      {categoriaDrawer && (
-        <DrawerCategoria
-          categoria={categoriaDrawer}
-          comprasMes={comprasPeriodo}
-          comprasMesAnterior={comprasMesAnteriorData}
-          comprasHistorico={balance.compras.compras}
-          filtro={filtro}
-          onClose={() => setCategoriaDrawer(null)}
-        />
       )}
+
+      {/* ── EXPLORAR ── */}
+      <button
+        type="button"
+        onClick={() => router.push("/dashboard/explorar")}
+        className="w-full rounded-2xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-[13px] font-medium text-on-surface-variant hover:bg-surface-container transition-colors flex items-center justify-center gap-2"
+      >
+        <TrendingUp className="h-4 w-4" />
+        Explorar datos
+      </button>
     </div>
   );
 }

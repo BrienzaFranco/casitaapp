@@ -21,8 +21,8 @@ export function DeltaBadge({ actual, anterior, formato = "pesos", inverso = fals
   // Determine color: for gastos, increase = bad (red), decrease = good (green)
   // For inverse (ingresos), increase = good (green), decrease = bad (red)
   const malo = inverso ? !esAumento : esAumento;
-  const colorClass = malo ? "text-[#A32D2D]" : "text-[#0F6E56]";
-  const bgClass = malo ? "bg-[#FCEBEB]/50" : "bg-[#EAF3DE]/50";
+  const colorClass = malo ? "text-error" : "text-tertiary";
+  const bgClass = malo ? "bg-error-container/50" : "bg-tertiary-fixed/50";
   const Icon = esAumento ? ArrowUpRight : ArrowDownRight;
 
   function formatearValor(val: number): string {

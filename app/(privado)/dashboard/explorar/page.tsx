@@ -47,7 +47,7 @@ export default function PaginaExplorar() {
 
   if (balance.compras.cargando || balance.categorias.cargando) {
     return (
-      <div className="space-y-3 px-4 pt-4">
+      <div className="space-y-3 pt-4">
         <Skeleton className="h-10 w-full rounded-xl" />
         <Skeleton className="h-60 w-full rounded-xl" />
       </div>
@@ -55,9 +55,9 @@ export default function PaginaExplorar() {
   }
 
   return (
-    <div className="max-w-[430px] mx-auto pb-10">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+      <div className="flex items-center gap-3 pt-2 pb-1">
         <button
           type="button"
           onClick={() => router.back()}
@@ -72,7 +72,7 @@ export default function PaginaExplorar() {
       </div>
 
       {/* Period selector */}
-      <div className="px-4 mb-3">
+      <div>
         <SelectorPeriodo
           periodo={periodo}
           setPeriodo={setPeriodo}
@@ -91,7 +91,7 @@ export default function PaginaExplorar() {
       />
 
       {/* Explorer chart */}
-      <div className="px-4 mt-4">
+      <div className="mt-4">
         <GraficoExplorador
           comprasFiltradas={comprasFiltradas}
           comprasMesAnterior={comprasMesAnteriorData}
@@ -101,12 +101,12 @@ export default function PaginaExplorar() {
       </div>
 
       {/* Quick stats */}
-      <div className="px-4 mt-4 grid grid-cols-2 gap-2">
-        <div className="bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[12px] px-3 py-2.5">
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-3 py-2.5">
           <p className="text-[10px] text-on-surface-variant/50 uppercase tracking-wide">Compras</p>
           <p className="text-[18px] font-medium text-on-surface mt-0.5">{comprasFiltradas.length}</p>
         </div>
-        <div className="bg-surface-container-lowest border-[0.5px] border-outline-variant/10 rounded-[12px] px-3 py-2.5">
+        <div className="bg-surface-container-lowest border border-outline-variant/10 rounded-xl px-3 py-2.5">
           <p className="text-[10px] text-on-surface-variant/50 uppercase tracking-wide">Total</p>
           <p className="text-[18px] font-medium text-on-surface mt-0.5 font-mono">
             {formatearPesoCompacto(montoFiltrado(comprasFiltradas, filtro))}
