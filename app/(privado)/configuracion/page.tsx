@@ -123,7 +123,7 @@ function CategoriaEditable({
 
   return (
     <>
-      <div className="flex items-center gap-3 px-3 py-2 hover:bg-surface-container-low transition-colors">
+      <div className="flex items-center gap-2 px-3 py-2 hover:bg-surface-container-low transition-colors min-w-0">
         {/* Color swatch — clickable */}
         <button
           type="button"
@@ -136,15 +136,16 @@ function CategoriaEditable({
           <button
             type="button"
             onClick={() => { onUpdate({ color: colorPreview }); toast.success("Color actualizado"); }}
-            className="h-5 px-1.5 rounded bg-primary text-on-primary text-[8px] font-bold font-label shrink-0"
+            className="h-6 w-6 flex items-center justify-center rounded-full bg-secondary text-on-secondary shrink-0"
+            title="Guardar color"
           >
-            Guardar color
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </button>
         )}
 
         {/* Name input */}
         <input
-          className="flex-1 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none"
+          className="flex-1 min-w-0 bg-transparent border-none p-0 text-sm font-semibold text-on-surface outline-none truncate"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           onBlur={() => {
@@ -168,7 +169,7 @@ function CategoriaEditable({
 
         {/* Limit input */}
         <input
-          className="tabular-nums w-24 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none"
+          className="tabular-nums w-16 sm:w-20 bg-transparent border-none p-0 text-right text-sm text-on-surface-variant outline-none shrink-0"
           type="number"
           defaultValue={String(categoria.limite_mensual ?? "")}
           onBlur={(event) => {

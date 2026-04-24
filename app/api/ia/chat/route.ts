@@ -688,27 +688,36 @@ export async function POST(request: Request) {
     ],
   };
 
-  // Llamar al LLM
-  let openRouterRes: Response;
-  try {
-    openRouterRes = await llamarOpenRouter(payload, apiKey);
-  } catch {
-    const latenciaMs = Date.now() - inicio;
-    void registrarLog({ userId: user.id, sessionId, intent: "error", latenciaMs, modelo, tokensIn: 0, tokensOut: 0, errorCode: "provider_unreachable" });
-    return NextResponse.json({
-      intent: "conversacion",
-      answer: "Me quedé sin conexión con mi cerebro por un segundo. ¿Me das otra chance? Probá de nuevo.",
-      error: { code: "provider_unreachable", retryable: true },
-    } satisfies Partial<ChatResponse>);
+  // Llamar al LLM con retry y fallback
+  let openRouterRes: Response | null = null;
+  let intento = 0;
+  const modelosFallback = [modelo, "openai/gpt-4o-mini"];
+  let ultimoError = "";
+
+  while (intento < modelosFallback.length) {
+    const modeloActual = modelosFallback[intento];
+    try {
+      openRouterRes = await llamarOpenRouter({ ...payload, model: modeloActual }, apiKey);
+      if (openRouterRes.ok) break;
+      const errTxt = await openRouterRes.text();
+      ultimoError = errTxt;
+      // Si es error de guardrail o modelo no disponible, reintentar con fallback
+      if (/guardrail|endpoint.*not.*available|model.*not.*found|unsupported/i.test(errTxt)) {
+        intento++;
+        continue;
+      }
+      break;
+    } catch {
+      intento++;
+    }
   }
 
-  if (!openRouterRes.ok) {
-    const errTxt = await openRouterRes.text();
+  if (!openRouterRes || !openRouterRes.ok) {
     const latenciaMs = Date.now() - inicio;
     void registrarLog({ userId: user.id, sessionId, intent: "error", latenciaMs, modelo, tokensIn: 0, tokensOut: 0, errorCode: "provider_error" });
     return NextResponse.json({
       intent: "conversacion",
-      answer: `Ups, mi proveedor de IA está medio dormido (${errTxt.slice(0, 80)}). Probá de nuevo en un toque.`,
+      answer: `Ups, mi proveedor de IA está medio dormido${ultimoError ? ` (${ultimoError.slice(0, 60)})` : ""}. Probá de nuevo en un toque.`,
       error: { code: "provider_error", retryable: true },
     } satisfies Partial<ChatResponse>);
   }

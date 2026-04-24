@@ -76,7 +76,6 @@ export interface ColoresPersonas {
 }
 
 export const MODELOS_IA: Array<{ id: string; nombre: string; desc: string; precio: string }> = [
-  { id: "deepseek/deepseek-v4-flash", nombre: "DeepSeek V4 Flash", desc: "NUEVO. El más barato de todos. 284B params, 1M contexto, razona muy bien. Ideal para casi todo.", precio: "~$0.14/M tokens" },
   { id: "openai/gpt-4o-mini", nombre: "GPT-4o Mini", desc: "El mejor calidad/precio. Excelente para JSON, español perfecto, muy obediente.", precio: "~$0.75/M tokens" },
   { id: "google/gemini-2.0-flash-001", nombre: "Gemini 2.0 Flash", desc: "Ultra barato, muy rápido, buen español. Ideal si usás mucho el chat.", precio: "~$0.15/M tokens" },
   { id: "deepseek/deepseek-chat", nombre: "DeepSeek V3", desc: "Muy inteligente, razona bien. Un poco más lento pero potente.", precio: "~$1.50/M tokens" },

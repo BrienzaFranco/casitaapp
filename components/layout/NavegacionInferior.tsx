@@ -91,8 +91,8 @@ export function NavegacionInferior() {
         </div>
       </div>
 
-      {/* FAB — elevated + button */}
-      <div className="absolute left-1/2 -translate-x-1/2 z-[60]" style={{ bottom: "calc(env(safe-area-inset-bottom, 8px) + 48px)" }}>
+      {/* FAB — pegado al nav */}
+      <div className="absolute left-1/2 -translate-x-1/2 z-[60]" style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}>
         <button
           type="button"
           onClick={() => router.push("/anotador-rapido")}
